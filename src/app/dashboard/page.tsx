@@ -5,10 +5,11 @@ import { OccupancyChart } from '@/components/dashboard/occupancy-chart'
 import { ZoneOccupancyCard } from '@/components/dashboard/zone-occupancy-card'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { ParkingMap } from '@/components/dashboard/parking-map'
+import { formatCurrency, getCurrencySymbol, type CurrencyCode } from '@/lib/utils/currency'
 import {
   ParkingSquare,
   Car,
-  IndianRupee,
+  Banknote,
   Ticket,
   Camera,
   TrendingUp,
@@ -31,6 +32,7 @@ const mockStats = {
   activeTokens: 36,
   onlineCameras: 28,
   totalCameras: 30,
+  currency: 'INR' as CurrencyCode, // Currency from parking lot settings
 }
 
 const mockZones = [
@@ -98,9 +100,9 @@ export default function DashboardPage() {
         />
         <StatsCard
           title="Today's Revenue"
-          value={`Rs ${mockStats.todayRevenue.toLocaleString()}`}
+          value={formatCurrency(mockStats.todayRevenue, mockStats.currency)}
           subtitle={`${mockStats.todayExits} completed transactions`}
-          icon={IndianRupee}
+          icon={Banknote}
           trend={{ value: 12.5, label: 'vs yesterday', isPositive: true }}
           iconClassName="bg-purple-500/10 text-purple-500"
         />

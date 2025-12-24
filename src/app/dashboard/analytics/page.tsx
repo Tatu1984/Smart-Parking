@@ -35,13 +35,17 @@ import {
 import {
   TrendingUp,
   TrendingDown,
-  IndianRupee,
+  Banknote,
   Car,
   Clock,
   BarChart3,
   Download,
   Calendar,
 } from 'lucide-react'
+import { formatCurrency, type CurrencyCode } from '@/lib/utils/currency'
+
+// Current parking lot currency - in production, fetch from context/settings
+const currentCurrency: CurrencyCode = 'INR'
 
 // Mock data for charts
 const occupancyData = Array.from({ length: 24 }, (_, i) => ({
@@ -132,10 +136,10 @@ export default function AnalyticsPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-muted-foreground">Total Revenue</p>
-              <IndianRupee className="h-4 w-4 text-muted-foreground" />
+              <Banknote className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="mt-2">
-              <p className="text-2xl font-bold">Rs 2,45,670</p>
+              <p className="text-2xl font-bold">{formatCurrency(245670, currentCurrency)}</p>
               <div className="flex items-center gap-1 text-sm text-green-600">
                 <TrendingUp className="h-4 w-4" />
                 <span>+12.5% from last period</span>
@@ -343,7 +347,7 @@ export default function AnalyticsPage() {
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">{zone.zone}</Badge>
                         <span className="text-sm text-muted-foreground">
-                          Rs {zone.revenue.toLocaleString()} revenue
+                          {formatCurrency(zone.revenue, currentCurrency)} revenue
                         </span>
                       </div>
                       <span className="font-semibold">{zone.occupancy}%</span>

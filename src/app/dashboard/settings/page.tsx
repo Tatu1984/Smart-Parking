@@ -27,6 +27,11 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getCurrencyOptions, getCountryOptions, countries } from '@/lib/utils/currency'
+
+// Get all currency and country options
+const currencyOptions = getCurrencyOptions()
+const countryOptions = getCountryOptions()
 
 export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
@@ -107,30 +112,51 @@ export default function SettingsPage() {
                 <Label htmlFor="address">Address</Label>
                 <Input id="address" defaultValue="123 Main Street, Bangalore, Karnataka 560001" />
               </div>
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="timezone">Timezone</Label>
-                  <Select defaultValue="asia-kolkata">
+                  <Label htmlFor="country">Country</Label>
+                  <Select defaultValue="IN">
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="asia-kolkata">Asia/Kolkata (IST)</SelectItem>
-                      <SelectItem value="asia-dubai">Asia/Dubai (GST)</SelectItem>
-                      <SelectItem value="utc">UTC</SelectItem>
+                    <SelectContent className="max-h-[300px]">
+                      {countryOptions.map((country) => (
+                        <SelectItem key={country.value} value={country.value}>
+                          {country.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="currency">Currency</Label>
-                  <Select defaultValue="inr">
+                  <Select defaultValue="INR">
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="inr">INR (Rs)</SelectItem>
-                      <SelectItem value="usd">USD ($)</SelectItem>
-                      <SelectItem value="aed">AED</SelectItem>
+                    <SelectContent className="max-h-[300px]">
+                      {currencyOptions.map((currency) => (
+                        <SelectItem key={currency.value} value={currency.value}>
+                          {currency.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <Select defaultValue="Asia/Kolkata">
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {Object.entries(countries).map(([code, country]) => (
+                        <SelectItem key={code} value={country.timezone}>
+                          {country.timezone}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -146,6 +172,9 @@ export default function SettingsPage() {
                       <SelectItem value="cinema">Cinema Hall</SelectItem>
                       <SelectItem value="commercial">Commercial Complex</SelectItem>
                       <SelectItem value="hospital">Hospital</SelectItem>
+                      <SelectItem value="stadium">Stadium</SelectItem>
+                      <SelectItem value="hotel">Hotel</SelectItem>
+                      <SelectItem value="residential">Residential</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
