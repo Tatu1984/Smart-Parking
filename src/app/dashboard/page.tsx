@@ -4,6 +4,7 @@ import { StatsCard } from '@/components/dashboard/stats-card'
 import { OccupancyChart } from '@/components/dashboard/occupancy-chart'
 import { ZoneOccupancyCard } from '@/components/dashboard/zone-occupancy-card'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
+import { ParkingMap } from '@/components/dashboard/parking-map'
 import {
   ParkingSquare,
   Car,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 // Mock data - in production, fetch from API
 const mockStats = {
@@ -161,17 +163,28 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* Charts and Activity */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <OccupancyChart data={mockOccupancyData} />
-        </div>
-        <div>
-          <ZoneOccupancyCard zones={mockZones} />
-        </div>
-      </div>
+      {/* Live Map and Charts - Tabbed View */}
+      <Tabs defaultValue="map" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+          <TabsTrigger value="map">Live Parking Map</TabsTrigger>
+          <TabsTrigger value="charts">Occupancy Charts</TabsTrigger>
+        </TabsList>
+        <TabsContent value="map" className="mt-4">
+          <ParkingMap />
+        </TabsContent>
+        <TabsContent value="charts" className="mt-4">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <OccupancyChart data={mockOccupancyData} />
+            </div>
+            <div>
+              <ZoneOccupancyCard zones={mockZones} />
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
-      {/* Recent Activity */}
+      {/* Recent Activity and System Status */}
       <div className="grid gap-6 lg:grid-cols-2">
         <RecentActivity activities={mockActivities} />
 
