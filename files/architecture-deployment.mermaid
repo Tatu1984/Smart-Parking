@@ -1,0 +1,66 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1E3A5F', 'primaryTextColor': '#fff'}}}%%
+graph TB
+    subgraph SITE["🏢 PARKING SITE"]
+        subgraph CAMERAS["📹 CAMERA NETWORK"]
+            C1["Cam Zone A<br/>10 Cameras"]
+            C2["Cam Zone B<br/>10 Cameras"]
+            C3["Cam Zone C<br/>10 Cameras"]
+        end
+        
+        subgraph EDGE_SERVER["🖥️ EDGE SERVER (Intel Xeon/Core Ultra)"]
+            subgraph DOCKER["🐳 Docker Compose"]
+                DLS["intel/dlstreamer<br/>:2025.0.1.3-ubuntu24"]
+                API_C["api-service<br/>Node.js Container"]
+                RT_C["realtime-service<br/>Socket.IO Container"]
+                DB_C["postgres:16<br/>Database Container"]
+                REDIS_C["redis:7<br/>Cache Container"]
+                NGINX_C["nginx<br/>Reverse Proxy"]
+            end
+        end
+        
+        subgraph HARDWARE["🔧 HARDWARE INTEGRATION"]
+            BARRIER["Boom Barriers"]
+            DISPLAY["LED Displays"]
+            PRINTER["Ticket Printers"]
+            CHARGER["EV Chargers"]
+        end
+    end
+    
+    subgraph CLOUD_OPTIONAL["☁️ CLOUD (Optional - AWS/Azure/Vercel)"]
+        subgraph CLOUD_SERVICES["Cloud Services"]
+            DASHBOARD["Admin Dashboard<br/>Next.js on Vercel"]
+            ANALYTICS["Analytics API<br/>AWS Lambda/Azure Functions"]
+            STORAGE["Cloud Storage<br/>S3/Azure Blob"]
+            CDN["CDN<br/>CloudFront/Azure CDN"]
+        end
+    end
+    
+    subgraph CLIENTS["👥 CLIENT APPS"]
+        ADMIN["🖥️ Admin Web App"]
+        MOBILE["📱 Mobile Apps<br/>(iOS/Android)"]
+        KIOSK["📺 Kiosk Displays"]
+    end
+    
+    C1 & C2 & C3 -->|RTSP| DLS
+    DLS -->|Events| API_C
+    API_C <--> DB_C
+    API_C <--> REDIS_C
+    API_C <--> RT_C
+    NGINX_C --> API_C & RT_C
+    
+    API_C -->|GPIO/RS485| BARRIER & DISPLAY & PRINTER & CHARGER
+    
+    NGINX_C -.->|Sync| ANALYTICS
+    DB_C -.->|Backup| STORAGE
+    
+    ADMIN --> DASHBOARD
+    DASHBOARD --> CDN
+    CDN --> NGINX_C
+    
+    MOBILE --> CDN
+    KIOSK --> NGINX_C
+    
+    style SITE fill:#FFF5E6,stroke:#DD6B20,stroke-width:2px
+    style CLOUD_OPTIONAL fill:#E6F3FF,stroke:#1E3A5F,stroke-width:2px
+    style CLIENTS fill:#F0F4FF,stroke:#3182CE,stroke-width:2px
+    style DOCKER fill:#E6F7FF,stroke:#0EA5E9,stroke-width:1px

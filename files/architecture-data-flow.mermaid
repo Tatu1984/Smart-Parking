@@ -1,0 +1,52 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1E3A5F', 'primaryTextColor': '#fff'}}}%%
+sequenceDiagram
+    participant V as 🚗 Vehicle
+    participant G as 🚧 Entry Gate
+    participant T as 🎫 Token System
+    participant A as 🧮 Allocation Engine
+    participant C as 📹 Cameras
+    participant AI as 🤖 AI Engine
+    participant D as 📺 Display/App
+    participant B as 💳 Billing
+    participant E as 🚧 Exit Gate
+    
+    Note over V,E: ENTRY PHASE
+    V->>G: Vehicle Arrives
+    G->>C: Capture Entry Image
+    C->>AI: Process (ANPR Optional)
+    AI->>T: Vehicle Detected
+    T->>T: Generate Token (QR/RFID)
+    T->>A: Request Slot Allocation
+    A->>A: Apply Allocation Rules
+    A->>T: Assign Slot #P2-45
+    T->>D: Display Allocated Slot
+    T->>V: Issue Token + Directions
+    G->>G: Open Barrier
+    
+    Note over V,E: PARKING PHASE
+    V->>V: Navigate to Slot
+    C->>AI: Continuous Monitoring
+    AI->>AI: Detect Slot Occupancy
+    AI->>A: Confirm Slot Occupied
+    A->>D: Update Availability Map
+    
+    Note over V,E: OPTIONAL REASSIGNMENT
+    A-->>A: Slot Unavailable?
+    A-->>T: Trigger Reassignment
+    T-->>D: Push Notification
+    T-->>V: New Slot Guidance
+    
+    Note over V,E: EXIT PHASE
+    V->>E: Vehicle at Exit
+    E->>T: Scan Token
+    T->>C: Verify Slot Vacated
+    C->>AI: Check Slot Empty
+    AI->>T: Confirm Vacated
+    T->>B: Calculate Duration
+    B->>B: Apply Pricing Rules
+    B->>V: Display Amount
+    V->>B: Payment
+    B->>E: Authorize Exit
+    E->>E: Open Barrier
+    E->>A: Update Slot Status
+    A->>D: Slot Available

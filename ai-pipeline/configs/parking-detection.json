@@ -1,0 +1,92 @@
+{
+  "name": "parking-slot-detection",
+  "version": "1.0.0",
+  "description": "Intel DL Streamer pipeline configuration for parking slot detection",
+  "pipeline": {
+    "type": "GStreamer",
+    "framework": "dlstreamer",
+    "model_precision": "INT8"
+  },
+  "input": {
+    "type": "rtsp",
+    "protocol": "rtsp",
+    "format": "h264",
+    "resolution": {
+      "width": 1920,
+      "height": 1080
+    },
+    "framerate": 30
+  },
+  "detection": {
+    "model": {
+      "name": "yolov10s",
+      "path": "/opt/intel/openvino/models/yolov10s-int8.xml",
+      "device": "GPU",
+      "precision": "INT8",
+      "batch_size": 1
+    },
+    "classes": ["car", "truck", "bus", "motorcycle", "bicycle"],
+    "confidence_threshold": 0.5,
+    "nms_threshold": 0.45
+  },
+  "classification": {
+    "model": {
+      "name": "vehicle-attributes-recognition-barrier-0039",
+      "path": "/opt/intel/openvino/models/vehicle-attributes-recognition-barrier-0039.xml",
+      "device": "GPU"
+    },
+    "attributes": ["color", "type"]
+  },
+  "tracking": {
+    "type": "short-term-imageless",
+    "max_age": 30,
+    "min_hits": 3,
+    "iou_threshold": 0.3
+  },
+  "license_plate_recognition": {
+    "enabled": true,
+    "model": {
+      "detection": {
+        "name": "vehicle-license-plate-detection-barrier-0106",
+        "path": "/opt/intel/openvino/models/vehicle-license-plate-detection-barrier-0106.xml"
+      },
+      "recognition": {
+        "name": "license-plate-recognition-barrier-0007",
+        "path": "/opt/intel/openvino/models/license-plate-recognition-barrier-0007.xml"
+      }
+    },
+    "confidence_threshold": 0.7
+  },
+  "slot_mapping": {
+    "enabled": true,
+    "occupancy_threshold": 0.7,
+    "confirmation_frames": 5,
+    "hysteresis_frames": 3
+  },
+  "output": {
+    "mqtt": {
+      "enabled": true,
+      "host": "mqtt",
+      "port": 1883,
+      "topic_prefix": "sparking/detection"
+    },
+    "http": {
+      "enabled": true,
+      "endpoint": "http://app:3000/api/realtime/detection",
+      "batch_size": 10,
+      "interval_ms": 1000
+    },
+    "visualization": {
+      "enabled": true,
+      "overlay_detections": true,
+      "show_tracking_id": true,
+      "show_confidence": true
+    }
+  },
+  "performance": {
+    "inference_interval": 3,
+    "skip_frames": 2,
+    "queue_size": 5,
+    "sync_mode": "async"
+  }
+}
