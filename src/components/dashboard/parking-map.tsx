@@ -147,8 +147,8 @@ export function ParkingMap({ zones = mockZones, selectedZone, onSlotClick }: Par
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-0">
-        <div className="relative overflow-auto bg-slate-100 dark:bg-slate-900 rounded-b-lg" style={{ height: '500px' }}>
+      <CardContent className="p-0 relative">
+        <div className="overflow-auto bg-slate-100 dark:bg-slate-900 rounded-b-lg" style={{ height: '500px' }}>
           <div
             className="relative min-w-[800px] min-h-[500px] transition-transform"
             style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}
