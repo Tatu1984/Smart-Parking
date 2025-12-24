@@ -1,9 +1,11 @@
-import { PrismaClient } from '.prisma/client'
+import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool, neonConfig } from '@neondatabase/serverless'
 
 // Enable WebSocket support for Neon in serverless environments
-neonConfig.webSocketConstructor = globalThis.WebSocket
+if (typeof globalThis.WebSocket !== 'undefined') {
+  neonConfig.webSocketConstructor = globalThis.WebSocket
+}
 
 const connectionString = process.env.DATABASE_URL!
 
