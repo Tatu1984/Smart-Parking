@@ -116,6 +116,7 @@ model ParkingLot {
   city           String?
   state          String?
   country        String        @default("India")
+  currency       String        @default("INR") // Currency code (INR, USD, EUR, etc.)
   postalCode     String?
   latitude       Float?
   longitude      Float?
