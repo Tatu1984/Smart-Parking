@@ -1,0 +1,67 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1E3A5F', 'primaryTextColor': '#fff', 'primaryBorderColor': '#1E3A5F', 'lineColor': '#2C5282', 'secondaryColor': '#3182CE'}}}%%
+graph LR
+    subgraph INPUT["📹 VIDEO INPUT"]
+        C1["RTSP Camera 1"]
+        C2["RTSP Camera 2"]
+        CN["RTSP Camera N"]
+    end
+    
+    subgraph INGEST["🔄 INGESTION"]
+        DEC["GStreamer<br/>decodebin"]
+        CAPS["capsfilter<br/>VASurface"]
+    end
+    
+    subgraph DETECTION["🔍 DETECTION"]
+        DET["gvadetect<br/>YOLOv10s/v11s"]
+        MOD1[("vehicle-detection<br/>person-vehicle-bike-2004")]
+    end
+    
+    subgraph CLASSIFICATION["🏷️ CLASSIFICATION"]
+        CLS["gvaclassify<br/>Vehicle Attributes"]
+        MOD2[("vehicle-attributes<br/>recognition-barrier-0039")]
+    end
+    
+    subgraph TRACKING["📍 TRACKING"]
+        TRK["gvatrack<br/>short-term-imageless"]
+    end
+    
+    subgraph LPR["🔢 LPR (Optional)"]
+        LIC["gvadetect<br/>License Plate"]
+        MOD3[("license-plate<br/>recognition-0007")]
+    end
+    
+    subgraph OUTPUT["📤 OUTPUT"]
+        META["gvametapublish<br/>JSON/Kafka"]
+        WM["gvawatermark<br/>Overlay"]
+        FPS["gvafpscounter<br/>Metrics"]
+    end
+    
+    subgraph INFERENCE["⚡ INTEL OPENVINO"]
+        OV["OpenVINO Runtime"]
+        CPU["CPU"]
+        GPU["iGPU/Arc"]
+        NPU["NPU"]
+    end
+    
+    C1 & C2 & CN --> DEC
+    DEC --> CAPS
+    CAPS --> DET
+    MOD1 -.-> DET
+    DET --> CLS
+    MOD2 -.-> CLS
+    CLS --> TRK
+    TRK --> LIC
+    MOD3 -.-> LIC
+    LIC --> META & WM & FPS
+    
+    OV --- CPU & GPU & NPU
+    DET & CLS & LIC -.-> OV
+    
+    style INPUT fill:#E6F3FF,stroke:#1E3A5F
+    style INGEST fill:#F0FFF4,stroke:#2C5282
+    style DETECTION fill:#FFF5E6,stroke:#DD6B20
+    style CLASSIFICATION fill:#F0F4FF,stroke:#3182CE
+    style TRACKING fill:#FAF5FF,stroke:#805AD5
+    style LPR fill:#FFF5F5,stroke:#E53E3E
+    style OUTPUT fill:#F0FFF4,stroke:#38A169
+    style INFERENCE fill:#EDF2F7,stroke:#4A5568

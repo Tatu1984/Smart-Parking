@@ -1,0 +1,60 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#1E3A5F', 'primaryTextColor': '#fff', 'primaryBorderColor': '#1E3A5F', 'lineColor': '#2C5282', 'secondaryColor': '#3182CE', 'tertiaryColor': '#E2E8F0'}}}%%
+graph TB
+    subgraph CLOUD["☁️ CLOUD LAYER (Optional)"]
+        CD[("🖥️ Cloud Dashboard<br/>Multi-Site Management")]
+        AN[("📊 Analytics Engine<br/>Predictive Insights")]
+        BK[("💾 Backup Storage<br/>Data Sync")]
+    end
+    
+    subgraph APP["⚙️ APPLICATION LAYER"]
+        API[["🔌 API Gateway<br/>REST + GraphQL"]]
+        BE[["🖧 Backend Services<br/>Node.js/Express"]]
+        RT[["📡 Real-time Engine<br/>Socket.IO"]]
+        MQ[["📨 Message Queue<br/>Redis/RabbitMQ"]]
+        DB[("🗄️ PostgreSQL<br/>Primary Database")]
+    end
+    
+    subgraph EDGE["🏢 EDGE LAYER (On-Premise)"]
+        CAM1["📹 IP Cameras<br/>Zone A"]
+        CAM2["📹 IP Cameras<br/>Zone B"]
+        CAM3["📹 IP Cameras<br/>Zone C"]
+        
+        ES[["🤖 Edge Inference Server<br/>Intel OpenVINO + DL Streamer"]]
+        
+        LDB[("💾 Local DB<br/>Offline State")]
+        
+        GW[["🚧 Gateway Controller<br/>Hardware Integration"]]
+        
+        BAR["🚪 Boom Barriers"]
+        LED["📺 LED Displays"]
+        TKT["🎫 Ticket Printers"]
+    end
+    
+    subgraph USER["👥 USER INTERFACES"]
+        WEB["🌐 Admin Dashboard<br/>Next.js"]
+        MOB["📱 Mobile Apps<br/>React Native"]
+        KIO["📺 Digital Signage<br/>Kiosk Mode"]
+    end
+    
+    CAM1 & CAM2 & CAM3 --> ES
+    ES --> LDB
+    ES --> MQ
+    ES --> GW
+    GW --> BAR & LED & TKT
+    
+    MQ <--> BE
+    BE <--> DB
+    BE <--> RT
+    API <--> BE
+    
+    API --> CD
+    BE --> AN
+    DB --> BK
+    
+    WEB & MOB & KIO --> API
+    RT --> WEB & MOB & KIO
+    
+    classDef cloudStyle fill:#E6F3FF,stroke:#1E3A5F,stroke-width:2px
+    classDef appStyle fill:#F0FFF4,stroke:#2C5282,stroke-width:2px
+    classDef edgeStyle fill:#FFF5E6,stroke:#DD6B20,stroke-width:2px
+    classDef userStyle fill:#F0F4FF,stroke:#3182CE,stroke-width:2px

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Parking System - Architecture Diagrams</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 40px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, #00d4ff, #5c7cfa, #845ef7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+        .diagram-section {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            margin-bottom: 40px;
+            overflow: hidden;
+        }
+        .section-header {
+            background: rgba(255,255,255,0.05);
+            padding: 20px 30px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .section-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+        }
+        .section-desc {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+        .diagram-content {
+            padding: 30px;
+            background: rgba(255,255,255,0.02);
+        }
+        .mermaid {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            overflow-x: auto;
+        }
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .tech-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .tech-card h3 {
+            color: #60a5fa;
+            font-size: 1rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tech-list {
+            list-style: none;
+        }
+        .tech-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+        .tech-list li:last-child {
+            border-bottom: none;
+        }
+        .tech-name {
+            color: #e0e0e0;
+        }
+        .tech-version {
+            color: #22c55e;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            color: #64748b;
+            font-size: 0.9rem;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            margin-top: 40px;
+        }
+        @media print {
+            body { background: white; color: black; }
+            .mermaid { border: 1px solid #ddd; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🅿️ Smart Parking Management System</h1>
+            <p class="subtitle">AI-Powered, Edge-Native Parking Intelligence Platform</p>
+            <p class="subtitle" style="margin-top: 10px;">Architecture Documentation v1.0 | Infinititech Partners</p>
+        </header>
+
+        <!-- High-Level System Architecture -->
+        <section class="diagram-section">
+            <div class="section-header">
+                <div class="section-icon">🏗️</div>
+                <div>
+                    <h2>High-Level System Architecture</h2>
+                    <p class="section-desc">Three-tier edge-cloud hybrid architecture for maximum reliability</p>
+                </div>
+            </div>
+            <div class="diagram-content">
+                <div class="mermaid">
+graph TB
+    subgraph CLOUD["☁️ CLOUD LAYER"]
+        CD["🖥️ Cloud Dashboard"]
+        AN["📊 Analytics Engine"]
+        BK["💾 Backup Storage"]
+    end
+    
+    subgraph APP["⚙️ APPLICATION LAYER"]
+        API["🔌 API Gateway"]
+        BE["🖧 Backend Services"]
+        RT["📡 Real-time Engine"]
+        MQ["📨 Message Queue"]
+        DB[("🗄️ PostgreSQL")]
+    end
+    
+    subgraph EDGE["🏢 EDGE LAYER"]
+        CAM["📹 IP Cameras"]
+        ES["🤖 Edge Inference<br/>Intel OpenVINO"]
+        LDB[("💾 Local DB")]
+        GW["🚧 Gateway"]
+        HW["🔧 Hardware<br/>Barriers, Displays"]
+    end
+    
+    subgraph USER["👥 INTERFACES"]
+        WEB["🌐 Dashboard"]
+        MOB["📱 Mobile Apps"]
+        KIO["📺 Signage"]
+    end
+    
+    CAM --> ES
+    ES --> LDB
+    ES --> MQ
+    ES --> GW
+    GW --> HW
+    
+    MQ <--> BE
+    BE <--> DB
+    BE <--> RT
+    API <--> BE
+    
+    API --> CD
+    BE --> AN
+    DB --> BK
+    
+    USER --> API
+    RT --> USER
+                </div>
+            </div>
+        </section>
+
+        <!-- AI/ML Pipeline Architecture -->
+        <section class="diagram-section">
+            <div class="section-header">
+                <div class="section-icon">🤖</div>
+                <div>
+                    <h2>AI/ML Pipeline Architecture</h2>
+                    <p class="section-desc">Intel DL Streamer-based video analytics pipeline</p>
+                </div>
+            </div>
+            <div class="diagram-content">
+                <div class="mermaid">
+flowchart LR
+    subgraph INPUT["📹 INPUT"]
+        C1["Camera 1"]
+        C2["Camera 2"]
+        CN["Camera N"]
+    end
+    
+    subgraph DECODE["🔄 DECODE"]
+        DEC["GStreamer<br/>decodebin"]
+    end
+    
+    subgraph DETECT["🔍 DETECTION"]
+        DET["gvadetect<br/>YOLOv10s"]
+    end
+    
+    subgraph CLASS["🏷️ CLASSIFY"]
+        CLS["gvaclassify<br/>Attributes"]
+    end
+    
+    subgraph TRACK["📍 TRACK"]
+        TRK["gvatrack<br/>Imageless"]
+    end
+    
+    subgraph LPR["🔢 LPR"]
+        LIC["License Plate<br/>Recognition"]
+    end
+    
+    subgraph OUT["📤 OUTPUT"]
+        META["Metadata<br/>Publisher"]
+        WM["Watermark<br/>Overlay"]
+    end
+    
+    subgraph OV["⚡ OpenVINO"]
+        CPU["CPU"]
+        GPU["GPU"]
+        NPU["NPU"]
+    end
+    
+    C1 & C2 & CN --> DEC
+    DEC --> DET --> CLS --> TRK --> LIC --> META & WM
+    DET & CLS & LIC -.-> OV
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Flow Architecture -->
+        <section class="diagram-section">
+            <div class="section-header">
+                <div class="section-icon">🔄</div>
+                <div>
+                    <h2>Vehicle Journey Data Flow</h2>
+                    <p class="section-desc">Complete entry-to-exit workflow</p>
+                </div>
+            </div>
+            <div class="diagram-content">
+                <div class="mermaid">
+sequenceDiagram
+    participant V as 🚗 Vehicle
+    participant G as 🚧 Entry
+    participant T as 🎫 Token
+    participant A as 🧮 Allocator
+    participant AI as 🤖 AI Engine
+    participant B as 💳 Billing
+    participant E as 🚧 Exit
+    
+    rect rgb(30, 58, 95)
+    Note over V,E: ENTRY PHASE
+    V->>G: Arrives
+    G->>AI: Detect Vehicle
+    AI->>T: Generate Token
+    T->>A: Request Slot
+    A->>T: Assign P2-45
+    T->>V: Issue Token
+    G->>G: Open Barrier
+    end
+    
+    rect rgb(44, 82, 130)
+    Note over V,E: PARKING PHASE
+    V->>V: Park in Slot
+    AI->>A: Confirm Occupied
+    A->>A: Update Map
+    end
+    
+    rect rgb(49, 130, 206)
+    Note over V,E: EXIT PHASE
+    V->>E: At Exit
+    E->>T: Scan Token
+    AI->>T: Slot Vacated
+    T->>B: Calculate Fee
+    V->>B: Payment
+    E->>E: Open Barrier
+    end
+                </div>
+            </div>
+        </section>
+
+        <!-- Deployment Architecture -->
+        <section class="diagram-section">
+            <div class="section-header">
+                <div class="section-icon">🐳</div>
+                <div>
+                    <h2>Deployment Architecture</h2>
+                    <p class="section-desc">Containerized deployment with Docker Compose</p>
+                </div>
+            </div>
+            <div class="diagram-content">
+                <div class="mermaid">
+graph TB
+    subgraph SITE["🏢 PARKING SITE"]
+        subgraph CAMS["📹 CAMERAS"]
+            C["30+ IP Cameras<br/>RTSP/ONVIF"]
+        end
+        
+        subgraph SERVER["🖥️ EDGE SERVER"]
+            subgraph DOCKER["🐳 Docker Compose"]
+                DLS["intel/dlstreamer"]
+                API_C["api-service"]
+                RT_C["socket-service"]
+                DB_C["postgres:16"]
+                REDIS["redis:7"]
+                NGX["nginx"]
+            end
+        end
+        
+        subgraph HW["🔧 HARDWARE"]
+            BAR["Barriers"]
+            LED["Displays"]
+            PRN["Printers"]
+        end
+    end
+    
+    subgraph CLOUD["☁️ CLOUD"]
+        DASH["Dashboard<br/>Vercel"]
+        STORE["Storage<br/>S3"]
+    end
+    
+    C --> DLS
+    DLS --> API_C
+    API_C <--> DB_C & REDIS
+    API_C <--> RT_C
+    NGX --> API_C & RT_C
+    API_C --> BAR & LED & PRN
+    
+    NGX -.-> DASH
+    DB_C -.-> STORE
+                </div>
+            </div>
+        </section>
+
+        <!-- Technology Stack -->
+        <section class="diagram-section">
+            <div class="section-header">
+                <div class="section-icon">⚡</div>
+                <div>
+                    <h2>Technology Stack</h2>
+                    <p class="section-desc">Complete list of technologies and versions</p>
+                </div>
+            </div>
+            <div class="diagram-content">
+                <div class="tech-stack">
+                    <div class="tech-card">
+                        <h3>🤖 AI/ML Stack</h3>
+                        <ul class="tech-list">
+                            <li><span class="tech-name">Intel OpenVINO</span><span class="tech-version">2025.x</span></li>
+                            <li><span class="tech-name">Intel DL Streamer</span><span class="tech-version">2025.0.1.3</span></li>
+                            <li><span class="tech-name">YOLOv10s/v11s</span><span class="tech-version">INT8</span></li>
+                            <li><span class="tech-name">GStreamer</span><span class="tech-version">1.24.x</span></li>
+                            <li><span class="tech-name">Docker</span><span class="tech-version">intel/dlstreamer</span></li>
+                        </ul>
+                    </div>
+                    <div class="tech-card">
+                        <h3>🖧 Backend Stack</h3>
+                        <ul class="tech-list">
+                            <li><span class="tech-name">Node.js</span><span class="tech-version">20.x LTS</span></li>
+                            <li><span class="tech-name">Express.js / NestJS</span><span class="tech-version">latest</span></li>
+                            <li><span class="tech-name">PostgreSQL</span><span class="tech-version">16</span></li>
+                            <li><span class="tech-name">Prisma ORM</span><span class="tech-version">5.x</span></li>
+                            <li><span class="tech-name">Redis</span><span class="tech-version">7.x</span></li>
+                            <li><span class="tech-name">Socket.IO</span><span class="tech-version">4.x</span></li>
+                        </ul>
+                    </div>
+                    <div class="tech-card">
+                        <h3>🌐 Frontend Stack</h3>
+                        <ul class="tech-list">
+                            <li><span class="tech-name">Next.js</span><span class="tech-version">15</span></li>
+                            <li><span class="tech-name">TypeScript</span><span class="tech-version">5.x</span></li>
+                            <li><span class="tech-name">React Native + Expo</span><span class="tech-version">latest</span></li>
+                            <li><span class="tech-name">Tailwind CSS</span><span class="tech-version">3.x</span></li>
+                            <li><span class="tech-name">shadcn/ui</span><span class="tech-version">latest</span></li>
+                            <li><span class="tech-name">Recharts / Leaflet</span><span class="tech-version">latest</span></li>
+                        </ul>
+                    </div>
+                    <div class="tech-card">
+                        <h3>🏗️ Infrastructure</h3>
+                        <ul class="tech-list">
+                            <li><span class="tech-name">Docker + Compose</span><span class="tech-version">latest</span></li>
+                            <li><span class="tech-name">Ubuntu</span><span class="tech-version">24.04 LTS</span></li>
+                            <li><span class="tech-name">Nginx</span><span class="tech-version">latest</span></li>
+                            <li><span class="tech-name">Vercel / AWS / Azure</span><span class="tech-version">Cloud</span></li>
+                            <li><span class="tech-name">Intel Core Ultra / Xeon</span><span class="tech-version">Hardware</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>Smart Parking Management System | Infinititech Partners</p>
+            <p style="margin-top: 8px;">Generated: December 2025 | Document Version 1.0</p>
+        </footer>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            },
+            sequence: {
+                useMaxWidth: true,
+                showSequenceNumbers: false
+            }
+        });
+    </script>
+</body>
+</html>

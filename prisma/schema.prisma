@@ -1,0 +1,823 @@
+// Smart Parking Management System - Database Schema
+// Prisma Schema for PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// ORGANIZATION & VENUE MANAGEMENT
+// ============================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parkingLots ParkingLot[]
+  users       User[]
+  settings    OrganizationSettings?
+
+  @@map("organizations")
+}
+
+model OrganizationSettings {
+  id             String @id @default(cuid())
+  organizationId String @unique
+
+  // Branding
+  primaryColor   String @default("#1E3A5F")
+  secondaryColor String @default("#3182CE")
+
+  // Defaults
+  defaultCurrency String @default("INR")
+  defaultTimezone String @default("Asia/Kolkata")
+
+  // Features
+  anprEnabled     Boolean @default(false)
+  evChargingEnabled Boolean @default(false)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_settings")
+}
+
+// ============================================
+// USER MANAGEMENT & AUTHENTICATION
+// ============================================
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  name           String
+  phone          String?
+  avatar         String?
+  role           UserRole @default(OPERATOR)
+  status         UserStatus @default(ACTIVE)
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  sessions       Session[]
+  auditLogs      AuditLog[]
+  assignedLots   ParkingLotAssignment[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR
+  AUDITOR
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ============================================
+// PARKING LOT & ZONE MANAGEMENT
+// ============================================
+
+model ParkingLot {
+  id             String        @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String
+  venueType      VenueType
+  address        String?
+  city           String?
+  state          String?
+  country        String        @default("India")
+  postalCode     String?
+  latitude       Float?
+  longitude      Float?
+  timezone       String        @default("Asia/Kolkata")
+  status         ParkingLotStatus @default(ACTIVE)
+
+  // Capacity
+  totalSlots     Int           @default(0)
+
+  // Operating Hours (JSON: {dayOfWeek: {open: "06:00", close: "22:00"}})
+  operatingHours Json?
+
+  // Features
+  hasEvCharging  Boolean       @default(false)
+  hasValetService Boolean      @default(false)
+  hasMultiLevel  Boolean       @default(false)
+
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  zones          Zone[]
+  cameras        Camera[]
+  gates          Gate[]
+  displays       Display[]
+  pricingRules   PricingRule[]
+  tokens         Token[]
+  transactions   Transaction[]
+  assignments    ParkingLotAssignment[]
+  analytics      ParkingAnalytics[]
+
+  @@unique([organizationId, slug])
+  @@map("parking_lots")
+}
+
+enum VenueType {
+  AIRPORT
+  MALL
+  CINEMA
+  COMMERCIAL
+  HOSPITAL
+  STADIUM
+  HOTEL
+  RESIDENTIAL
+  OTHER
+}
+
+enum ParkingLotStatus {
+  ACTIVE
+  MAINTENANCE
+  CLOSED
+  COMING_SOON
+}
+
+model ParkingLotAssignment {
+  id           String     @id @default(cuid())
+  userId       String
+  parkingLotId String
+  assignedAt   DateTime   @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parkingLot ParkingLot @relation(fields: [parkingLotId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, parkingLotId])
+  @@map("parking_lot_assignments")
+}
+
+model Zone {
+  id           String     @id @default(cuid())
+  parkingLotId String
+  name         String
+  code         String     // e.g., "A", "B", "P1", "P2"
+  level        Int        @default(0) // Floor level (0 = ground, -1 = basement, 1 = first floor)
+  zoneType     ZoneType   @default(GENERAL)
+  description  String?
+  color        String     @default("#3182CE") // For visual display
+  sortOrder    Int        @default(0)
+  status       ZoneStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  parkingLot ParkingLot @relation(fields: [parkingLotId], references: [id], onDelete: Cascade)
+  slots      Slot[]
+  cameras    Camera[]
+
+  @@unique([parkingLotId, code])
+  @@map("zones")
+}
+
+enum ZoneType {
+  GENERAL
+  VIP
+  EV_CHARGING
+  DISABLED
+  STAFF
+  VISITOR
+  SHORT_TERM
+  LONG_TERM
+  TWO_WHEELER
+  VALET
+  RESERVED
+}
+
+enum ZoneStatus {
+  ACTIVE
+  MAINTENANCE
+  CLOSED
+}
+
+// ============================================
+// PARKING SLOTS
+// ============================================
+
+model Slot {
+  id           String      @id @default(cuid())
+  zoneId       String
+  slotNumber   String      // e.g., "A-001", "P1-045"
+
+  // Physical Position (for visual mapping)
+  positionX    Float       @default(0)
+  positionY    Float       @default(0)
+  width        Float       @default(50)
+  height       Float       @default(100)
+  rotation     Float       @default(0)
+
+  // AI Detection Bounds (normalized 0-1 coordinates from camera)
+  detectionBounds Json?    // {x: 0.1, y: 0.2, width: 0.05, height: 0.1}
+  cameraId     String?
+
+  // Slot Properties
+  slotType     SlotType    @default(STANDARD)
+  vehicleType  VehicleType @default(CAR)
+  status       SlotStatus  @default(AVAILABLE)
+
+  // Current State
+  isOccupied   Boolean     @default(false)
+  confidence   Float       @default(0) // AI confidence score 0-1
+  lastDetectedAt DateTime?
+
+  // Features
+  hasEvCharger Boolean     @default(false)
+  hasRoof      Boolean     @default(false)
+  isAccessible Boolean     @default(false) // Disabled-friendly
+
+  // Maintenance
+  isUnderMaintenance Boolean @default(false)
+  maintenanceNote    String?
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  zone         Zone        @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  camera       Camera?     @relation(fields: [cameraId], references: [id])
+  occupancies  SlotOccupancy[]
+  tokenAllocations Token[]
+
+  @@unique([zoneId, slotNumber])
+  @@map("slots")
+}
+
+enum SlotType {
+  STANDARD
+  COMPACT
+  LARGE
+  HANDICAPPED
+  EV_CHARGING
+  MOTORCYCLE
+  VIP
+  RESERVED
+}
+
+enum VehicleType {
+  CAR
+  SUV
+  MOTORCYCLE
+  BUS
+  TRUCK
+  VAN
+  BICYCLE
+  ANY
+}
+
+enum SlotStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+  BLOCKED
+}
+
+model SlotOccupancy {
+  id           String    @id @default(cuid())
+  slotId       String
+  tokenId      String?
+  vehicleId    String?
+
+  startTime    DateTime  @default(now())
+  endTime      DateTime?
+
+  // AI Detection Data
+  entryConfidence Float?
+  exitConfidence  Float?
+  entryImageUrl   String?
+  exitImageUrl    String?
+
+  createdAt    DateTime  @default(now())
+
+  slot     Slot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  token    Token?   @relation(fields: [tokenId], references: [id])
+  vehicle  Vehicle? @relation(fields: [vehicleId], references: [id])
+
+  @@map("slot_occupancies")
+}
+
+// ============================================
+// CAMERAS & HARDWARE
+// ============================================
+
+model Camera {
+  id           String       @id @default(cuid())
+  parkingLotId String
+  zoneId       String?
+  name         String
+
+  // Connection
+  rtspUrl      String
+  onvifUrl     String?
+  username     String?
+  password     String?       // Encrypted
+
+  // Position
+  positionDescription String?
+  coverageSlots      Int      @default(10) // Number of slots this camera covers
+
+  // AI Pipeline
+  pipelineId   String?       // DL Streamer pipeline ID
+  modelConfig  Json?         // Model configuration
+
+  // Status
+  status       CameraStatus  @default(OFFLINE)
+  lastPingAt   DateTime?
+  fps          Float?
+  resolution   String?       // e.g., "1920x1080"
+
+  // Features
+  hasIR        Boolean       @default(false)
+  hasPTZ       Boolean       @default(false)
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  parkingLot ParkingLot @relation(fields: [parkingLotId], references: [id], onDelete: Cascade)
+  zone       Zone?      @relation(fields: [zoneId], references: [id])
+  slots      Slot[]
+  detectionEvents DetectionEvent[]
+
+  @@map("cameras")
+}
+
+enum CameraStatus {
+  ONLINE
+  OFFLINE
+  ERROR
+  MAINTENANCE
+}
+
+model Gate {
+  id           String    @id @default(cuid())
+  parkingLotId String
+  name         String
+  gateType     GateType
+
+  // Hardware Integration
+  controllerType String?   // RS485, Relay, API
+  controllerAddress String?
+
+  // Status
+  status       GateStatus @default(CLOSED)
+  lastActionAt DateTime?
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  parkingLot   ParkingLot @relation(fields: [parkingLotId], references: [id], onDelete: Cascade)
+  gateEvents   GateEvent[]
+
+  @@map("gates")
+}
+
+enum GateType {
+  ENTRY
+  EXIT
+  BIDIRECTIONAL
+}
+
+enum GateStatus {
+  OPEN
+  CLOSED
+  ERROR
+  MAINTENANCE
+}
+
+model GateEvent {
+  id        String   @id @default(cuid())
+  gateId    String
+  tokenId   String?
+  action    GateAction
+  triggeredBy String? // user ID or "system"
+  createdAt DateTime @default(now())
+
+  gate  Gate   @relation(fields: [gateId], references: [id], onDelete: Cascade)
+  token Token? @relation(fields: [tokenId], references: [id])
+
+  @@map("gate_events")
+}
+
+enum GateAction {
+  OPENED
+  CLOSED
+  ERROR
+  MANUAL_OVERRIDE
+}
+
+model Display {
+  id           String       @id @default(cuid())
+  parkingLotId String
+  name         String
+  displayType  DisplayType
+
+  // Integration
+  protocol     String?      // Serial, API, HTTP
+  address      String?
+
+  // Content
+  currentMessage String?
+
+  status       DisplayStatus @default(OFFLINE)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  parkingLot ParkingLot @relation(fields: [parkingLotId], references: [id], onDelete: Cascade)
+
+  @@map("displays")
+}
+
+enum DisplayType {
+  LED_COUNTER
+  LCD_SIGNAGE
+  KIOSK
+  DIRECTIONAL
+}
+
+enum DisplayStatus {
+  ONLINE
+  OFFLINE
+  ERROR
+}
+
+// ============================================
+// TOKENS & VEHICLE TRACKING
+// ============================================
+
+model Token {
+  id           String      @id @default(cuid())
+  parkingLotId String
+  tokenNumber  String      @unique
+  tokenType    TokenType
+
+  // QR/Barcode Data
+  qrCode       String?     @unique
+  barcode      String?
+  rfidTag      String?
+
+  // Allocation
+  allocatedSlotId String?
+
+  // Vehicle Info (optional)
+  vehicleId    String?
+  licensePlate String?
+  vehicleType  VehicleType?
+
+  // Timing
+  entryTime    DateTime    @default(now())
+  exitTime     DateTime?
+  expectedDuration Int?    // minutes
+
+  // Status
+  status       TokenStatus @default(ACTIVE)
+
+  // Images
+  entryImageUrl String?
+  exitImageUrl  String?
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  parkingLot    ParkingLot     @relation(fields: [parkingLotId], references: [id])
+  allocatedSlot Slot?          @relation(fields: [allocatedSlotId], references: [id])
+  vehicle       Vehicle?       @relation(fields: [vehicleId], references: [id])
+  occupancies   SlotOccupancy[]
+  transactions  Transaction[]
+  gateEvents    GateEvent[]
+
+  @@map("tokens")
+}
+
+enum TokenType {
+  QR_CODE
+  RFID
+  BARCODE
+  ANPR
+  MANUAL
+}
+
+enum TokenStatus {
+  ACTIVE
+  COMPLETED
+  EXPIRED
+  LOST
+  CANCELLED
+}
+
+model Vehicle {
+  id           String       @id @default(cuid())
+  licensePlate String       @unique
+
+  // Vehicle Details
+  vehicleType  VehicleType  @default(CAR)
+  make         String?
+  model        String?
+  color        String?
+
+  // Owner (optional)
+  ownerName    String?
+  ownerPhone   String?
+  ownerEmail   String?
+
+  // Classification
+  isBlacklisted Boolean     @default(false)
+  isWhitelisted Boolean     @default(false)
+  isVip        Boolean      @default(false)
+  membershipId String?
+
+  // Stats
+  visitCount   Int          @default(0)
+  lastVisitAt  DateTime?
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  tokens       Token[]
+  occupancies  SlotOccupancy[]
+
+  @@map("vehicles")
+}
+
+// ============================================
+// BILLING & TRANSACTIONS
+// ============================================
+
+model PricingRule {
+  id           String        @id @default(cuid())
+  parkingLotId String
+  name         String
+
+  // Applicability
+  zoneTypes    ZoneType[]
+  vehicleTypes VehicleType[]
+
+  // Pricing Model
+  pricingModel PricingModel
+
+  // Rates (stored in smallest currency unit, e.g., paisa)
+  baseRate     Int           // First hour/flat rate
+  hourlyRate   Int?          // Per additional hour
+  dailyMaxRate Int?          // Daily cap
+
+  // Slabs (for SLAB pricing model)
+  slabs        Json?         // [{upToHours: 2, rate: 50}, {upToHours: 4, rate: 40}]
+
+  // Time-based variations
+  peakHourMultiplier Float   @default(1.0)
+  peakHours    Json?         // {start: "09:00", end: "11:00"}
+
+  // Validity
+  isActive     Boolean       @default(true)
+  validFrom    DateTime?
+  validUntil   DateTime?
+
+  priority     Int           @default(0) // Higher = more specific rule
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  parkingLot   ParkingLot    @relation(fields: [parkingLotId], references: [id], onDelete: Cascade)
+
+  @@map("pricing_rules")
+}
+
+enum PricingModel {
+  FLAT_RATE
+  HOURLY
+  SLAB
+  DYNAMIC
+  FREE
+}
+
+model Transaction {
+  id           String            @id @default(cuid())
+  parkingLotId String
+  tokenId      String
+
+  // Timing
+  entryTime    DateTime
+  exitTime     DateTime?
+  duration     Int?              // minutes
+
+  // Pricing
+  grossAmount  Int               // Before discounts (in paisa)
+  discount     Int               @default(0)
+  tax          Int               @default(0)
+  netAmount    Int               // Final amount (in paisa)
+  currency     String            @default("INR")
+
+  // Payment
+  paymentStatus PaymentStatus    @default(PENDING)
+  paymentMethod PaymentMethod?
+  paymentRef   String?
+  paidAt       DateTime?
+
+  // Receipt
+  receiptNumber String?          @unique
+  invoiceUrl   String?
+
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  parkingLot ParkingLot @relation(fields: [parkingLotId], references: [id])
+  token      Token      @relation(fields: [tokenId], references: [id])
+
+  @@map("transactions")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  WAIVED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  WALLET
+  POSTPAID
+  FREE
+}
+
+// ============================================
+// AI DETECTION & EVENTS
+// ============================================
+
+model DetectionEvent {
+  id         String   @id @default(cuid())
+  cameraId   String
+
+  // Detection Data
+  eventType  DetectionEventType
+  objectType String   // "vehicle", "person", etc.
+  confidence Float
+
+  // Bounding Box (normalized 0-1)
+  bbox       Json     // {x, y, width, height}
+
+  // Tracking
+  trackingId String?
+
+  // Classification
+  vehicleType String?
+  vehicleColor String?
+  licensePlate String?
+
+  // Image
+  frameUrl   String?
+
+  timestamp  DateTime @default(now())
+
+  camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@index([cameraId, timestamp])
+  @@map("detection_events")
+}
+
+enum DetectionEventType {
+  VEHICLE_DETECTED
+  VEHICLE_ENTERED_SLOT
+  VEHICLE_LEFT_SLOT
+  SLOT_OCCUPIED
+  SLOT_VACATED
+  LICENSE_PLATE_READ
+  ANOMALY_DETECTED
+}
+
+// ============================================
+// ANALYTICS & REPORTING
+// ============================================
+
+model ParkingAnalytics {
+  id           String   @id @default(cuid())
+  parkingLotId String
+  date         DateTime @db.Date
+  hour         Int?     // 0-23, null for daily aggregates
+
+  // Occupancy
+  totalSlots       Int
+  occupiedSlots    Int
+  availableSlots   Int
+  occupancyRate    Float    // 0-1
+  peakOccupancy    Int
+
+  // Traffic
+  totalEntries     Int      @default(0)
+  totalExits       Int      @default(0)
+
+  // Revenue
+  totalRevenue     Int      @default(0) // in paisa
+  transactionCount Int      @default(0)
+  averageTicket    Int      @default(0)
+
+  // Duration
+  avgDuration      Int?     // minutes
+
+  createdAt        DateTime @default(now())
+
+  parkingLot ParkingLot @relation(fields: [parkingLotId], references: [id], onDelete: Cascade)
+
+  @@unique([parkingLotId, date, hour])
+  @@index([parkingLotId, date])
+  @@map("parking_analytics")
+}
+
+// ============================================
+// AUDIT & LOGGING
+// ============================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entity     String   // Table name
+  entityId   String?
+  changes    Json?    // {field: {old: x, new: y}}
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================
+// SYSTEM CONFIGURATION
+// ============================================
+
+model SystemConfig {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+model AlertRule {
+  id           String      @id @default(cuid())
+  name         String
+  description  String?
+
+  // Condition
+  metric       String      // e.g., "occupancy_rate", "camera_offline"
+  operator     String      // gt, lt, eq, gte, lte
+  threshold    Float
+
+  // Actions
+  notifyEmail  Boolean     @default(false)
+  notifySms    Boolean     @default(false)
+  notifyPush   Boolean     @default(false)
+  webhookUrl   String?
+
+  isActive     Boolean     @default(true)
+  cooldownMinutes Int      @default(15)
+  lastTriggeredAt DateTime?
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("alert_rules")
+}
