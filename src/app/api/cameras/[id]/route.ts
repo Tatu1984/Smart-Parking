@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
-import { Prisma } from '.prisma/client'
+import { Prisma } from '@prisma/client'
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api'
 import { updateCameraSchema } from '@/lib/validators'
 
