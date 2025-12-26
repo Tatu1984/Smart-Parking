@@ -78,6 +78,11 @@ interface Zone {
   }[]
 }
 
+interface ParkingLot {
+  id: string
+  name: string
+}
+
 const zoneTypeConfig: Record<string, { icon: typeof MapPin; label: string; color: string }> = {
   GENERAL: { icon: MapPin, label: 'General', color: 'bg-blue-500' },
   VIP: { icon: Crown, label: 'VIP', color: 'bg-yellow-500' },
@@ -94,6 +99,7 @@ const zoneTypeConfig: Record<string, { icon: typeof MapPin; label: string; color
 
 export default function ZonesPage() {
   const [zones, setZones] = useState<Zone[]>([])
+  const [parkingLots, setParkingLots] = useState<ParkingLot[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<string>('all')
@@ -101,6 +107,7 @@ export default function ZonesPage() {
   const [creating, setCreating] = useState(false)
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null)
   const [editingZone, setEditingZone] = useState<Zone | null>(null)
+  const [selectedParkingLotId, setSelectedParkingLotId] = useState<string>('')
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 })
 
   const fetchZones = async () => {
@@ -126,6 +133,26 @@ export default function ZonesPage() {
     }
   }
 
+  const fetchParkingLots = async () => {
+    try {
+      const res = await fetch('/api/parking-lots?limit=100')
+      const data = await res.json()
+      if (data.success && data.data) {
+        setParkingLots(data.data)
+        // Auto-select first parking lot if none selected
+        if (data.data.length > 0 && !selectedParkingLotId) {
+          setSelectedParkingLotId(data.data[0].id)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch parking lots:', error)
+    }
+  }
+
+  useEffect(() => {
+    fetchParkingLots()
+  }, [])
+
   useEffect(() => {
     fetchZones()
   }, [pagination.page, typeFilter])
@@ -143,6 +170,12 @@ export default function ZonesPage() {
 
   const handleCreateZone = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+
+    if (!selectedParkingLotId) {
+      toast.error('Please select a parking lot')
+      return
+    }
+
     setCreating(true)
     const formData = new FormData(e.currentTarget)
 
@@ -151,7 +184,7 @@ export default function ZonesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          parkingLotId: formData.get('parkingLotId'),
+          parkingLotId: selectedParkingLotId,
           name: formData.get('name'),
           code: formData.get('code'),
           level: parseInt(formData.get('level') as string) || 0,
@@ -271,8 +304,19 @@ export default function ZonesPage() {
               <form onSubmit={handleCreateZone}>
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="parkingLotId">Parking Lot ID *</Label>
-                    <Input id="parkingLotId" name="parkingLotId" placeholder="Enter parking lot ID" required />
+                    <Label htmlFor="parkingLotId">Parking Lot *</Label>
+                    <Select value={selectedParkingLotId} onValueChange={setSelectedParkingLotId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a parking lot" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {parkingLots.map((lot) => (
+                          <SelectItem key={lot.id} value={lot.id}>
+                            {lot.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
