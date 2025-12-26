@@ -73,9 +73,10 @@ interface Zone {
   _count: {
     slots: number
   }
-  slots: {
-    isOccupied: boolean
-  }[]
+  totalSlots: number
+  occupiedSlots: number
+  availableSlots: number
+  occupancyRate: number
 }
 
 interface ParkingLot {
@@ -136,18 +137,49 @@ export default function ZonesPage() {
   const fetchParkingLots = async () => {
     try {
       const res = await fetch('/api/parking-lots?limit=100')
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`)
+      }
       const data = await res.json()
-      if (data.success && data.data) {
+      console.log('Parking lots response:', data)
+      if (data.success && data.data && data.data.length > 0) {
         setParkingLots(data.data)
-        // Auto-select first parking lot if none selected
-        if (data.data.length > 0 && !selectedParkingLotId) {
-          setSelectedParkingLotId(data.data[0].id)
+        setSelectedParkingLotId(data.data[0].id)
+      } else {
+        // Fallback: extract unique parking lots from zones
+        const uniqueLots = zones.reduce((acc: ParkingLot[], zone) => {
+          if (zone.parkingLot && !acc.find(l => l.id === zone.parkingLot.id)) {
+            acc.push(zone.parkingLot)
+          }
+          return acc
+        }, [])
+        if (uniqueLots.length > 0) {
+          setParkingLots(uniqueLots)
+          setSelectedParkingLotId(uniqueLots[0].id)
         }
       }
     } catch (error) {
       console.error('Failed to fetch parking lots:', error)
+      // Fallback: extract unique parking lots from zones
+      const uniqueLots = zones.reduce((acc: ParkingLot[], zone) => {
+        if (zone.parkingLot && !acc.find(l => l.id === zone.parkingLot.id)) {
+          acc.push(zone.parkingLot)
+        }
+        return acc
+      }, [])
+      if (uniqueLots.length > 0) {
+        setParkingLots(uniqueLots)
+        setSelectedParkingLotId(uniqueLots[0].id)
+      }
     }
   }
+
+  // Fetch parking lots when dialog opens or zones change
+  useEffect(() => {
+    if (isCreateOpen) {
+      fetchParkingLots()
+    }
+  }, [isCreateOpen, zones])
 
   useEffect(() => {
     fetchParkingLots()
@@ -261,16 +293,17 @@ export default function ZonesPage() {
   }
 
   const getOccupancyStats = (zone: Zone) => {
-    const total = zone._count.slots
-    const occupied = zone.slots.filter(s => s.isOccupied).length
-    const available = total - occupied
-    const rate = total > 0 ? Math.round((occupied / total) * 100) : 0
-    return { total, occupied, available, rate }
+    return {
+      total: zone.totalSlots,
+      occupied: zone.occupiedSlots,
+      available: zone.availableSlots,
+      rate: Math.round(zone.occupancyRate)
+    }
   }
 
   // Calculate overall stats
-  const totalSlots = zones.reduce((acc, z) => acc + z._count.slots, 0)
-  const totalOccupied = zones.reduce((acc, z) => acc + z.slots.filter(s => s.isOccupied).length, 0)
+  const totalSlots = zones.reduce((acc, z) => acc + z.totalSlots, 0)
+  const totalOccupied = zones.reduce((acc, z) => acc + z.occupiedSlots, 0)
 
   return (
     <div className="space-y-6">
@@ -305,18 +338,24 @@ export default function ZonesPage() {
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
                     <Label htmlFor="parkingLotId">Parking Lot *</Label>
-                    <Select value={selectedParkingLotId} onValueChange={setSelectedParkingLotId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a parking lot" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {parkingLots.map((lot) => (
-                          <SelectItem key={lot.id} value={lot.id}>
-                            {lot.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {parkingLots.length === 0 ? (
+                      <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
+                        No parking lots available. Please create a parking lot first.
+                      </div>
+                    ) : (
+                      <Select value={selectedParkingLotId} onValueChange={setSelectedParkingLotId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a parking lot" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {parkingLots.map((lot) => (
+                            <SelectItem key={lot.id} value={lot.id}>
+                              {lot.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
