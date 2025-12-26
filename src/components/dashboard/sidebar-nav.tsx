@@ -19,6 +19,7 @@ import {
   HelpCircle,
   ChevronLeft,
   LogOut,
+  Building2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -41,8 +42,9 @@ const navigation = [
   {
     title: 'Parking Management',
     items: [
-      { name: 'Slots', href: '/dashboard/slots', icon: ParkingSquare },
+      { name: 'Parking Lots', href: '/dashboard/parking-lots', icon: Building2 },
       { name: 'Zones', href: '/dashboard/zones', icon: MapPin },
+      { name: 'Slots', href: '/dashboard/slots', icon: ParkingSquare },
       { name: 'Cameras', href: '/dashboard/cameras', icon: Camera },
     ],
   },
