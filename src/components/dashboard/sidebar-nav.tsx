@@ -12,6 +12,7 @@ import {
   Car,
   CreditCard,
   BarChart3,
+  FileText,
   Settings,
   Users,
   Bell,
@@ -57,6 +58,7 @@ const navigation = [
     title: 'Insights',
     items: [
       { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
+      { name: 'Reports', href: '/dashboard/reports', icon: FileText },
     ],
   },
   {
