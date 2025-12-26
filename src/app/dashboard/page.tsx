@@ -5,7 +5,8 @@ import { OccupancyChart } from '@/components/dashboard/occupancy-chart'
 import { ZoneOccupancyCard } from '@/components/dashboard/zone-occupancy-card'
 import { RecentActivity } from '@/components/dashboard/recent-activity'
 import { ParkingMap } from '@/components/dashboard/parking-map'
-import { formatCurrency, getCurrencySymbol, type CurrencyCode } from '@/lib/utils/currency'
+import { formatCurrency, type CurrencyCode } from '@/lib/utils/currency'
+import { useDashboardData } from '@/hooks/use-dashboard-data'
 import {
   ParkingSquare,
   Car,
@@ -15,13 +16,16 @@ import {
   TrendingUp,
   LogIn,
   LogOut,
+  RefreshCw,
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Skeleton } from '@/components/ui/skeleton'
 
-// Mock data - in production, fetch from API
-const mockStats = {
+// Fallback mock data when API data is not available
+const fallbackStats = {
   totalSlots: 450,
   occupiedSlots: 312,
   availableSlots: 138,
@@ -32,10 +36,10 @@ const mockStats = {
   activeTokens: 36,
   onlineCameras: 28,
   totalCameras: 30,
-  currency: 'INR' as CurrencyCode, // Currency from parking lot settings
+  avgDuration: 150,
 }
 
-const mockZones = [
+const fallbackZones = [
   { zoneId: '1', zoneName: 'Zone A - Ground Floor', zoneCode: 'A', totalSlots: 100, occupiedSlots: 85, availableSlots: 15, occupancyRate: 85 },
   { zoneId: '2', zoneName: 'Zone B - Level 1', zoneCode: 'B', totalSlots: 120, occupiedSlots: 90, availableSlots: 30, occupancyRate: 75 },
   { zoneId: '3', zoneName: 'Zone C - Level 2', zoneCode: 'C', totalSlots: 130, occupiedSlots: 78, availableSlots: 52, occupancyRate: 60 },
@@ -48,7 +52,7 @@ const mockOccupancyData = Array.from({ length: 24 }, (_, i) => ({
   occupancy: Math.floor(40 + Math.random() * 50),
 }))
 
-const mockActivities = [
+const fallbackActivities = [
   { id: '1', type: 'entry' as const, title: 'Vehicle Entry', description: 'KA-01-AB-1234 entered via Gate 1, allocated A-045', time: '2 min ago', status: 'success' as const },
   { id: '2', type: 'payment' as const, title: 'Payment Received', description: 'Token TK2412-XYZ paid Rs 120 via UPI', time: '5 min ago', status: 'success' as const },
   { id: '3', type: 'exit' as const, title: 'Vehicle Exit', description: 'MH-02-CD-5678 exited via Gate 2, duration 3h 45m', time: '8 min ago' },
@@ -59,7 +63,15 @@ const mockActivities = [
   { id: '8', type: 'exit' as const, title: 'Vehicle Exit', description: 'DL-03-GH-3456 exited via Gate 1, duration 1h 20m', time: '35 min ago' },
 ]
 
+const currency: CurrencyCode = 'INR'
+
 export default function DashboardPage() {
+  const { stats: apiStats, zones: apiZones, activities: apiActivities, loading, error, lastUpdated, refresh } = useDashboardData()
+
+  // Use API data if available, otherwise fallback to mock data
+  const stats = apiStats || fallbackStats
+  const zones = apiZones.length > 0 ? apiZones : fallbackZones
+  const activities = apiActivities.length > 0 ? apiActivities : fallbackActivities
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -70,14 +82,20 @@ export default function DashboardPage() {
             Real-time overview of your parking facility
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="gap-1">
-            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            Live
-          </Badge>
-          <span className="text-sm text-muted-foreground">
-            Last updated: Just now
-          </span>
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="gap-1">
+              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              Live
+            </Badge>
+            <span className="text-sm text-muted-foreground">
+              {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : 'Just now'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -85,14 +103,14 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Total Capacity"
-          value={`${mockStats.occupiedSlots}/${mockStats.totalSlots}`}
-          subtitle={`${mockStats.availableSlots} slots available`}
+          value={`${stats.occupiedSlots}/${stats.totalSlots}`}
+          subtitle={`${stats.availableSlots} slots available`}
           icon={ParkingSquare}
           iconClassName="bg-blue-500/10 text-blue-500"
         />
         <StatsCard
           title="Occupancy Rate"
-          value={`${mockStats.occupancyRate.toFixed(1)}%`}
+          value={`${stats.occupancyRate.toFixed(1)}%`}
           subtitle="Current utilization"
           icon={TrendingUp}
           trend={{ value: 5.2, label: 'vs yesterday', isPositive: true }}
@@ -100,15 +118,15 @@ export default function DashboardPage() {
         />
         <StatsCard
           title="Today's Revenue"
-          value={formatCurrency(mockStats.todayRevenue, mockStats.currency)}
-          subtitle={`${mockStats.todayExits} completed transactions`}
+          value={formatCurrency(stats.todayRevenue, currency)}
+          subtitle={`${stats.todayExits} completed transactions`}
           icon={Banknote}
           trend={{ value: 12.5, label: 'vs yesterday', isPositive: true }}
           iconClassName="bg-purple-500/10 text-purple-500"
         />
         <StatsCard
           title="Active Tokens"
-          value={mockStats.activeTokens}
+          value={stats.activeTokens}
           subtitle="Vehicles currently parked"
           icon={Ticket}
           iconClassName="bg-orange-500/10 text-orange-500"
@@ -123,7 +141,7 @@ export default function DashboardPage() {
               <LogIn className="h-6 w-6 text-green-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{mockStats.todayEntries}</p>
+              <p className="text-2xl font-bold">{stats.todayEntries}</p>
               <p className="text-sm text-muted-foreground">Entries Today</p>
             </div>
           </CardContent>
@@ -134,7 +152,7 @@ export default function DashboardPage() {
               <LogOut className="h-6 w-6 text-blue-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{mockStats.todayExits}</p>
+              <p className="text-2xl font-bold">{stats.todayExits}</p>
               <p className="text-sm text-muted-foreground">Exits Today</p>
             </div>
           </CardContent>
@@ -146,7 +164,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">
-                {mockStats.onlineCameras}/{mockStats.totalCameras}
+                {stats.onlineCameras}/{stats.totalCameras}
               </p>
               <p className="text-sm text-muted-foreground">Cameras Online</p>
             </div>
@@ -158,7 +176,9 @@ export default function DashboardPage() {
               <Car className="h-6 w-6 text-yellow-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">2.5 hrs</p>
+              <p className="text-2xl font-bold">
+                {stats.avgDuration > 0 ? `${Math.round(stats.avgDuration / 60)}h ${stats.avgDuration % 60}m` : '2.5 hrs'}
+              </p>
               <p className="text-sm text-muted-foreground">Avg. Duration</p>
             </div>
           </CardContent>
@@ -180,7 +200,7 @@ export default function DashboardPage() {
               <OccupancyChart data={mockOccupancyData} />
             </div>
             <div>
-              <ZoneOccupancyCard zones={mockZones} />
+              <ZoneOccupancyCard zones={zones} />
             </div>
           </div>
         </TabsContent>
@@ -188,7 +208,7 @@ export default function DashboardPage() {
 
       {/* Recent Activity and System Status */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <RecentActivity activities={mockActivities} />
+        <RecentActivity activities={activities} />
 
         {/* Quick Actions or Additional Info */}
         <Card>

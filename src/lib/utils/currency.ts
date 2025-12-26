@@ -173,16 +173,22 @@ export interface CurrencyConfig {
   symbolPosition: 'before' | 'after'
 }
 
+// Check if string is valid currency code
+export function isValidCurrencyCode(code: string): code is CurrencyCode {
+  return code in currencies
+}
+
 // Format amount in the specified currency
 export function formatCurrency(
   amount: number,
-  currencyCode: CurrencyCode = 'USD',
+  currencyCode: CurrencyCode | string = 'USD',
   options?: {
     showCode?: boolean
     compact?: boolean
   }
 ): string {
-  const currency = currencies[currencyCode]
+  const validCode = isValidCurrencyCode(currencyCode) ? currencyCode : 'USD'
+  const currency = currencies[validCode]
   if (!currency) {
     return `${amount}`
   }
@@ -192,7 +198,7 @@ export function formatCurrency(
   // Use Intl.NumberFormat for proper locale-aware formatting
   const formatter = new Intl.NumberFormat(currency.locale, {
     style: 'currency',
-    currency: currencyCode,
+    currency: validCode,
     minimumFractionDigits: currency.decimalPlaces,
     maximumFractionDigits: currency.decimalPlaces,
     notation: compact ? 'compact' : 'standard',
@@ -202,7 +208,7 @@ export function formatCurrency(
 
   // Optionally append currency code
   if (showCode) {
-    formatted = `${formatted} ${currencyCode}`
+    formatted = `${formatted} ${validCode}`
   }
 
   return formatted
@@ -211,9 +217,10 @@ export function formatCurrency(
 // Format amount with just the symbol (simpler format)
 export function formatAmount(
   amount: number,
-  currencyCode: CurrencyCode = 'USD'
+  currencyCode: CurrencyCode | string = 'USD'
 ): string {
-  const currency = currencies[currencyCode]
+  const validCode = isValidCurrencyCode(currencyCode) ? currencyCode : 'USD'
+  const currency = currencies[validCode]
   if (!currency) {
     return `${amount}`
   }
@@ -230,8 +237,9 @@ export function formatAmount(
 }
 
 // Get currency symbol only
-export function getCurrencySymbol(currencyCode: CurrencyCode): string {
-  return currencies[currencyCode]?.symbol || currencyCode
+export function getCurrencySymbol(currencyCode: CurrencyCode | string): string {
+  const validCode = isValidCurrencyCode(currencyCode) ? currencyCode : null
+  return validCode ? currencies[validCode].symbol : currencyCode
 }
 
 // Get all currencies as options for select

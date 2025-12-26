@@ -25,6 +25,15 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 })
 
+export const updateUserSchema = z.object({
+  email: z.string().email().optional(),
+  name: z.string().min(2).max(100).optional(),
+  phone: z.string().optional().nullable(),
+  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'OPERATOR', 'AUDITOR', 'VIEWER']).optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED']).optional(),
+  avatar: z.string().url().optional().nullable(),
+})
+
 // Parking Lot schemas
 export const createParkingLotSchema = z.object({
   name: z.string().min(2).max(100),

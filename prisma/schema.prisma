@@ -822,3 +822,289 @@ model AlertRule {
 
   @@map("alert_rules")
 }
+
+// ============================================
+// PAYPAL-LIKE PAYMENT SYSTEM
+// ============================================
+
+model Wallet {
+  id           String       @id @default(cuid())
+  userId       String?      // Null for parking lot wallets
+  parkingLotId String?      // Parking lot merchant wallet
+
+  // Balance (in smallest currency unit)
+  balance      BigInt       @default(0)
+  currency     String       @default("INR")
+
+  // Wallet Type
+  walletType   WalletType   @default(PERSONAL)
+  status       WalletStatus @default(ACTIVE)
+
+  // Verification
+  isVerified   Boolean      @default(false)
+  verifiedAt   DateTime?
+
+  // Limits (in smallest currency unit)
+  dailyLimit       BigInt   @default(10000000) // 1 lakh default
+  monthlyLimit     BigInt   @default(100000000) // 10 lakh default
+  singleTxnLimit   BigInt   @default(5000000) // 50k default
+
+  // KYC Level affects limits
+  kycLevel     KycLevel     @default(BASIC)
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  bankAccounts     BankAccount[]
+  sentTransactions WalletTransaction[] @relation("SenderWallet")
+  receivedTransactions WalletTransaction[] @relation("ReceiverWallet")
+  paymentsSent     Payment[] @relation("PayerWallet")
+  paymentsReceived Payment[] @relation("PayeeWallet")
+  sandboxConfig    SandboxConfig?
+
+  @@unique([userId])
+  @@unique([parkingLotId])
+  @@map("wallets")
+}
+
+enum WalletType {
+  PERSONAL
+  BUSINESS
+  MERCHANT      // Parking lot wallet
+  ESCROW
+}
+
+enum WalletStatus {
+  ACTIVE
+  FROZEN
+  SUSPENDED
+  CLOSED
+}
+
+enum KycLevel {
+  NONE
+  BASIC        // Phone verified
+  INTERMEDIATE // ID verified
+  FULL         // Full KYC complete
+}
+
+model BankAccount {
+  id           String            @id @default(cuid())
+  walletId     String
+
+  // Bank Details
+  accountHolderName String
+  bankName     String
+  accountNumber String           // Encrypted/masked
+  accountNumberLast4 String      // Last 4 digits for display
+  ifscCode     String
+  accountType  BankAccountType   @default(SAVINGS)
+
+  // Verification
+  status       BankAccountStatus @default(PENDING)
+  verifiedAt   DateTime?
+
+  // Sandbox Mode
+  isSandbox    Boolean           @default(false)
+  sandboxBalance BigInt?         // For sandbox testing
+
+  // Primary flag
+  isPrimary    Boolean           @default(false)
+
+  // Penny drop verification
+  pennyDropRef     String?
+  pennyDropStatus  String?
+
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  wallet       Wallet            @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  withdrawals  WalletTransaction[] @relation("WithdrawalAccount")
+  deposits     WalletTransaction[] @relation("DepositAccount")
+
+  @@map("bank_accounts")
+}
+
+enum BankAccountType {
+  SAVINGS
+  CURRENT
+  NRE
+  NRO
+}
+
+enum BankAccountStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  REMOVED
+}
+
+model WalletTransaction {
+  id               String              @id @default(cuid())
+
+  // Wallets involved
+  senderWalletId   String?
+  receiverWalletId String?
+
+  // Bank account (for deposits/withdrawals)
+  bankAccountId    String?
+  depositBankId    String?
+
+  // Amount
+  amount           BigInt              // In smallest currency unit
+  currency         String              @default("INR")
+  fee              BigInt              @default(0)
+
+  // Transaction Type
+  txnType          WalletTxnType
+  status           WalletTxnStatus     @default(PENDING)
+
+  // Reference
+  referenceId      String              @unique @default(cuid())
+  externalRef      String?             // Bank/gateway reference
+
+  // Description
+  description      String?
+  metadata         Json?
+
+  // For parking payments
+  parkingTxnId     String?             // Link to Transaction model
+
+  // Balance after transaction (for audit trail)
+  balanceAfter     BigInt?
+
+  // Sandbox mode
+  isSandbox        Boolean             @default(false)
+
+  // Timing
+  initiatedAt      DateTime            @default(now())
+  completedAt      DateTime?
+  failedAt         DateTime?
+  failureReason    String?
+
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  senderWallet     Wallet?             @relation("SenderWallet", fields: [senderWalletId], references: [id])
+  receiverWallet   Wallet?             @relation("ReceiverWallet", fields: [receiverWalletId], references: [id])
+  withdrawalBank   BankAccount?        @relation("WithdrawalAccount", fields: [bankAccountId], references: [id])
+  depositBank      BankAccount?        @relation("DepositAccount", fields: [depositBankId], references: [id])
+
+  @@index([senderWalletId, createdAt])
+  @@index([receiverWalletId, createdAt])
+  @@index([referenceId])
+  @@map("wallet_transactions")
+}
+
+enum WalletTxnType {
+  DEPOSIT           // Bank -> Wallet
+  WITHDRAWAL        // Wallet -> Bank
+  TRANSFER          // Wallet -> Wallet (P2P)
+  PAYMENT           // Parking payment
+  REFUND
+  FEE
+  ADJUSTMENT
+}
+
+enum WalletTxnStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REVERSED
+}
+
+model Payment {
+  id               String          @id @default(cuid())
+
+  // Parties
+  payerWalletId    String?
+  payeeWalletId    String
+
+  // Amount
+  amount           BigInt
+  currency         String          @default("INR")
+  fee              BigInt          @default(0)
+
+  // Payment Details
+  paymentType      PaymentType
+  status           PaymentTxnStatus @default(PENDING)
+
+  // Reference
+  paymentRef       String          @unique @default(cuid())
+
+  // For parking
+  parkingLotId     String?
+  tokenId          String?
+  transactionId    String?         // Links to parking Transaction
+
+  // Description
+  description      String?
+  notes            String?
+  metadata         Json?
+
+  // QR Code for payment request
+  qrCode           String?
+  qrExpiresAt      DateTime?
+
+  // Sandbox
+  isSandbox        Boolean         @default(false)
+
+  // Timing
+  createdAt        DateTime        @default(now())
+  expiresAt        DateTime?
+  completedAt      DateTime?
+
+  updatedAt        DateTime        @updatedAt
+
+  payerWallet      Wallet?         @relation("PayerWallet", fields: [payerWalletId], references: [id])
+  payeeWallet      Wallet          @relation("PayeeWallet", fields: [payeeWalletId], references: [id])
+
+  @@index([payerWalletId, createdAt])
+  @@index([payeeWalletId, createdAt])
+  @@index([paymentRef])
+  @@map("payments")
+}
+
+enum PaymentType {
+  PARKING           // Parking fee payment
+  P2P               // Person to person
+  MERCHANT          // General merchant payment
+  SUBSCRIPTION
+  REFUND
+}
+
+enum PaymentTxnStatus {
+  PENDING
+  AWAITING_PAYMENT
+  PROCESSING
+  COMPLETED
+  FAILED
+  EXPIRED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CANCELLED
+}
+
+// Sandbox configuration for testing
+model SandboxConfig {
+  id              String    @id @default(cuid())
+  walletId        String    @unique
+  wallet          Wallet    @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  // Sandbox settings
+  autoApproveDeposits Boolean @default(true)
+  autoApproveWithdrawals Boolean @default(true)
+  simulateFailures Boolean @default(false)
+  failureRate      Float    @default(0) // 0-1
+  processingDelay  Int      @default(0) // milliseconds
+
+  // Test bank details
+  testBankBalance  BigInt   @default(10000000000) // 1 crore
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("sandbox_configs")
+}
