@@ -1108,3 +1108,33 @@ model SandboxConfig {
 
   @@map("sandbox_configs")
 }
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+
+  // Content
+  type      String   // PAYMENT_SUCCESS, SESSION_END, OVERSTAY_WARNING, etc.
+  title     String
+  message   String
+  data      Json?    // Additional context data
+
+  // Status
+  read      Boolean  @default(false)
+  readAt    DateTime?
+
+  // Delivery
+  emailSent Boolean  @default(false)
+  smsSent   Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
