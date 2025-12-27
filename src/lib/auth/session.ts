@@ -57,3 +57,10 @@ export async function hasRole(requiredRole: string): Promise<boolean> {
 
   return user.role === requiredRole
 }
+
+// Get session with userId (alias for compatibility)
+export async function getSession(): Promise<{ userId: string } | null> {
+  const user = await getCurrentUser()
+  if (!user) return null
+  return { userId: user.id }
+}
