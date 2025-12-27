@@ -8,17 +8,18 @@ import { getSession } from '@/lib/auth/session'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { tokenId, amount, currency = 'INR', method = 'razorpay' } = body
+    const { tokenId, amount, currency = 'INR' } = body
 
     // Validate token and calculate fee if not provided
     let paymentAmount = amount
     let token = null
+    let slotInfo = null
 
     if (tokenId) {
       token = await prisma.token.findUnique({
         where: { id: tokenId },
         include: {
-          slot: {
+          allocatedSlot: {
             include: {
               zone: true
             }
@@ -31,18 +32,29 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Token not found' }, { status: 404 })
       }
 
-      if (token.status === 'PAID' || token.status === 'EXITED') {
-        return NextResponse.json({ error: 'Token already paid or exited' }, { status: 400 })
+      if (token.status === 'COMPLETED' || token.status === 'CANCELLED') {
+        return NextResponse.json({ error: 'Token already completed or cancelled' }, { status: 400 })
       }
+
+      slotInfo = token.allocatedSlot
 
       // Calculate fee if not provided
       if (!paymentAmount) {
-        const hourlyRate = token.slot?.zone?.hourlyRate || token.parkingLot?.defaultHourlyRate || 50
+        // Get pricing from zone or use default
+        const pricingRule = await prisma.pricingRule.findFirst({
+          where: {
+            parkingLotId: token.parkingLotId,
+            isActive: true
+          },
+          orderBy: { priority: 'desc' }
+        })
+
+        const hourlyRate = pricingRule?.hourlyRate || 5000 // 50 INR in paisa
         const feeDetails = calculateParkingFee({
           entryTime: token.entryTime,
-          hourlyRate,
-          freeMinutes: 15, // 15 minutes free
-          minimumCharge: hourlyRate
+          hourlyRate: hourlyRate / 100, // Convert paisa to rupees
+          freeMinutes: 15,
+          minimumCharge: hourlyRate / 100
         })
         paymentAmount = feeDetails.fee
       }
@@ -63,25 +75,24 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Store payment record
-    const payment = await prisma.payment.create({
+    // Store transaction record
+    const transaction = await prisma.transaction.create({
       data: {
-        tokenId: tokenId || null,
-        amount: paymentAmount,
+        parkingLotId: token?.parkingLotId || '',
+        tokenId: tokenId,
+        entryTime: token?.entryTime || new Date(),
+        grossAmount: Math.round(paymentAmount * 100), // Store in paisa
+        netAmount: Math.round(paymentAmount * 100),
         currency,
-        method: method.toUpperCase(),
-        status: 'PENDING',
-        orderId: order.id,
-        metadata: {
-          razorpayOrderId: order.id
-        }
+        paymentStatus: 'PENDING',
+        paymentRef: order.id
       }
     })
 
     return NextResponse.json({
       success: true,
       orderId: order.id,
-      paymentId: payment.id,
+      transactionId: transaction.id,
       amount: paymentAmount,
       currency,
       key: getPublicKey(),
@@ -89,8 +100,8 @@ export async function POST(request: NextRequest) {
         tokenNumber: token.tokenNumber,
         licensePlate: token.licensePlate,
         entryTime: token.entryTime,
-        slotNumber: token.slot?.slotNumber,
-        zoneName: token.slot?.zone?.name
+        slotNumber: slotInfo?.slotNumber,
+        zoneName: slotInfo?.zone?.name
       } : null
     })
   } catch (error) {
@@ -102,7 +113,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/payments - Get payment history
+// GET /api/payments - Get payment history (transactions)
 export async function GET(request: NextRequest) {
   try {
     const session = await getSession()
@@ -114,6 +125,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
     const status = searchParams.get('status')
+    const parkingLotId = searchParams.get('parkingLotId')
 
     const user = await prisma.user.findUnique({
       where: { id: session.userId }
@@ -121,15 +133,10 @@ export async function GET(request: NextRequest) {
 
     const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
 
-    const payments = await prisma.payment.findMany({
+    const transactions = await prisma.transaction.findMany({
       where: {
-        ...(status && { status: status.toUpperCase() }),
-        // Non-admins can only see their own payments
-        ...(!isAdmin && {
-          token: {
-            licensePlate: user?.licensePlate || undefined
-          }
-        })
+        ...(status && { paymentStatus: status.toUpperCase() as any }),
+        ...(parkingLotId && { parkingLotId }),
       },
       include: {
         token: {
@@ -139,6 +146,11 @@ export async function GET(request: NextRequest) {
             entryTime: true,
             exitTime: true
           }
+        },
+        parkingLot: {
+          select: {
+            name: true
+          }
         }
       },
       orderBy: { createdAt: 'desc' },
@@ -146,21 +158,22 @@ export async function GET(request: NextRequest) {
       skip: offset
     })
 
-    const total = await prisma.payment.count({
+    const total = await prisma.transaction.count({
       where: {
-        ...(status && { status: status.toUpperCase() })
+        ...(status && { paymentStatus: status.toUpperCase() as any }),
+        ...(parkingLotId && { parkingLotId }),
       }
     })
 
     return NextResponse.json({
-      payments,
+      transactions,
       total,
-      hasMore: offset + payments.length < total
+      hasMore: offset + transactions.length < total
     })
   } catch (error) {
-    console.error('Payments GET error:', error)
+    console.error('Transactions GET error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch payments' },
+      { error: 'Failed to fetch transactions' },
       { status: 500 }
     )
   }
