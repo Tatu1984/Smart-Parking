@@ -132,11 +132,11 @@ async function processWalletPayment(request: PaymentRequest): Promise<PaymentRes
       }),
       prisma.walletTransaction.create({
         data: {
-          walletId: wallet.id,
-          type: 'DEBIT',
+          senderWalletId: wallet.id,
+          txnType: 'PAYMENT',
           amount: request.amount,
           description: request.description || 'Parking payment',
-          referenceId: request.tokenId || request.sessionId
+          referenceId: request.tokenId || request.sessionId || `pay-${Date.now()}`
         }
       })
     ])
