@@ -1,0 +1,46 @@
+{
+  "output": {
+    "http": {
+      "endpoint": "http://localhost:3000/api/realtime/detection",
+      "batch_size": 10,
+      "interval_ms": 1000
+    },
+    "mqtt": {
+      "enabled": false,
+      "host": "localhost",
+      "port": 1883,
+      "topic_prefix": "sparking/detection"
+    }
+  },
+  "detection": {
+    "confidence_threshold": 0.5,
+    "nms_threshold": 0.45,
+    "inference_interval": 3
+  },
+  "tracking": {
+    "max_age": 30,
+    "min_hits": 3,
+    "iou_threshold": 0.3
+  },
+  "occupancy": {
+    "threshold": 0.7,
+    "confirmation_frames": 5,
+    "hysteresis_frames": 3
+  },
+  "models": {
+    "vehicle_detection": "yolov8n",
+    "license_plate_detection": "models/license-plate-detection.xml",
+    "license_plate_recognition": "models/license-plate-recognition.xml"
+  },
+  "device": "CPU",
+  "cameras": [
+    {
+      "id": "cam-1",
+      "name": "Entrance Camera",
+      "rtsp_url": "rtsp://192.168.1.100:554/stream1",
+      "parking_lot_id": "lot-1",
+      "zone_id": "zone-1",
+      "enabled": true
+    }
+  ]
+}
