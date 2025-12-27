@@ -70,10 +70,15 @@ async function handlePaymentCaptured(paymentEntity: {
   contact?: string
 }) {
   try {
-    // Find payment by order ID
-    const payment = await prisma.payment.findFirst({
-      where: { orderId: paymentEntity.order_id },
-      include: { token: true }
+    // Find payment by razorpay order ID stored in metadata
+    const payments = await prisma.payment.findMany({
+      where: { status: 'PENDING' }
+    })
+
+    // Find payment with matching razorpay order ID in metadata
+    const payment = payments.find(p => {
+      const metadata = p.metadata as Record<string, unknown> | null
+      return metadata?.razorpayOrderId === paymentEntity.order_id
     })
 
     if (!payment) {
@@ -86,8 +91,7 @@ async function handlePaymentCaptured(paymentEntity: {
       where: { id: payment.id },
       data: {
         status: 'COMPLETED',
-        transactionId: paymentEntity.id,
-        paidAt: new Date(),
+        completedAt: new Date(),
         metadata: {
           ...((payment.metadata as object) || {}),
           razorpayPaymentId: paymentEntity.id,
@@ -103,9 +107,7 @@ async function handlePaymentCaptured(paymentEntity: {
       await prisma.token.update({
         where: { id: payment.tokenId },
         data: {
-          status: 'PAID',
-          paymentId: payment.id,
-          fee: payment.amount
+          status: 'COMPLETED'
         }
       })
     }
@@ -123,9 +125,14 @@ async function handlePaymentFailed(paymentEntity: {
   error_description?: string
 }) {
   try {
-    const payment = await prisma.payment.findFirst({
-      where: { orderId: paymentEntity.order_id },
-      include: { token: true }
+    // Find payment by razorpay order ID stored in metadata
+    const payments = await prisma.payment.findMany({
+      where: { status: 'PENDING' }
+    })
+
+    const payment = payments.find(p => {
+      const metadata = p.metadata as Record<string, unknown> | null
+      return metadata?.razorpayOrderId === paymentEntity.order_id
     })
 
     if (!payment) return
@@ -142,18 +149,23 @@ async function handlePaymentFailed(paymentEntity: {
       }
     })
 
-    // Send failure notification
-    if (payment.token?.email) {
-      await sendNotification({
-        type: 'PAYMENT_FAILED',
-        email: payment.token.email,
-        title: 'Payment Failed',
-        message: `Your payment for token ${payment.token.tokenNumber} failed. Please try again.`,
-        data: {
-          tokenNumber: payment.token.tokenNumber,
-          error: paymentEntity.error_description
-        }
+    // Send failure notification if token exists
+    if (payment.tokenId) {
+      const token = await prisma.token.findUnique({
+        where: { id: payment.tokenId }
       })
+
+      if (token) {
+        await sendNotification({
+          type: 'PAYMENT_FAILED',
+          title: 'Payment Failed',
+          message: `Your payment for token ${token.tokenNumber} failed. Please try again.`,
+          data: {
+            tokenNumber: token.tokenNumber,
+            error: paymentEntity.error_description
+          }
+        })
+      }
     }
 
     console.log(`Payment failed: ${paymentEntity.id}`)
@@ -169,8 +181,14 @@ async function handleRefundCreated(refundEntity: {
   status: string
 }) {
   try {
-    const payment = await prisma.payment.findFirst({
-      where: { transactionId: refundEntity.payment_id }
+    // Find payment by razorpay payment ID stored in metadata
+    const payments = await prisma.payment.findMany({
+      where: { status: 'COMPLETED' }
+    })
+
+    const payment = payments.find(p => {
+      const metadata = p.metadata as Record<string, unknown> | null
+      return metadata?.razorpayPaymentId === refundEntity.payment_id
     })
 
     if (!payment) return
@@ -179,11 +197,11 @@ async function handleRefundCreated(refundEntity: {
       where: { id: payment.id },
       data: {
         status: 'REFUNDED',
-        refundedAt: new Date(),
-        refundAmount: refundEntity.amount / 100,
         metadata: {
           ...((payment.metadata as object) || {}),
-          refundId: refundEntity.id
+          refundId: refundEntity.id,
+          refundAmount: refundEntity.amount / 100,
+          refundedAt: new Date().toISOString()
         }
       }
     })
@@ -199,8 +217,14 @@ async function handleOrderPaid(
   paymentEntity: { id: string }
 ) {
   try {
-    const payment = await prisma.payment.findFirst({
-      where: { orderId: orderEntity.id }
+    // Find payment by razorpay order ID stored in metadata
+    const payments = await prisma.payment.findMany({
+      where: { status: { in: ['PENDING', 'AWAITING_PAYMENT', 'PROCESSING'] } }
+    })
+
+    const payment = payments.find(p => {
+      const metadata = p.metadata as Record<string, unknown> | null
+      return metadata?.razorpayOrderId === orderEntity.id
     })
 
     if (!payment) return
@@ -210,8 +234,11 @@ async function handleOrderPaid(
         where: { id: payment.id },
         data: {
           status: 'COMPLETED',
-          transactionId: paymentEntity.id,
-          paidAt: new Date()
+          completedAt: new Date(),
+          metadata: {
+            ...((payment.metadata as object) || {}),
+            razorpayPaymentId: paymentEntity.id
+          }
         }
       })
     }

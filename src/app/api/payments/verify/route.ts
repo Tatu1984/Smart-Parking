@@ -43,45 +43,37 @@ export async function POST(request: NextRequest) {
       where: { id: paymentId },
       data: {
         status: 'COMPLETED',
-        transactionId: razorpay_payment_id,
-        paidAt: new Date(),
+        completedAt: new Date(),
         metadata: {
           razorpayOrderId: razorpay_order_id,
           razorpayPaymentId: razorpay_payment_id,
           razorpaySignature: razorpay_signature,
           method: razorpayPayment.method
         }
-      },
-      include: {
-        token: true
       }
     })
 
-    // Update token status
+    // Update token status and send notification if token exists
     if (payment.tokenId) {
-      await prisma.token.update({
+      const token = await prisma.token.update({
         where: { id: payment.tokenId },
         data: {
-          status: 'PAID',
-          paymentId: payment.id,
-          fee: payment.amount
+          status: 'COMPLETED'
         }
       })
 
       // Send payment confirmation notification
-      if (payment.token?.email) {
-        await sendNotification({
-          type: 'PAYMENT_SUCCESS',
-          email: payment.token.email,
-          title: 'Payment Successful',
-          message: `Your payment of ₹${payment.amount} for token ${payment.token.tokenNumber} has been processed.`,
-          data: {
-            tokenNumber: payment.token.tokenNumber,
-            amount: payment.amount,
-            transactionId: razorpay_payment_id
-          }
-        })
-      }
+      // Note: Token doesn't have email field, would need to look up via vehicle or other means
+      await sendNotification({
+        type: 'PAYMENT_SUCCESS',
+        title: 'Payment Successful',
+        message: `Payment of ₹${payment.amount} for token ${token.tokenNumber} has been processed.`,
+        data: {
+          tokenNumber: token.tokenNumber,
+          amount: Number(payment.amount),
+          transactionId: razorpay_payment_id
+        }
+      })
     }
 
     return NextResponse.json({
