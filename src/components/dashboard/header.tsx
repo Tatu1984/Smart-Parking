@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { Bell, Search, Moon, Sun, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,15 +23,37 @@ import {
 } from '@/components/ui/select'
 import { useTheme } from 'next-themes'
 import { useDashboardStore, useUIStore } from '@/store'
+import { toast } from 'sonner'
 
 interface HeaderProps {
   parkingLots?: { id: string; name: string }[]
 }
 
 export function Header({ parkingLots = [] }: HeaderProps) {
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
   const { selectedParkingLotId, setSelectedParkingLot } = useDashboardStore()
   const { toggleSidebar } = useUIStore()
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      if (response.ok) {
+        toast.success('Logged out successfully')
+        router.push('/login')
+        router.refresh()
+      } else {
+        toast.error('Failed to logout')
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+      toast.error('Failed to logout')
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
@@ -145,7 +168,10 @@ export function Header({ parkingLots = [] }: HeaderProps) {
             <DropdownMenuItem>Profile</DropdownMenuItem>
             <DropdownMenuItem>Settings</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem
+              className="text-destructive cursor-pointer"
+              onClick={handleLogout}
+            >
               Logout
             </DropdownMenuItem>
           </DropdownMenuContent>

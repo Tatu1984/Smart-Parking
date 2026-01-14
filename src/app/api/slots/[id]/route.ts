@@ -1,5 +1,6 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { getCurrentUser } from '@/lib/auth/session'
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api'
 import { updateSlotSchema } from '@/lib/validators'
 
@@ -9,6 +10,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { id } = await params
 
     const slot = await prisma.slot.findUnique({
@@ -62,6 +68,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Only ADMIN, SUPER_ADMIN, or OPERATOR can modify slots
+    if (!['ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(user.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const { id } = await params
     const body = await request.json()
     const data = updateSlotSchema.parse(body)
@@ -93,6 +109,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Only ADMIN or SUPER_ADMIN can delete slots
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const { id } = await params
 
     const slot = await prisma.slot.findUnique({
@@ -104,17 +130,20 @@ export async function DELETE(
       return errorResponse('Slot not found', 404)
     }
 
-    await prisma.slot.delete({
-      where: { id },
-    })
+    // Use transaction to ensure consistency
+    await prisma.$transaction(async (tx) => {
+      await tx.slot.delete({
+        where: { id },
+      })
 
-    // Update parking lot slot count
-    const count = await prisma.slot.count({
-      where: { zone: { parkingLotId: slot.zone.parkingLotId } },
-    })
-    await prisma.parkingLot.update({
-      where: { id: slot.zone.parkingLotId },
-      data: { totalSlots: count },
+      // Update parking lot slot count
+      const count = await tx.slot.count({
+        where: { zone: { parkingLotId: slot.zone.parkingLotId } },
+      })
+      await tx.parkingLot.update({
+        where: { id: slot.zone.parkingLotId },
+        data: { totalSlots: count },
+      })
     })
 
     return successResponse(null, 'Slot deleted successfully')

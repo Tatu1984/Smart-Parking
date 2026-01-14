@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
       }),
     }
 
+    // Use a single optimized query with aggregation to avoid N+1
     const [parkingLots, total] = await Promise.all([
       prisma.parkingLot.findMany({
         where,
@@ -39,6 +40,12 @@ export async function GET(request: NextRequest) {
               _count: {
                 select: { slots: true },
               },
+              slots: {
+                select: {
+                  isOccupied: true,
+                  status: true
+                }
+              }
             },
           },
         },
@@ -49,31 +56,43 @@ export async function GET(request: NextRequest) {
       prisma.parkingLot.count({ where }),
     ])
 
-    // Calculate slot stats for each parking lot
-    type SlotStat = { isOccupied: boolean; _count: number }
-    const enrichedParkingLots = await Promise.all(
-      parkingLots.map(async (lot: typeof parkingLots[number]) => {
-        const slotStats = await prisma.slot.groupBy({
-          by: ['isOccupied'],
-          where: {
-            zone: { parkingLotId: lot.id },
-            status: { not: 'MAINTENANCE' },
-          },
-          _count: true,
-        })
+    // Calculate slot stats from the already-fetched zones data (no N+1)
+    const enrichedParkingLots = parkingLots.map((lot) => {
+      // Calculate stats from zones already included in the query
+      let totalSlots = 0
+      let occupiedSlots = 0
+      let maintenanceSlots = 0
 
-        const totalSlots = slotStats.reduce((sum: number, stat: SlotStat) => sum + stat._count, 0)
-        const occupiedSlots = slotStats.find((s: SlotStat) => s.isOccupied)?._count || 0
-
-        return {
-          ...lot,
-          totalSlots,
-          occupiedSlots,
-          availableSlots: totalSlots - occupiedSlots,
-          occupancyRate: totalSlots > 0 ? (occupiedSlots / totalSlots) * 100 : 0,
+      for (const zone of lot.zones) {
+        totalSlots += zone._count.slots
+        for (const slot of zone.slots) {
+          if (slot.isOccupied) occupiedSlots++
+          if (slot.status === 'MAINTENANCE') maintenanceSlots++
         }
-      })
-    )
+      }
+
+      const availableSlots = totalSlots - occupiedSlots - maintenanceSlots
+
+      // Remove the slots array from zones to reduce response size
+      const zonesWithoutSlots = lot.zones.map(z => ({
+        id: z.id,
+        name: z.name,
+        code: z.code,
+        level: z.level,
+        zoneType: z.zoneType,
+        status: z.status,
+        _count: z._count
+      }))
+
+      return {
+        ...lot,
+        zones: zonesWithoutSlots,
+        totalSlots,
+        occupiedSlots,
+        availableSlots,
+        occupancyRate: totalSlots > 0 ? (occupiedSlots / totalSlots) * 100 : 0,
+      }
+    })
 
     return paginatedResponse(enrichedParkingLots, page, limit, total)
   } catch (error) {

@@ -1,22 +1,41 @@
 import { NextResponse } from 'next/server'
 import { ZodError } from 'zod'
+import { logger, generateCorrelationId, LogContext } from '@/lib/logger'
 
-export function successResponse<T>(data: T, message?: string) {
-  return NextResponse.json({
+// Get correlation ID from request headers (set by middleware)
+export function getCorrelationId(headers?: Headers): string {
+  return headers?.get('x-correlation-id') || generateCorrelationId()
+}
+
+export function successResponse<T>(data: T, message?: string, correlationId?: string) {
+  const response = NextResponse.json({
     success: true,
     data,
     message,
   })
+
+  if (correlationId) {
+    response.headers.set('X-Correlation-ID', correlationId)
+  }
+
+  return response
 }
 
-export function errorResponse(error: string, status: number = 400) {
-  return NextResponse.json(
+export function errorResponse(error: string, status: number = 400, correlationId?: string) {
+  const response = NextResponse.json(
     {
       success: false,
       error,
+      ...(correlationId && { correlationId }),
     },
     { status }
   )
+
+  if (correlationId) {
+    response.headers.set('X-Correlation-ID', correlationId)
+  }
+
+  return response
 }
 
 export function paginatedResponse<T>(
@@ -37,32 +56,43 @@ export function paginatedResponse<T>(
   })
 }
 
-export function handleApiError(error: unknown) {
-  console.error('API Error:', error)
+export function handleApiError(error: unknown, context?: LogContext) {
+  const correlationId = context?.correlationId || generateCorrelationId()
 
   if (error instanceof ZodError) {
-    return errorResponse(
-      `Validation error: ${error.issues.map((e) => e.message).join(', ')}`,
-      400
-    )
+    const message = `Validation error: ${error.issues.map((e) => e.message).join(', ')}`
+    logger.warn(message, { correlationId })
+    return errorResponse(message, 400, correlationId)
   }
 
   if (error instanceof Error) {
     // Check for Prisma errors
     if (error.message.includes('Unique constraint')) {
-      return errorResponse('A record with this value already exists', 409)
+      logger.warn('Unique constraint violation', { correlationId })
+      return errorResponse('A record with this value already exists', 409, correlationId)
     }
     if (error.message.includes('Foreign key constraint')) {
-      return errorResponse('Referenced record not found', 404)
+      logger.warn('Foreign key constraint violation', { correlationId })
+      return errorResponse('Referenced record not found', 404, correlationId)
     }
     if (error.message.includes('Record to update not found')) {
-      return errorResponse('Record not found', 404)
+      logger.warn('Record not found', { correlationId })
+      return errorResponse('Record not found', 404, correlationId)
     }
 
-    return errorResponse(error.message, 500)
+    // Log unexpected errors with stack trace
+    logger.error('API Error', error, { correlationId })
+    return errorResponse(
+      process.env.NODE_ENV === 'production'
+        ? 'An unexpected error occurred'
+        : error.message,
+      500,
+      correlationId
+    )
   }
 
-  return errorResponse('An unexpected error occurred', 500)
+  logger.error('Unknown API Error', undefined, { correlationId, error: String(error) })
+  return errorResponse('An unexpected error occurred', 500, correlationId)
 }
 
 export function parseQueryParams(searchParams: URLSearchParams) {

@@ -143,12 +143,21 @@ export async function DELETE(request: NextRequest) {
         where: { userId: session.userId }
       })
     } else if (notificationId) {
-      await prisma.notification.delete({
+      // Use deleteMany with composite where clause instead of delete
+      // Prisma delete() doesn't support composite where clauses
+      const result = await prisma.notification.deleteMany({
         where: {
           id: notificationId,
           userId: session.userId
         }
       })
+
+      if (result.count === 0) {
+        return NextResponse.json(
+          { error: 'Notification not found or access denied' },
+          { status: 404 }
+        )
+      }
     }
 
     return NextResponse.json({ success: true })

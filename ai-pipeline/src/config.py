@@ -91,6 +91,16 @@ def load_config(config_path: str = None) -> PipelineConfig:
                     config.mqtt_port = data['output']['mqtt'].get('port', config.mqtt_port)
             if 'detection' in data:
                 config.confidence_threshold = data['detection'].get('confidence_threshold', config.confidence_threshold)
+                if 'model' in data['detection']:
+                    config.vehicle_detection_model = data['detection']['model'].get('path', config.vehicle_detection_model)
+                    config.device = data['detection']['model'].get('device', config.device)
+            if 'classification' in data:
+                if 'model' in data['classification']:
+                    config.vehicle_attributes_model = data['classification']['model'].get('path')
+            if 'license_plate_recognition' in data:
+                if 'model' in data['license_plate_recognition']:
+                    config.lpr_detection_model = data['license_plate_recognition']['model'].get('detection', {}).get('path')
+                    config.lpr_recognition_model = data['license_plate_recognition']['model'].get('recognition', {}).get('path')
 
     # Override with environment variables
     config.api_endpoint = os.getenv('API_ENDPOINT', config.api_endpoint)

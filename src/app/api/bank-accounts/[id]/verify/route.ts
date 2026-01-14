@@ -46,14 +46,28 @@ export async function POST(
       )
     }
 
-    // In production, verify the penny drop amount matches
-    // For now, we'll simulate verification
-    // The penny drop amount is typically 1-5 rupees (100-500 paise)
-    const expectedAmount = 100 // 1 rupee in paise (would be stored/generated during initiation)
+    // Verify the penny drop amount matches what was stored during initiation
+    // If no amount was stored, this is an error in the verification flow
+    const expectedAmount = bankAccount.pennyDropAmount
+
+    if (!expectedAmount) {
+      return NextResponse.json(
+        { success: false, error: 'Verification not initiated properly. Please re-add the bank account.' },
+        { status: 400 }
+      )
+    }
 
     if (amount !== expectedAmount) {
       // Track failed attempts
-      const currentAttempts = (bankAccount as any).verificationAttempts || 0
+      const currentAttempts = bankAccount.verificationAttempts || 0
+
+      // Increment verification attempts
+      await prisma.bankAccount.update({
+        where: { id },
+        data: {
+          verificationAttempts: currentAttempts + 1,
+        },
+      })
 
       if (currentAttempts >= 2) {
         // Max 3 attempts, mark as failed
