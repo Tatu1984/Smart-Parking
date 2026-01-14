@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
+import { Prisma } from '@prisma/client'
 import { successResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
 import { createTokenSchema, slotAllocationSchema } from '@/lib/validators'
 import { v4 as uuidv4 } from 'uuid'
@@ -140,16 +141,8 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Mark slot as reserved/occupied
-    if (allocatedSlot) {
-      await prisma.slot.update({
-        where: { id: allocatedSlot.id },
-        data: {
-          status: 'RESERVED',
-          isOccupied: false,
-        },
-      })
-    }
+    // Note: Slot is already marked as reserved within allocateSlot transaction
+    // This prevents race conditions where multiple requests could allocate the same slot
 
     return successResponse(token, 'Token created successfully')
   } catch (error) {
@@ -171,49 +164,88 @@ async function allocateSlot(data: {
   isAccessible?: boolean
   needsEvCharging?: boolean
 }) {
-  // Build slot query conditions
-  const conditions: any = {
-    zone: { parkingLotId: data.parkingLotId },
-    status: 'AVAILABLE',
-    isOccupied: false,
-    isUnderMaintenance: false,
-  }
+  // Use transaction with row-level locking to prevent race conditions
+  return await prisma.$transaction(async (tx) => {
+    // Build slot query conditions
+    const conditions: any = {
+      zone: { parkingLotId: data.parkingLotId },
+      status: 'AVAILABLE',
+      isOccupied: false,
+      isUnderMaintenance: false,
+    }
 
-  if (data.vehicleType) {
-    conditions.OR = [
-      { vehicleType: data.vehicleType },
-      { vehicleType: 'ANY' },
-    ]
-  }
+    if (data.vehicleType) {
+      conditions.OR = [
+        { vehicleType: data.vehicleType },
+        { vehicleType: 'ANY' },
+      ]
+    }
 
-  if (data.isAccessible) {
-    conditions.isAccessible = true
-  }
+    if (data.isAccessible) {
+      conditions.isAccessible = true
+    }
 
-  if (data.needsEvCharging) {
-    conditions.hasEvCharger = true
-  }
+    if (data.needsEvCharging) {
+      conditions.hasEvCharger = true
+    }
 
-  if (data.preferredZoneType) {
-    conditions.zone.zoneType = data.preferredZoneType
-  }
+    if (data.preferredZoneType) {
+      conditions.zone.zoneType = data.preferredZoneType
+    }
 
-  // Find available slot
-  const slot = await prisma.slot.findFirst({
-    where: conditions,
-    orderBy: [
-      { zone: { level: 'asc' } },
-      { zone: { sortOrder: 'asc' } },
-      { slotNumber: 'asc' },
-    ],
-    select: {
-      id: true,
-      slotNumber: true,
-      zone: {
-        select: { id: true, name: true, code: true, level: true },
+    // Find available slot with FOR UPDATE lock using raw query
+    // This prevents race conditions where multiple requests could allocate the same slot
+    const slots = await tx.$queryRaw<Array<{
+      id: string
+      slotNumber: string
+      zone_id: string
+      zone_name: string
+      zone_code: string
+      zone_level: number
+    }>>`
+      SELECT s.id, s.slot_number as "slotNumber", z.id as zone_id, z.name as zone_name, z.code as zone_code, z.level as zone_level
+      FROM slots s
+      JOIN zones z ON s.zone_id = z.id
+      WHERE z.parking_lot_id = ${data.parkingLotId}
+        AND s.status = 'AVAILABLE'
+        AND s.is_occupied = false
+        AND s.is_under_maintenance = false
+        ${data.vehicleType ? Prisma.sql`AND (s.vehicle_type = ${data.vehicleType} OR s.vehicle_type = 'ANY')` : Prisma.empty}
+        ${data.isAccessible ? Prisma.sql`AND s.is_accessible = true` : Prisma.empty}
+        ${data.needsEvCharging ? Prisma.sql`AND s.has_ev_charger = true` : Prisma.empty}
+        ${data.preferredZoneType ? Prisma.sql`AND z.zone_type = ${data.preferredZoneType}` : Prisma.empty}
+      ORDER BY z.level ASC, z.sort_order ASC, s.slot_number ASC
+      LIMIT 1
+      FOR UPDATE SKIP LOCKED
+    `
+
+    if (slots.length === 0) {
+      return null
+    }
+
+    const slot = slots[0]
+
+    // Immediately mark the slot as reserved within the same transaction
+    await tx.slot.update({
+      where: { id: slot.id },
+      data: {
+        status: 'RESERVED',
+        isOccupied: false,
       },
-    },
-  })
+    })
 
-  return slot
+    return {
+      id: slot.id,
+      slotNumber: slot.slotNumber,
+      zone: {
+        id: slot.zone_id,
+        name: slot.zone_name,
+        code: slot.zone_code,
+        level: slot.zone_level,
+      },
+    }
+  }, {
+    isolationLevel: 'Serializable',
+    timeout: 10000, // 10 second timeout
+  })
 }

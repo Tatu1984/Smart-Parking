@@ -37,7 +37,6 @@ import {
   Search,
   MoreHorizontal,
   Eye,
-  Edit,
   Trash2,
   RefreshCw,
   Video,
@@ -48,16 +47,20 @@ import {
   Zap,
   AlertTriangle,
   CheckCircle,
+  Play,
+  X,
+  Maximize2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { CameraStream } from '@/components/camera'
 
 interface CameraData {
   id: string
   name: string
   rtspUrl: string
   onvifUrl: string | null
-  status: string
+  status: 'ONLINE' | 'OFFLINE' | 'MAINTENANCE' | 'ERROR'
   resolution: string | null
   frameRate: number | null
   positionDescription: string | null
@@ -66,6 +69,8 @@ interface CameraData {
   hasPTZ: boolean
   isActive: boolean
   lastSeenAt: string | null
+  username?: string
+  password?: string
   parkingLot: {
     id: string
     name: string
@@ -96,6 +101,8 @@ export default function CamerasPage() {
   const [creating, setCreating] = useState(false)
   const [selectedCamera, setSelectedCamera] = useState<CameraData | null>(null)
   const [editingCamera, setEditingCamera] = useState<CameraData | null>(null)
+  const [streamingCamera, setStreamingCamera] = useState<CameraData | null>(null)
+  const [updating, setUpdating] = useState(false)
 
   const fetchCameras = async () => {
     setLoading(true)
@@ -163,6 +170,44 @@ export default function CamerasPage() {
       toast.error('Failed to add camera')
     } finally {
       setCreating(false)
+    }
+  }
+
+  const handleUpdateCamera = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!editingCamera) return
+
+    setUpdating(true)
+    const formData = new FormData(e.currentTarget)
+
+    try {
+      const res = await fetch(`/api/cameras/${editingCamera.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.get('name'),
+          rtspUrl: formData.get('rtspUrl'),
+          onvifUrl: formData.get('onvifUrl') || undefined,
+          username: formData.get('username') || undefined,
+          password: formData.get('password') || undefined,
+          positionDescription: formData.get('positionDescription') || undefined,
+          coverageSlots: parseInt(formData.get('coverageSlots') as string) || 10,
+          hasIR: formData.get('hasIR') === 'on',
+          hasPTZ: formData.get('hasPTZ') === 'on',
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success('Camera updated successfully')
+        setEditingCamera(null)
+        fetchCameras()
+      } else {
+        toast.error(data.error || 'Failed to update camera')
+      }
+    } catch (error) {
+      toast.error('Failed to update camera')
+    } finally {
+      setUpdating(false)
     }
   }
 
@@ -396,17 +441,29 @@ export default function CamerasPage() {
         ) : (
           cameras.map((camera) => {
             const config = statusConfig[camera.status] || statusConfig.OFFLINE
-            const StatusIcon = config.icon
 
             return (
               <Card key={camera.id} className="overflow-hidden">
                 {/* Camera Preview Placeholder */}
-                <div className="aspect-video bg-slate-900 relative flex items-center justify-center">
+                <div className="aspect-video bg-slate-900 relative flex items-center justify-center group">
                   {camera.status === 'ONLINE' && camera.isActive ? (
-                    <div className="text-center text-white">
-                      <Video className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm opacity-50">Live Feed</p>
-                    </div>
+                    <>
+                      <div className="text-center text-white">
+                        <Video className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm opacity-50">Live Feed Available</p>
+                      </div>
+                      {/* Play Button Overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="lg"
+                          className="gap-2"
+                          onClick={() => setStreamingCamera(camera)}
+                        >
+                          <Play className="h-5 w-5" />
+                          View Stream
+                        </Button>
+                      </div>
+                    </>
                   ) : (
                     <div className="text-center text-white">
                       <VideoOff className="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -446,6 +503,12 @@ export default function CamerasPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
+                        {camera.status === 'ONLINE' && (
+                          <DropdownMenuItem onClick={() => setStreamingCamera(camera)}>
+                            <Play className="mr-2 h-4 w-4" />
+                            View Live Stream
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => setSelectedCamera(camera)}>
                           <Eye className="mr-2 h-4 w-4" />
                           View Details
@@ -495,6 +558,31 @@ export default function CamerasPage() {
           })
         )}
       </div>
+
+      {/* Live Stream Dialog */}
+      <Dialog open={!!streamingCamera} onOpenChange={() => setStreamingCamera(null)}>
+        <DialogContent className="max-w-4xl p-0">
+          <div className="relative">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2 z-10 bg-black/50 hover:bg-black/70 text-white"
+              onClick={() => setStreamingCamera(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            {streamingCamera && (
+              <CameraStream
+                cameraId={streamingCamera.id}
+                cameraName={streamingCamera.name}
+                status={streamingCamera.status}
+                showControls={true}
+                autoPlay={true}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Camera Details Dialog */}
       <Dialog open={!!selectedCamera} onOpenChange={() => setSelectedCamera(null)}>
@@ -552,7 +640,123 @@ export default function CamerasPage() {
                 {selectedCamera.resolution && <Badge variant="outline">{selectedCamera.resolution}</Badge>}
                 {selectedCamera.frameRate && <Badge variant="outline">{selectedCamera.frameRate} fps</Badge>}
               </div>
+              <DialogFooter>
+                {selectedCamera.status === 'ONLINE' && (
+                  <Button onClick={() => {
+                    setStreamingCamera(selectedCamera)
+                    setSelectedCamera(null)
+                  }}>
+                    <Play className="h-4 w-4 mr-2" />
+                    View Live Stream
+                  </Button>
+                )}
+              </DialogFooter>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Camera Dialog */}
+      <Dialog open={!!editingCamera} onOpenChange={() => setEditingCamera(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Camera</DialogTitle>
+            <DialogDescription>
+              Update camera configuration
+            </DialogDescription>
+          </DialogHeader>
+          {editingCamera && (
+            <form onSubmit={handleUpdateCamera}>
+              <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-name">Camera Name *</Label>
+                  <Input
+                    id="edit-name"
+                    name="name"
+                    defaultValue={editingCamera.name}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-rtspUrl">RTSP URL *</Label>
+                  <Input
+                    id="edit-rtspUrl"
+                    name="rtspUrl"
+                    defaultValue={editingCamera.rtspUrl}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-onvifUrl">ONVIF URL (Optional)</Label>
+                  <Input
+                    id="edit-onvifUrl"
+                    name="onvifUrl"
+                    defaultValue={editingCamera.onvifUrl || ''}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-username">Username</Label>
+                    <Input
+                      id="edit-username"
+                      name="username"
+                      defaultValue={editingCamera.username || ''}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-password">Password</Label>
+                    <Input
+                      id="edit-password"
+                      name="password"
+                      type="password"
+                      placeholder="Leave blank to keep current"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-positionDescription">Position Description</Label>
+                  <Input
+                    id="edit-positionDescription"
+                    name="positionDescription"
+                    defaultValue={editingCamera.positionDescription || ''}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-coverageSlots">Coverage (slots)</Label>
+                  <Input
+                    id="edit-coverageSlots"
+                    name="coverageSlots"
+                    type="number"
+                    defaultValue={editingCamera.coverageSlots}
+                    min={1}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="edit-hasIR">Infrared (Night Vision)</Label>
+                  <Switch
+                    id="edit-hasIR"
+                    name="hasIR"
+                    defaultChecked={editingCamera.hasIR}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="edit-hasPTZ">Pan-Tilt-Zoom (PTZ)</Label>
+                  <Switch
+                    id="edit-hasPTZ"
+                    name="hasPTZ"
+                    defaultChecked={editingCamera.hasPTZ}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setEditingCamera(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updating}>
+                  {updating ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </DialogFooter>
+            </form>
           )}
         </DialogContent>
       </Dialog>

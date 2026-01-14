@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
@@ -30,6 +30,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useUIStore } from '@/store'
+import { toast } from 'sonner'
 
 const navigation = [
   {
@@ -75,7 +76,28 @@ const navigation = [
 
 export function SidebarNav() {
   const pathname = usePathname()
+  const router = useRouter()
   const { sidebarCollapsed, setSidebarCollapsed } = useUIStore()
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+
+      if (response.ok) {
+        toast.success('Logged out successfully')
+        router.push('/login')
+        router.refresh()
+      } else {
+        toast.error('Failed to logout')
+      }
+    } catch (error) {
+      console.error('Logout error:', error)
+      toast.error('Failed to logout')
+    }
+  }
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -175,7 +197,12 @@ export function SidebarNav() {
                 </Tooltip>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="w-full text-destructive">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="w-full text-destructive"
+                      onClick={handleLogout}
+                    >
                       <LogOut className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
@@ -191,6 +218,7 @@ export function SidebarNav() {
                 <Button
                   variant="ghost"
                   className="w-full justify-start gap-3 text-destructive hover:text-destructive"
+                  onClick={handleLogout}
                 >
                   <LogOut className="h-4 w-4" />
                   Logout

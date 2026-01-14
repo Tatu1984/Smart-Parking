@@ -4,6 +4,7 @@
  */
 
 export * from './razorpay'
+export * from './stripe'
 
 export type PaymentMethod = 'razorpay' | 'stripe' | 'cash' | 'wallet' | 'upi'
 export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'refunded'
@@ -79,11 +80,39 @@ async function processRazorpayPayment(request: PaymentRequest): Promise<PaymentR
 }
 
 async function processStripePayment(request: PaymentRequest): Promise<PaymentResult> {
-  // Stripe integration placeholder
-  return {
-    success: false,
-    status: 'failed',
-    error: 'Stripe integration not yet implemented'
+  try {
+    const { createPaymentIntent, isStripeConfigured } = await import('./stripe')
+
+    if (!isStripeConfigured()) {
+      return {
+        success: false,
+        status: 'failed',
+        error: 'Stripe is not configured'
+      }
+    }
+
+    const intent = await createPaymentIntent({
+      amount: request.amount,
+      currency: request.currency,
+      description: request.description || 'Parking Payment',
+      metadata: {
+        tokenId: request.tokenId || '',
+        sessionId: request.sessionId || ''
+      }
+    })
+
+    return {
+      success: true,
+      paymentId: intent.id,
+      status: 'pending',
+      redirectUrl: `/pay/stripe?clientSecret=${intent.clientSecret}`
+    }
+  } catch (error) {
+    return {
+      success: false,
+      status: 'failed',
+      error: error instanceof Error ? error.message : 'Stripe payment failed'
+    }
   }
 }
 

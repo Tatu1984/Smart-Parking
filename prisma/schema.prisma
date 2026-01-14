@@ -274,6 +274,8 @@ model Slot {
   tokenAllocations Token[]
 
   @@unique([zoneId, slotNumber])
+  @@index([zoneId, isOccupied, status])
+  @@index([cameraId])
   @@map("slots")
 }
 
@@ -373,6 +375,7 @@ model Camera {
   slots      Slot[]
   detectionEvents DetectionEvent[]
 
+  @@index([parkingLotId, status])
   @@map("cameras")
 }
 
@@ -520,6 +523,9 @@ model Token {
   transactions  Transaction[]
   gateEvents    GateEvent[]
 
+  @@index([parkingLotId, status])
+  @@index([parkingLotId, entryTime])
+  @@index([status, entryTime])
   @@map("tokens")
 }
 
@@ -657,6 +663,9 @@ model Transaction {
   parkingLot ParkingLot @relation(fields: [parkingLotId], references: [id])
   token      Token      @relation(fields: [tokenId], references: [id])
 
+  @@index([parkingLotId, createdAt])
+  @@index([parkingLotId, paymentStatus])
+  @@index([tokenId])
   @@map("transactions")
 }
 
@@ -709,6 +718,7 @@ model DetectionEvent {
   camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
 
   @@index([cameraId, timestamp])
+  @@index([eventType, timestamp])
   @@map("detection_events")
 }
 
@@ -864,6 +874,7 @@ model Wallet {
 
   @@unique([userId])
   @@unique([parkingLotId])
+  @@index([status])
   @@map("wallets")
 }
 
@@ -914,6 +925,8 @@ model BankAccount {
   // Penny drop verification
   pennyDropRef     String?
   pennyDropStatus  String?
+  pennyDropAmount  Int?              // Amount in paise for verification
+  verificationAttempts Int           @default(0)
 
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
@@ -922,6 +935,7 @@ model BankAccount {
   withdrawals  WalletTransaction[] @relation("WithdrawalAccount")
   deposits     WalletTransaction[] @relation("DepositAccount")
 
+  @@index([walletId])
   @@map("bank_accounts")
 }
 

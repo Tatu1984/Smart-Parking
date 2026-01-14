@@ -1,11 +1,48 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { successResponse, handleApiError } from '@/lib/utils/api'
 import { detectionEventSchema } from '@/lib/validators'
 
+const DETECTION_API_KEY = process.env.DETECTION_API_KEY
+const DEV_API_KEY = 'dev-detection-api-key' // Development-only fallback
+
 // POST /api/realtime/detection - Receive detection events from AI pipeline
 export async function POST(request: NextRequest) {
   try {
+    // Validate API key from AI pipeline
+    const apiKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '')
+
+    // In production, require proper API key
+    if (process.env.NODE_ENV === 'production') {
+      if (!DETECTION_API_KEY) {
+        console.error('DETECTION_API_KEY not configured')
+        return NextResponse.json(
+          { error: 'Detection endpoint not configured' },
+          { status: 500 }
+        )
+      }
+
+      if (!apiKey || apiKey !== DETECTION_API_KEY) {
+        return NextResponse.json(
+          { error: 'Unauthorized - Invalid or missing API key' },
+          { status: 401 }
+        )
+      }
+    } else {
+      // Development mode: allow dev key or configured key
+      const validKey = DETECTION_API_KEY || DEV_API_KEY
+      if (apiKey && apiKey !== validKey && apiKey !== DEV_API_KEY) {
+        return NextResponse.json(
+          { error: 'Unauthorized - Invalid API key' },
+          { status: 401 }
+        )
+      }
+      // In dev, allow requests without API key for easier testing
+      if (!apiKey) {
+        console.warn('WARNING: Detection request without API key (allowed in development)')
+      }
+    }
+
     const body = await request.json()
     const data = detectionEventSchema.parse(body)
 

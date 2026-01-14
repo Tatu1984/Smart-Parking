@@ -322,6 +322,140 @@ class SlotOccupancyDetector:
         return intersection / union if union > 0 else 0
 
 
+class VehicleAttributesClassifier:
+    """
+    Vehicle attributes classification using Intel OpenVINO
+    Extracts vehicle type and color from detected vehicle crops
+    """
+
+    # Vehicle type labels from vehicle-attributes-recognition-barrier-0039
+    VEHICLE_TYPES = ["car", "bus", "truck", "van"]
+
+    # Vehicle color labels
+    VEHICLE_COLORS = [
+        "white", "gray", "yellow", "red", "green",
+        "blue", "black", "silver", "orange", "brown", "pink"
+    ]
+
+    def __init__(
+        self,
+        model_path: str = "/opt/intel/openvino/models/vehicle-attributes-recognition-barrier-0039.xml",
+        device: str = "CPU"
+    ):
+        self.model_path = model_path
+        self.device = device.upper()
+        self.model = None
+        self.input_shape = (72, 72)  # Model input size
+
+        self._load_model()
+
+    def _load_model(self):
+        """Load the vehicle attributes model using OpenVINO"""
+        try:
+            from openvino import Core
+
+            ie = Core()
+
+            if not Path(self.model_path).exists():
+                logger.warning(f"Vehicle attributes model not found at {self.model_path}")
+                logger.info("Vehicle attributes classification will be disabled")
+                return
+
+            logger.info(f"Loading vehicle attributes model: {self.model_path}")
+            model = ie.read_model(self.model_path)
+
+            # Check device availability
+            device = self.device
+            if device == "GPU" and "GPU" not in ie.available_devices:
+                logger.warning("GPU not available for attributes model, using CPU")
+                device = "CPU"
+
+            self.model = ie.compile_model(model, device)
+            logger.info(f"Vehicle attributes model loaded on {device}")
+
+        except ImportError:
+            logger.error("OpenVINO not installed, vehicle attributes disabled")
+        except Exception as e:
+            logger.error(f"Failed to load vehicle attributes model: {e}")
+
+    def classify(self, frame: np.ndarray, detections: List[Detection]) -> List[Detection]:
+        """
+        Classify vehicle attributes for each detection
+
+        Args:
+            frame: Original BGR image
+            detections: List of vehicle detections with bounding boxes
+
+        Returns:
+            Updated detections with attributes
+        """
+        if self.model is None:
+            return detections
+
+        for detection in detections:
+            try:
+                # Extract vehicle crop
+                x1, y1, x2, y2 = detection.bbox
+
+                # Ensure bbox is within frame bounds
+                h, w = frame.shape[:2]
+                x1 = max(0, x1)
+                y1 = max(0, y1)
+                x2 = min(w, x2)
+                y2 = min(h, y2)
+
+                if x2 <= x1 or y2 <= y1:
+                    continue
+
+                crop = frame[y1:y2, x1:x2]
+
+                if crop.size == 0:
+                    continue
+
+                # Preprocess for model
+                resized = cv2.resize(crop, self.input_shape)
+                # Model expects BGR input, normalized
+                input_data = resized.transpose(2, 0, 1).astype(np.float32)
+                input_data = np.expand_dims(input_data, axis=0)
+
+                # Run inference
+                results = self.model([input_data])
+
+                # Parse outputs
+                # Model has two outputs: color (index 0) and type (index 1)
+                color_output = results[self.model.output(0)][0]
+                type_output = results[self.model.output(1)][0]
+
+                # Get predictions
+                color_idx = np.argmax(color_output)
+                type_idx = np.argmax(type_output)
+
+                color_conf = float(color_output[color_idx])
+                type_conf = float(type_output[type_idx])
+
+                # Extract attribute values
+                color = self.VEHICLE_COLORS[color_idx] if color_idx < len(self.VEHICLE_COLORS) else "unknown"
+                vehicle_type = self.VEHICLE_TYPES[type_idx] if type_idx < len(self.VEHICLE_TYPES) else "unknown"
+
+                # Update detection attributes
+                detection.attributes = {
+                    "color": color,
+                    "colorConfidence": color_conf,
+                    "type": vehicle_type,
+                    "typeConfidence": type_conf
+                }
+
+            except Exception as e:
+                logger.debug(f"Failed to classify vehicle attributes: {e}")
+                continue
+
+        return detections
+
+    def is_available(self) -> bool:
+        """Check if the classifier is ready"""
+        return self.model is not None
+
+
 class SimpleTracker:
     """
     Simple object tracker using IoU matching

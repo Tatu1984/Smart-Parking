@@ -1,19 +1,26 @@
 """
 Main AI Pipeline Runner
 Orchestrates camera capture, detection, and event publishing
+Optimized for <100ms latency
 """
 import asyncio
 import signal
 import logging
+import time
 from datetime import datetime
 from typing import Dict, List, Optional
 import aiohttp
 
 from .config import load_config, PipelineConfig, CameraConfig
 from .camera import CameraManager, CameraStream, FrameData, MockCameraStream
-from .detector import VehicleDetector, SlotOccupancyDetector, SimpleTracker, Detection
+from .detector import VehicleDetector, SlotOccupancyDetector, SimpleTracker, Detection, VehicleAttributesClassifier
 from .anpr import ANPRPipeline, LicensePlate
 from .publisher import EventPublisher, DetectionEvent
+from .optimization import (
+    LatencyMetrics, FrameSkipper, BatchProcessor,
+    AsyncInferenceQueue, ROIOptimizer, ModelWarmup,
+    LatencyProfiler, get_optimal_config
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +28,21 @@ logger = logging.getLogger(__name__)
 class ParkingPipeline:
     """
     Main parking detection pipeline
+    Optimized for <100ms end-to-end latency
     """
 
     def __init__(self, config: PipelineConfig):
         self.config = config
 
+        # Get optimal hardware config
+        hw_config = get_optimal_config(config.device)
+        logger.info(f"Using hardware config: {hw_config}")
+
         # Initialize components
         self.camera_manager = CameraManager()
         self.vehicle_detector = VehicleDetector(
             model_path=config.vehicle_detection_model,
-            device=config.device,
+            device=hw_config['device'],
             confidence_threshold=config.confidence_threshold
         )
         self.slot_detector = SlotOccupancyDetector(
@@ -46,7 +58,11 @@ class ParkingPipeline:
         self.anpr = ANPRPipeline(
             detection_model=config.lpr_detection_model or "license-plate-detection.xml",
             recognition_model=config.lpr_recognition_model or "license-plate-recognition.xml",
-            device=config.device
+            device=hw_config['device']
+        )
+        self.attributes_classifier = VehicleAttributesClassifier(
+            model_path=config.vehicle_attributes_model or "/opt/intel/openvino/models/vehicle-attributes-recognition-barrier-0039.xml",
+            device=hw_config['device']
         )
         self.publisher = EventPublisher(
             api_endpoint=config.api_endpoint,
@@ -58,11 +74,26 @@ class ParkingPipeline:
             mqtt_topic_prefix=config.mqtt_topic_prefix
         )
 
+        # Optimization components
+        self.latency_metrics = LatencyMetrics()
+        self.frame_skipper = FrameSkipper(
+            target_latency_ms=100,
+            min_interval=1,
+            max_interval=config.inference_interval
+        )
+        self.roi_optimizer = ROIOptimizer()
+        self.profiler = LatencyProfiler()
+        self.async_queue = AsyncInferenceQueue(
+            max_queue_size=10,
+            num_workers=hw_config.get('inference_threads', 2)
+        )
+
         # Camera slot configurations
         self._camera_slots: Dict[str, List[Dict]] = {}
 
         # Running state
         self._running = False
+        self._warmup_done = False
 
     async def start(self):
         """Start the pipeline"""
@@ -73,6 +104,12 @@ class ParkingPipeline:
 
         # Fetch slot configurations from API
         await self._fetch_slot_configs()
+
+        # Model warmup for consistent latency
+        if not self._warmup_done:
+            logger.info("Warming up models...")
+            ModelWarmup.warmup_detector(self.vehicle_detector)
+            self._warmup_done = True
 
         # Start cameras
         for camera_config in self.config.cameras:
@@ -89,7 +126,12 @@ class ParkingPipeline:
         logger.info("Stopping parking detection pipeline...")
         self._running = False
         self.camera_manager.stop_all()
+        self.async_queue.shutdown()
         await self.publisher.stop()
+
+        # Log final latency stats
+        stats = self.latency_metrics.get_stats()
+        logger.info(f"Final latency stats: {stats}")
         logger.info("Pipeline stopped")
 
     def _add_camera(self, camera_config: CameraConfig):
@@ -104,7 +146,7 @@ class ParkingPipeline:
         self._camera_slots[camera_config.id] = camera_config.slots
 
     async def run(self):
-        """Main processing loop"""
+        """Main processing loop - optimized for <100ms latency"""
         frame_count = 0
 
         while self._running:
@@ -114,40 +156,69 @@ class ParkingPipeline:
                 if frame_data is None:
                     continue
 
-                # Skip frames based on inference interval
-                if frame_data.frame_number % self.config.inference_interval != 0:
+                # Adaptive frame skipping based on measured latency
+                if not self.frame_skipper.should_process(frame_data.frame_number):
                     continue
 
                 frame_count += 1
 
                 try:
+                    start_time = time.time()
                     await self._process_frame(frame_data)
+                    latency_ms = (time.time() - start_time) * 1000
+
+                    # Update adaptive frame skipper
+                    self.frame_skipper.update(latency_ms)
+                    self.latency_metrics.record('total', latency_ms)
+
+                    # Log if exceeding target latency
+                    if latency_ms > 100:
+                        logger.warning(f"Frame {frame_data.frame_number} exceeded latency target: {latency_ms:.1f}ms")
+
                 except Exception as e:
                     logger.error(f"Frame processing error: {e}")
 
             # Prevent busy loop
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.005)  # Reduced from 0.01 for faster response
 
     async def _process_frame(self, frame_data: FrameData):
-        """Process a single frame"""
+        """Process a single frame - optimized pipeline"""
+        self.profiler.start()
+
         camera_id = frame_data.camera_id
         frame = frame_data.frame
 
-        # Vehicle detection
+        # Vehicle detection (primary bottleneck)
+        det_start = time.time()
         detections = self.vehicle_detector.detect(frame)
+        self.latency_metrics.record('detection', (time.time() - det_start) * 1000)
+        self.profiler.checkpoint('detection')
 
-        # Object tracking
+        # Vehicle attributes classification (color, type) - run only if detections exist
+        if detections and self.attributes_classifier.is_available():
+            detections = self.attributes_classifier.classify(frame, detections)
+            self.profiler.checkpoint('classification')
+
+        # Object tracking (fast)
+        track_start = time.time()
         detections = self.tracker.update(detections)
+        self.latency_metrics.record('tracking', (time.time() - track_start) * 1000)
+        self.profiler.checkpoint('tracking')
 
         # Slot occupancy update
         slots = self._camera_slots.get(camera_id, [])
         slot_updates = self.slot_detector.update(detections, slots)
+        self.profiler.checkpoint('slot_update')
 
-        # ANPR for detected vehicles
+        # ANPR for detected vehicles - only for vehicles near entry/exit
         license_plates: List[LicensePlate] = []
-        for det in detections:
+        anpr_start = time.time()
+        # Limit ANPR to first 3 detections to stay within latency budget
+        for det in detections[:3]:
             plates = self.anpr.process(frame, [det.bbox])
             license_plates.extend(plates)
+        self.latency_metrics.record('anpr', (time.time() - anpr_start) * 1000)
+        self.profiler.checkpoint('anpr')
 
         # Publish detection event
         event = DetectionEvent(

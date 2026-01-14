@@ -6,9 +6,32 @@ import bcrypt from 'bcryptjs'
 import { SignJWT } from 'jose'
 import { cookies } from 'next/headers'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'your-secret-key-min-32-characters-long!'
-)
+// Development-only fallback secret (NEVER use in production)
+const DEV_SECRET = 'dev-only-secret-key-min-32-chars-long!'
+
+function getJwtSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET
+
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret) {
+      throw new Error('JWT_SECRET environment variable is required in production')
+    }
+    if (secret.length < 32) {
+      throw new Error('JWT_SECRET must be at least 32 characters long')
+    }
+    return new TextEncoder().encode(secret)
+  }
+
+  // Development mode: use provided secret or fallback
+  if (secret) {
+    return new TextEncoder().encode(secret)
+  }
+
+  console.warn('WARNING: Using development fallback JWT secret')
+  return new TextEncoder().encode(DEV_SECRET)
+}
+
+const JWT_SECRET = getJwtSecret()
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,6 +65,35 @@ export async function POST(request: NextRequest) {
     const isValidPassword = await bcrypt.compare(password, user.passwordHash)
     if (!isValidPassword) {
       return errorResponse('Invalid email or password', 401)
+    }
+
+    // Check concurrent session limit
+    const maxSessions = parseInt(process.env.MAX_SESSIONS_PER_USER || '5')
+    const activeSessions = await prisma.session.count({
+      where: {
+        userId: user.id,
+        expiresAt: { gt: new Date() },
+      },
+    })
+
+    // If at or over limit, remove oldest session(s)
+    if (activeSessions >= maxSessions) {
+      const sessionsToRemove = activeSessions - maxSessions + 1
+      const oldestSessions = await prisma.session.findMany({
+        where: {
+          userId: user.id,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: sessionsToRemove,
+        select: { id: true },
+      })
+
+      await prisma.session.deleteMany({
+        where: {
+          id: { in: oldestSessions.map((s) => s.id) },
+        },
+      })
     }
 
     // Create JWT token
@@ -78,6 +130,7 @@ export async function POST(request: NextRequest) {
       path: '/',
     })
 
+    // Note: Token is set in httpOnly cookie, not returned in response body for security
     return successResponse({
       user: {
         id: user.id,
@@ -87,7 +140,6 @@ export async function POST(request: NextRequest) {
         organization: user.organization,
         assignedLots: user.assignedLots.map((a: { parkingLot: { id: string; name: string; slug: string } }) => a.parkingLot),
       },
-      token,
     })
   } catch (error) {
     return handleApiError(error)

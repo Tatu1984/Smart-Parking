@@ -1,5 +1,6 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { getCurrentUser } from '@/lib/auth/session'
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api'
 import { updateUserSchema } from '@/lib/validators'
 import bcrypt from 'bcryptjs'
@@ -10,7 +11,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { id } = await params
+
+    // Users can view their own profile, admins can view anyone
+    if (id !== currentUser.id && !['ADMIN', 'SUPER_ADMIN'].includes(currentUser.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -76,14 +87,50 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { id } = await params
+
+    // Users can update their own profile (limited fields), admins can update anyone
+    const isOwnProfile = id === currentUser.id
+    const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(currentUser.role)
+
+    if (!isOwnProfile && !isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const body = await request.json()
     const data = updateUserSchema.parse(body)
 
+    // Non-admins can only update certain fields on their own profile
+    if (isOwnProfile && !isAdmin) {
+      const allowedFields = ['name', 'phone', 'avatar', 'password']
+      for (const key of Object.keys(data)) {
+        if (!allowedFields.includes(key)) {
+          return NextResponse.json(
+            { error: `Cannot update field: ${key}` },
+            { status: 403 }
+          )
+        }
+      }
+    }
+
+    // Prevent non-super-admins from creating super admins
+    if (data.role === 'SUPER_ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: 'Only super admins can assign super admin role' },
+        { status: 403 }
+      )
+    }
+
     // Check if updating password
-    let updateData: any = { ...data }
-    if (body.password) {
-      updateData.passwordHash = await bcrypt.hash(body.password, 12)
+    let updateData: Record<string, unknown> = { ...data }
+    if (data.password) {
+      updateData.passwordHash = await bcrypt.hash(data.password, 12)
+      delete updateData.password
     }
 
     const user = await prisma.user.update({
@@ -120,7 +167,22 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Only ADMIN or SUPER_ADMIN can delete users
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(currentUser.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const { id } = await params
+
+    // Prevent self-deletion
+    if (id === currentUser.id) {
+      return errorResponse('Cannot delete your own account', 400)
+    }
 
     // Check if user exists
     const user = await prisma.user.findUnique({
@@ -132,8 +194,17 @@ export async function DELETE(
       return errorResponse('User not found', 404)
     }
 
+    // Only SUPER_ADMIN can delete other admins
+    if (user.role === 'ADMIN' && currentUser.role !== 'SUPER_ADMIN') {
+      return errorResponse('Only super admins can delete admin users', 403)
+    }
+
     // Prevent deletion of super admins (safety measure)
     if (user.role === 'SUPER_ADMIN') {
+      // Only super admins can delete super admins
+      if (currentUser.role !== 'SUPER_ADMIN') {
+        return errorResponse('Cannot delete super admin', 403)
+      }
       // Check if this is the last super admin
       const superAdminCount = await prisma.user.count({
         where: { role: 'SUPER_ADMIN' },

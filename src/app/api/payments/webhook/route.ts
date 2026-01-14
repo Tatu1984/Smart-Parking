@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import crypto from 'crypto'
 import { sendNotification } from '@/lib/notifications'
 
-const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET || ''
+const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET
 
 // POST /api/payments/webhook - Razorpay webhook handler
 export async function POST(request: NextRequest) {
@@ -11,16 +11,48 @@ export async function POST(request: NextRequest) {
     const body = await request.text()
     const signature = request.headers.get('x-razorpay-signature')
 
-    // Verify webhook signature
-    if (RAZORPAY_WEBHOOK_SECRET && signature) {
+    // In production, require proper signature verification
+    if (process.env.NODE_ENV === 'production') {
+      if (!RAZORPAY_WEBHOOK_SECRET) {
+        console.error('RAZORPAY_WEBHOOK_SECRET not configured')
+        return NextResponse.json(
+          { error: 'Webhook not configured' },
+          { status: 500 }
+        )
+      }
+
+      if (!signature) {
+        console.error('Missing webhook signature')
+        return NextResponse.json({ error: 'Missing signature' }, { status: 401 })
+      }
+
+      // Verify webhook signature using timing-safe comparison
       const expectedSignature = crypto
         .createHmac('sha256', RAZORPAY_WEBHOOK_SECRET)
         .update(body)
         .digest('hex')
 
-      if (signature !== expectedSignature) {
+      const signatureBuffer = Buffer.from(signature, 'hex')
+      const expectedBuffer = Buffer.from(expectedSignature, 'hex')
+
+      if (signatureBuffer.length !== expectedBuffer.length ||
+          !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
         console.error('Invalid webhook signature')
-        return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+      }
+    } else {
+      // Development mode: verify if secret is configured, otherwise log warning
+      if (RAZORPAY_WEBHOOK_SECRET && signature) {
+        const expectedSignature = crypto
+          .createHmac('sha256', RAZORPAY_WEBHOOK_SECRET)
+          .update(body)
+          .digest('hex')
+
+        if (signature !== expectedSignature) {
+          console.warn('WARNING: Webhook signature mismatch in development')
+        }
+      } else {
+        console.warn('WARNING: Webhook signature verification skipped in development')
       }
     }
 

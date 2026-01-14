@@ -1,8 +1,34 @@
 import { SignJWT, jwtVerify } from 'jose'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'your-secret-key-min-32-chars-long!'
-)
+// Development-only fallback secret (NEVER use in production)
+const DEV_SECRET = 'dev-only-secret-key-min-32-chars-long!'
+
+function getJwtSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET
+
+  if (process.env.NODE_ENV === 'production') {
+    if (!secret) {
+      throw new Error('JWT_SECRET environment variable is required in production')
+    }
+    if (secret.length < 32) {
+      throw new Error('JWT_SECRET must be at least 32 characters long')
+    }
+    return new TextEncoder().encode(secret)
+  }
+
+  // Development mode: use provided secret or fallback
+  if (secret) {
+    if (secret.length < 32) {
+      console.warn('WARNING: JWT_SECRET should be at least 32 characters long')
+    }
+    return new TextEncoder().encode(secret)
+  }
+
+  console.warn('WARNING: Using development fallback JWT secret. Set JWT_SECRET in production!')
+  return new TextEncoder().encode(DEV_SECRET)
+}
+
+const JWT_SECRET = getJwtSecret()
 
 export interface JWTPayload {
   userId: string
