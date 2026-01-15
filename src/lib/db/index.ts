@@ -10,9 +10,15 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient() {
   const connectionString = process.env.DATABASE_URL
 
+  if (!connectionString) {
+    console.error('DATABASE_URL environment variable is not set!')
+    console.error('Available env vars:', Object.keys(process.env).filter(k => !k.startsWith('npm_')).join(', '))
+    throw new Error('DATABASE_URL is required. Please set it in your environment variables.')
+  }
+
   // Check if running on Vercel/serverless (Neon database)
-  const isServerless = connectionString?.includes('neon.tech') ||
-                       connectionString?.includes('neon.') ||
+  const isServerless = connectionString.includes('neon.tech') ||
+                       connectionString.includes('neon.') ||
                        process.env.VERCEL === '1'
 
   if (isServerless) {
