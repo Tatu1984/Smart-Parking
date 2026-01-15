@@ -1,7 +1,11 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool, neonConfig } from '@neondatabase/serverless'
-import ws from 'ws'
+
+// Enable WebSocket for Neon in serverless environments
+if (typeof globalThis.WebSocket !== 'undefined') {
+  neonConfig.webSocketConstructor = globalThis.WebSocket
+}
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
@@ -12,34 +16,18 @@ function createPrismaClient() {
 
   if (!connectionString) {
     console.error('DATABASE_URL environment variable is not set!')
-    console.error('Available env vars:', Object.keys(process.env).filter(k => !k.startsWith('npm_')).join(', '))
     throw new Error('DATABASE_URL is required. Please set it in your environment variables.')
   }
 
-  // Check if running on Vercel/serverless (Neon database)
-  const isServerless = connectionString.includes('neon.tech') ||
-                       connectionString.includes('neon.') ||
-                       process.env.VERCEL === '1'
+  console.log('Connecting to database...')
 
-  if (isServerless) {
-    // Use Neon serverless adapter for Vercel
-    neonConfig.webSocketConstructor = ws
-    const pool = new Pool({ connectionString })
-    const adapter = new PrismaPg(pool)
-    return new PrismaClient({
-      adapter,
-      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    })
-  } else {
-    // Use standard pg for local development
-    const { Pool: PgPool } = require('pg')
-    const pool = new PgPool({ connectionString })
-    const adapter = new PrismaPg(pool)
-    return new PrismaClient({
-      adapter,
-      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    })
-  }
+  const pool = new Pool({ connectionString })
+  const adapter = new PrismaPg(pool)
+
+  return new PrismaClient({
+    adapter,
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  })
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient()
