@@ -110,6 +110,19 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const method = request.method
 
+  // Handle CORS preflight requests
+  if (method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-CSRF-Token, X-Requested-With',
+        'Access-Control-Max-Age': '86400',
+      },
+    })
+  }
+
   // Generate correlation ID for request tracking
   const correlationId = generateCorrelationId()
 
