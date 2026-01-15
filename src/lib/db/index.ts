@@ -1,46 +1,35 @@
 import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
-import { Pool, neonConfig } from '@neondatabase/serverless'
+import { Pool } from 'pg'
 
-// Enable fetch-based connection for serverless (no WebSocket needed)
-neonConfig.fetchConnectionCache = true
-
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined
+declare global {
+  // eslint-disable-next-line no-var
+  var cachedPrisma: PrismaClient | undefined
 }
 
 function createPrismaClient(): PrismaClient {
-  const connectionString = process.env.DATABASE_URL
+  const databaseUrl = process.env.DATABASE_URL
 
-  if (!connectionString) {
-    throw new Error('DATABASE_URL is not set')
+  if (!databaseUrl) {
+    throw new Error('DATABASE_URL environment variable is not set')
   }
 
-  const pool = new Pool({ connectionString })
+  const pool = new Pool({ connectionString: databaseUrl })
   const adapter = new PrismaPg(pool)
 
   return new PrismaClient({ adapter })
 }
 
-// Lazy initialization - only create client when first accessed
-function getPrismaClient(): PrismaClient {
-  if (!globalForPrisma.prisma) {
-    globalForPrisma.prisma = createPrismaClient()
-  }
-  return globalForPrisma.prisma
-}
+let prisma: PrismaClient
 
-// Use a proxy to lazy-load the client
-const prisma = new Proxy({} as PrismaClient, {
-  get(_target, prop) {
-    const client = getPrismaClient()
-    const value = client[prop as keyof PrismaClient]
-    if (typeof value === 'function') {
-      return value.bind(client)
-    }
-    return value
+if (process.env.NODE_ENV === 'production') {
+  prisma = createPrismaClient()
+} else {
+  if (!global.cachedPrisma) {
+    global.cachedPrisma = createPrismaClient()
   }
-})
+  prisma = global.cachedPrisma
+}
 
 export { prisma }
 export default prisma
