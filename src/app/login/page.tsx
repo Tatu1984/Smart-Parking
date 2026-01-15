@@ -34,7 +34,18 @@ function LoginForm() {
         body: JSON.stringify({ email, password }),
       })
 
-      const data = await response.json()
+      // Handle empty response
+      const text = await response.text()
+      if (!text) {
+        throw new Error('Server returned empty response')
+      }
+
+      let data
+      try {
+        data = JSON.parse(text)
+      } catch {
+        throw new Error('Invalid response from server')
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Login failed')
@@ -47,6 +58,11 @@ function LoginForm() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  function fillDemoCredentials() {
+    setEmail('admin@demo.sparking.io')
+    setPassword('demo123')
   }
 
   return (
@@ -121,14 +137,35 @@ function LoginForm() {
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="flex flex-col gap-4 text-center text-sm text-muted-foreground">
-        <Link
-          href="/forgot-password"
-          className="hover:text-foreground hover:underline"
-        >
-          Forgot your password?
-        </Link>
-        <div>
+      <CardFooter className="flex flex-col gap-4">
+        {/* Demo Credentials */}
+        <div className="w-full rounded-lg border bg-muted/50 p-3">
+          <div className="mb-2 text-xs font-medium text-muted-foreground">Demo Credentials</div>
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              <div><span className="font-medium">Email:</span> admin@demo.sparking.io</div>
+              <div><span className="font-medium">Password:</span> demo123</div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={fillDemoCredentials}
+            >
+              Use Demo
+            </Button>
+          </div>
+        </div>
+
+        <div className="text-center text-sm text-muted-foreground">
+          <Link
+            href="/forgot-password"
+            className="hover:text-foreground hover:underline"
+          >
+            Forgot your password?
+          </Link>
+        </div>
+        <div className="text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{' '}
           <Link
             href="/register"
