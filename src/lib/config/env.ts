@@ -110,7 +110,7 @@ class EnvironmentConfig {
       }
 
       if (!this.config.ENCRYPTION_KEY) {
-        errors.push('ENCRYPTION_KEY is required in production for camera credential encryption')
+        warnings.push('ENCRYPTION_KEY not set - camera credential encryption will be disabled')
       }
 
       if (!this.config.CRON_SECRET) {
