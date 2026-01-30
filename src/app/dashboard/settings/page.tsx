@@ -213,13 +213,13 @@ export default function SettingsPage() {
 
   const updateSettings = <K extends keyof Settings>(
     section: K,
-    key: keyof Settings[K],
-    value: Settings[K][keyof Settings[K]]
+    key: string,
+    value: unknown
   ) => {
     setSettings((prev) => ({
       ...prev,
       [section]: {
-        ...prev[section],
+        ...(prev[section] as Record<string, unknown>),
         [key]: value,
       },
     }))
