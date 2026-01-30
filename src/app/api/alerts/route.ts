@@ -8,6 +8,9 @@ import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api'
 import { z } from 'zod'
+import { logger } from '@/lib/logger'
+import { sendNotification } from '@/lib/notifications'
+import { dispatchWebhook } from '@/lib/webhooks'
 
 // Schema for creating/updating alert rules
 const alertRuleSchema = z.object({
@@ -184,8 +187,50 @@ export async function evaluateAlerts() {
         data: { lastTriggeredAt: new Date() },
       })
 
-      // TODO: Send notifications (email, SMS, push, webhook)
-      console.log(`Alert triggered: ${rule.name} (${rule.metric} = ${currentValue})`)
+      logger.info(`Alert triggered: ${rule.name}`, {
+        metric: rule.metric,
+        value: currentValue,
+        threshold: rule.threshold,
+        ruleId: rule.id,
+      })
+
+      // Send notifications to admin users
+      if (rule.notifyEmail || rule.notifySms) {
+        const adminUsers = await prisma.user.findMany({
+          where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } },
+          select: { id: true, email: true, phone: true },
+        })
+
+        for (const admin of adminUsers) {
+          await sendNotification({
+            type: 'SYSTEM_ALERT',
+            userId: admin.id,
+            email: rule.notifyEmail ? admin.email : undefined,
+            phone: rule.notifySms && admin.phone ? admin.phone : undefined,
+            title: `Alert: ${rule.name}`,
+            message: `${rule.metric} has reached ${currentValue} (threshold: ${rule.threshold})`,
+            data: {
+              ruleId: rule.id,
+              metric: rule.metric,
+              value: currentValue,
+              threshold: rule.threshold,
+            },
+          })
+        }
+      }
+
+      // Dispatch webhook if configured
+      if (rule.webhookUrl) {
+        await dispatchWebhook('alert.triggered', 'system', {
+          ruleId: rule.id,
+          ruleName: rule.name,
+          metric: rule.metric,
+          value: currentValue,
+          threshold: rule.threshold,
+          operator: rule.operator,
+          triggeredAt: new Date().toISOString(),
+        })
+      }
     }
 
     results.push({

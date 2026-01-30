@@ -1,9 +1,11 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -43,54 +45,10 @@ import {
   Calendar,
 } from 'lucide-react'
 import { formatCurrency, type CurrencyCode } from '@/lib/utils/currency'
+import { useAnalyticsData } from '@/hooks/use-analytics-data'
 
 // Current parking lot currency - in production, fetch from context/settings
 const currentCurrency: CurrencyCode = 'INR'
-
-// Mock data for charts
-const occupancyData = Array.from({ length: 24 }, (_, i) => ({
-  hour: `${String(i).padStart(2, '0')}:00`,
-  occupancy: Math.floor(30 + Math.random() * 60),
-  entries: Math.floor(5 + Math.random() * 20),
-  exits: Math.floor(5 + Math.random() * 20),
-}))
-
-const revenueData = Array.from({ length: 7 }, (_, i) => {
-  const date = new Date()
-  date.setDate(date.getDate() - (6 - i))
-  return {
-    date: date.toLocaleDateString('en-US', { weekday: 'short' }),
-    revenue: Math.floor(20000 + Math.random() * 30000),
-    transactions: Math.floor(100 + Math.random() * 150),
-  }
-})
-
-const vehicleTypeData = [
-  { type: 'Car', count: 245, color: '#3b82f6' },
-  { type: 'SUV', count: 89, color: '#22c55e' },
-  { type: 'Motorcycle', count: 56, color: '#f59e0b' },
-  { type: 'Van', count: 23, color: '#8b5cf6' },
-]
-
-const zonePerformance = [
-  { zone: 'Zone A', occupancy: 85, revenue: 15000 },
-  { zone: 'Zone B', occupancy: 72, revenue: 12000 },
-  { zone: 'Zone C', occupancy: 65, revenue: 10000 },
-  { zone: 'VIP', occupancy: 45, revenue: 8000 },
-  { zone: 'EV', occupancy: 58, revenue: 6000 },
-]
-
-const peakHoursData = [
-  { hour: '08:00', entries: 45 },
-  { hour: '09:00', entries: 78 },
-  { hour: '10:00', entries: 52 },
-  { hour: '11:00', entries: 38 },
-  { hour: '12:00', entries: 65 },
-  { hour: '13:00', entries: 42 },
-  { hour: '17:00', entries: 85 },
-  { hour: '18:00', entries: 92 },
-  { hour: '19:00', entries: 68 },
-]
 
 const chartConfig = {
   occupancy: { label: 'Occupancy', color: 'hsl(var(--chart-1))' },
@@ -100,6 +58,16 @@ const chartConfig = {
 }
 
 export default function AnalyticsPage() {
+  const [period, setPeriod] = useState('7d')
+  const {
+    occupancyData,
+    revenueData,
+    vehicleTypeData,
+    zonePerformance,
+    peakHoursData,
+    summary,
+    loading,
+  } = useAnalyticsData(period)
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -111,7 +79,7 @@ export default function AnalyticsPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <Select defaultValue="7d">
+          <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-[150px]">
               <Calendar className="mr-2 h-4 w-4" />
               <SelectValue />
@@ -139,11 +107,17 @@ export default function AnalyticsPage() {
               <Banknote className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="mt-2">
-              <p className="text-2xl font-bold">{formatCurrency(245670, currentCurrency)}</p>
-              <div className="flex items-center gap-1 text-sm text-green-600">
-                <TrendingUp className="h-4 w-4" />
-                <span>+12.5% from last period</span>
-              </div>
+              {loading ? (
+                <Skeleton className="h-8 w-32" />
+              ) : (
+                <>
+                  <p className="text-2xl font-bold">{formatCurrency(summary?.totalRevenue || 0, currentCurrency)}</p>
+                  <div className={`flex items-center gap-1 text-sm ${(summary?.revenueChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {(summary?.revenueChange || 0) >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    <span>{summary?.revenueChange ? `${summary.revenueChange >= 0 ? '+' : ''}${summary.revenueChange.toFixed(1)}% from last period` : 'No previous data'}</span>
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -154,11 +128,17 @@ export default function AnalyticsPage() {
               <Car className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="mt-2">
-              <p className="text-2xl font-bold">1,847</p>
-              <div className="flex items-center gap-1 text-sm text-green-600">
-                <TrendingUp className="h-4 w-4" />
-                <span>+8.2% from last period</span>
-              </div>
+              {loading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <>
+                  <p className="text-2xl font-bold">{summary?.totalVehicles?.toLocaleString() || 0}</p>
+                  <div className={`flex items-center gap-1 text-sm ${(summary?.vehicleChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {(summary?.vehicleChange || 0) >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    <span>{summary?.vehicleChange ? `${summary.vehicleChange >= 0 ? '+' : ''}${summary.vehicleChange.toFixed(1)}% from last period` : 'No previous data'}</span>
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -169,11 +149,19 @@ export default function AnalyticsPage() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="mt-2">
-              <p className="text-2xl font-bold">2h 35m</p>
-              <div className="flex items-center gap-1 text-sm text-red-600">
-                <TrendingDown className="h-4 w-4" />
-                <span>-5.3% from last period</span>
-              </div>
+              {loading ? (
+                <Skeleton className="h-8 w-24" />
+              ) : (
+                <>
+                  <p className="text-2xl font-bold">
+                    {summary?.avgDuration ? `${Math.floor(summary.avgDuration / 60)}h ${summary.avgDuration % 60}m` : 'N/A'}
+                  </p>
+                  <div className={`flex items-center gap-1 text-sm ${(summary?.durationChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {(summary?.durationChange || 0) >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    <span>{summary?.durationChange ? `${summary.durationChange >= 0 ? '+' : ''}${summary.durationChange.toFixed(1)}% from last period` : 'No previous data'}</span>
+                  </div>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -184,8 +172,14 @@ export default function AnalyticsPage() {
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </div>
             <div className="mt-2">
-              <p className="text-2xl font-bold">92%</p>
-              <p className="text-sm text-muted-foreground">at 6:00 PM</p>
+              {loading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                <>
+                  <p className="text-2xl font-bold">{summary?.peakOccupancy || 0}%</p>
+                  <p className="text-sm text-muted-foreground">at {summary?.peakHour || 'N/A'}</p>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

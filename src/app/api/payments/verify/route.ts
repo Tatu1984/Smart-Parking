@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyPaymentSignature, getPayment } from '@/lib/payments/razorpay'
 import { sendNotification } from '@/lib/notifications'
+import { logger } from '@/lib/logger'
 
 // POST /api/payments/verify - Verify Razorpay payment
 export async function POST(request: NextRequest) {
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
       message: 'Payment verified successfully'
     })
   } catch (error) {
-    console.error('Payment verification error:', error)
+    logger.error('Payment verification error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Payment verification failed' },
       { status: 500 }

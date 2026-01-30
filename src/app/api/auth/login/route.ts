@@ -3,41 +3,8 @@ import prisma from '@/lib/db'
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api'
 import { loginSchema } from '@/lib/validators'
 import bcrypt from 'bcryptjs'
-import { SignJWT } from 'jose'
+import { signToken } from '@/lib/auth/jwt'
 import { cookies } from 'next/headers'
-
-// Development-only fallback secret (NEVER use in production)
-const DEV_SECRET = 'dev-only-secret-key-min-32-chars-long!'
-
-// Lazy-loaded JWT secret to avoid build-time errors
-let _jwtSecret: Uint8Array | null = null
-
-function getJwtSecret(): Uint8Array {
-  if (_jwtSecret) return _jwtSecret
-
-  const secret = process.env.JWT_SECRET
-
-  if (process.env.NODE_ENV === 'production') {
-    if (!secret) {
-      throw new Error('JWT_SECRET environment variable is required in production')
-    }
-    if (secret.length < 32) {
-      throw new Error('JWT_SECRET must be at least 32 characters long')
-    }
-    _jwtSecret = new TextEncoder().encode(secret)
-    return _jwtSecret
-  }
-
-  // Development mode: use provided secret or fallback
-  if (secret) {
-    _jwtSecret = new TextEncoder().encode(secret)
-    return _jwtSecret
-  }
-
-  console.warn('WARNING: Using development fallback JWT secret')
-  _jwtSecret = new TextEncoder().encode(DEV_SECRET)
-  return _jwtSecret
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -102,17 +69,13 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Create JWT token
-    const token = await new SignJWT({
+    // Create JWT token using shared utility
+    const token = await signToken({
       userId: user.id,
       email: user.email,
       role: user.role,
       organizationId: user.organizationId,
     })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('7d')
-      .sign(getJwtSecret())
 
     // Store session
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)

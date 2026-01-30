@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import prisma from '@/lib/db'
 import { isSandboxMode, getSandboxConfig, SANDBOX_CARDS, SANDBOX_UPI } from '@/lib/sandbox'
 import { v4 as uuid } from 'uuid'
+import { logger } from '@/lib/logger'
 
 interface PaymentRequest {
   amount: number
@@ -176,7 +177,7 @@ export async function POST(request: NextRequest) {
           : `Payment failed: ${failureReason}`,
     })
   } catch (error) {
-    console.error('Sandbox payment error:', error)
+    logger.error('Sandbox payment error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       {
         success: false,

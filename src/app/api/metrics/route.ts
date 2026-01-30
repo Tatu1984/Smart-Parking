@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { logger } from '@/lib/logger'
 
 // Store metrics in memory (in production, use Redis or a metrics service)
 interface MetricsData {
@@ -97,7 +98,7 @@ export async function GET(request: NextRequest) {
       metrics,
     })
   } catch (error) {
-    console.error('Error fetching metrics:', error)
+    logger.error('Error fetching metrics:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       {
         success: false,

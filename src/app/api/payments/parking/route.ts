@@ -3,6 +3,7 @@ import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
 import { nanoid } from 'nanoid'
 import { emitBalanceUpdate, emitWalletTransaction, emitPaymentEvent } from '@/lib/socket/server'
+import { logger } from '@/lib/logger'
 
 // POST /api/payments/parking - Pay for parking using wallet
 export async function POST(request: NextRequest) {
@@ -202,7 +203,7 @@ export async function POST(request: NextRequest) {
       message: 'Parking payment completed successfully',
     })
   } catch (error) {
-    console.error('Error processing parking payment:', error)
+    logger.error('Error processing parking payment:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to process parking payment' },
       { status: 500 }

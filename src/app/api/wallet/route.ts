@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
+import { logger } from '@/lib/logger'
 
 // GET /api/wallet - Get current user's wallet(s)
 export async function GET(request: NextRequest) {
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: formattedWallets })
   } catch (error) {
-    console.error('Error fetching wallets:', error)
+    logger.error('Error fetching wallets:', error instanceof Error ? error : undefined)
     return NextResponse.json({ success: false, error: 'Failed to fetch wallets' }, { status: 500 })
   }
 }
@@ -113,7 +114,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error creating wallet:', error)
+    logger.error('Error creating wallet:', error instanceof Error ? error : undefined)
     return NextResponse.json({ success: false, error: 'Failed to create wallet' }, { status: 500 })
   }
 }

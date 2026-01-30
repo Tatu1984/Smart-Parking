@@ -69,8 +69,8 @@ export default function PaymentPage({ params }: { params: Promise<{ ref: string 
       if (data.success) {
         setPayment(data.data)
       }
-    } catch (error) {
-      console.error('Failed to fetch payment:', error)
+    } catch {
+      // Payment fetch failed - will show loading state
     } finally {
       setLoading(false)
     }

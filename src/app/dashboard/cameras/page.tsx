@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CameraStream } from '@/components/camera'
 
 interface CameraData {
@@ -102,6 +104,8 @@ export default function CamerasPage() {
   const [selectedCamera, setSelectedCamera] = useState<CameraData | null>(null)
   const [editingCamera, setEditingCamera] = useState<CameraData | null>(null)
   const [streamingCamera, setStreamingCamera] = useState<CameraData | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [updating, setUpdating] = useState(false)
 
   const fetchCameras = async () => {
@@ -117,7 +121,7 @@ export default function CamerasPage() {
         setCameras(data.data || [])
       }
     } catch (error) {
-      console.error('Failed to fetch cameras:', error)
+      logger.error('Failed to fetch cameras:', error instanceof Error ? error : undefined)
       toast.error('Failed to load cameras')
     } finally {
       setLoading(false)
@@ -230,23 +234,27 @@ export default function CamerasPage() {
     }
   }
 
-  const handleDelete = async (cameraId: string) => {
-    if (!confirm('Are you sure you want to delete this camera?')) return
+  const handleDelete = async () => {
+    if (!deleteId) return
+    setDeleting(true)
 
     try {
-      const res = await fetch(`/api/cameras/${cameraId}`, {
+      const res = await fetch(`/api/cameras/${deleteId}`, {
         method: 'DELETE',
       })
       const data = await res.json()
       if (data.success) {
         toast.success('Camera deleted')
         setSelectedCamera(null)
+        setDeleteId(null)
         fetchCameras()
       } else {
         toast.error(data.error || 'Failed to delete camera')
       }
     } catch (error) {
       toast.error('Failed to delete camera')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -533,7 +541,7 @@ export default function CamerasPage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => handleDelete(camera.id)}
+                          onClick={() => setDeleteId(camera.id)}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -760,6 +768,18 @@ export default function CamerasPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Delete Camera"
+        description="Are you sure you want to delete this camera? This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   )
 }

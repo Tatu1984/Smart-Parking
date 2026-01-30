@@ -3,6 +3,7 @@ import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
 import { nanoid } from 'nanoid'
 import { emitBalanceUpdate, emitWalletTransaction } from '@/lib/socket/server'
+import { logger } from '@/lib/logger'
 
 // POST /api/payments/withdraw - Withdraw money from wallet to bank account
 export async function POST(request: NextRequest) {
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest) {
         : 'Withdrawal initiated. Funds will reach your bank in 1-3 business days.',
     })
   } catch (error) {
-    console.error('Error processing withdrawal:', error)
+    logger.error('Error processing withdrawal:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to process withdrawal' },
       { status: 500 }

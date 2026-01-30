@@ -6,6 +6,7 @@ import {
   unregisterWebhook,
   WebhookEventType
 } from '@/lib/webhooks'
+import { logger } from '@/lib/logger'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     })
   } catch (error) {
-    console.error('Get webhook error:', error)
+    logger.error('Get webhook error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to get webhook' },
       { status: 500 }
@@ -107,7 +108,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     })
   } catch (error) {
-    console.error('Update webhook error:', error)
+    logger.error('Update webhook error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to update webhook' },
       { status: 500 }
@@ -137,7 +138,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ message: 'Webhook deleted successfully' })
   } catch (error) {
-    console.error('Delete webhook error:', error)
+    logger.error('Delete webhook error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to delete webhook' },
       { status: 500 }

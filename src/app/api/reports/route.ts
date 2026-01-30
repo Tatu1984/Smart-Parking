@@ -11,6 +11,7 @@ import {
   VehiclesReportData,
   SummaryReportData
 } from '@/lib/export/pdf'
+import { logger } from '@/lib/logger'
 
 /**
  * Generate PDF report
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
       }
     })
   } catch (error) {
-    console.error('Generate report error:', error)
+    logger.error('Generate report error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to generate report' },
       { status: 500 }

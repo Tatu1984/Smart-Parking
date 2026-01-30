@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -77,7 +78,7 @@ export default function LiveViewPage() {
         setCameras(data.data || [])
       }
     } catch (error) {
-      console.error('Failed to fetch cameras:', error)
+      logger.error('Failed to fetch cameras:', error instanceof Error ? error : undefined)
     }
   }, [])
 
@@ -105,7 +106,7 @@ export default function LiveViewPage() {
         availableSlots: totalSlots - occupiedSlots,
       })
     } catch (error) {
-      console.error('Failed to fetch stats:', error)
+      logger.error('Failed to fetch stats:', error instanceof Error ? error : undefined)
     }
   }, [])
 

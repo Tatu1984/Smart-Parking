@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
+import { logger } from '@/lib/logger'
 
 // GET /api/wallet/[id]/balance - Get wallet balance
 export async function GET(
@@ -82,7 +83,7 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('Error fetching balance:', error)
+    logger.error('Error fetching balance:', error instanceof Error ? error : undefined)
     return NextResponse.json({ success: false, error: 'Failed to fetch balance' }, { status: 500 })
   }
 }

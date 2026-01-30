@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -141,7 +142,7 @@ export default function TransactionsPage() {
         setPagination(prev => ({ ...prev, ...data.pagination }))
       }
     } catch (error) {
-      console.error('Failed to fetch transactions:', error)
+      logger.error('Failed to fetch transactions:', error instanceof Error ? error : undefined)
       toast.error('Failed to load transactions')
     } finally {
       setLoading(false)

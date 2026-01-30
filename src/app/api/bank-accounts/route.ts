@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
 import { nanoid } from 'nanoid'
+import { logger } from '@/lib/logger'
 
 // Sandbox bank data for testing
 const SANDBOX_BANKS = [
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: formattedAccounts })
   } catch (error) {
-    console.error('Error fetching bank accounts:', error)
+    logger.error('Error fetching bank accounts:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch bank accounts' },
       { status: 500 }
@@ -177,7 +178,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error linking bank account:', error)
+    logger.error('Error linking bank account:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to link bank account' },
       { status: 500 }

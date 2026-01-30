@@ -3,6 +3,8 @@
  * Handles email, SMS, and push notifications
  */
 
+import { logger } from '@/lib/logger'
+
 export type NotificationType =
   | 'PAYMENT_SUCCESS'
   | 'PAYMENT_FAILED'
@@ -128,7 +130,7 @@ export async function sendEmail(payload: NotificationPayload): Promise<Notificat
       return await sendViaSMTP(payload, template)
     } else {
       // Console logging for development
-      console.log('[Email Notification]', {
+      logger.debug('[Email Notification]', {
         to: payload.email,
         subject: template.subject,
         message: payload.message,
@@ -141,7 +143,7 @@ export async function sendEmail(payload: NotificationPayload): Promise<Notificat
       }
     }
   } catch (error) {
-    console.error('Email send error:', error)
+    logger.error('Email send error:', error)
     return {
       success: false,
       channel: 'email',
@@ -280,7 +282,7 @@ export async function sendSMS(payload: NotificationPayload): Promise<Notificatio
       return await sendViaMsg91(payload)
     } else {
       // Console logging for development
-      console.log('[SMS Notification]', {
+      logger.debug('[SMS Notification]', {
         to: payload.phone,
         message: payload.message
       })
@@ -291,7 +293,7 @@ export async function sendSMS(payload: NotificationPayload): Promise<Notificatio
       }
     }
   } catch (error) {
-    console.error('SMS send error:', error)
+    logger.error('SMS send error:', error)
     return {
       success: false,
       channel: 'sms',
@@ -406,7 +408,7 @@ async function storeInAppNotification(
       channel: 'in-app'
     }
   } catch (error) {
-    console.error('In-app notification error:', error)
+    logger.error('In-app notification error:', error)
     return {
       success: false,
       channel: 'in-app',

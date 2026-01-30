@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
+import { logger } from '@/lib/logger'
 
 // GET /api/bank-accounts/[id] - Get bank account details
 export async function GET(
@@ -35,7 +36,7 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('Error fetching bank account:', error)
+    logger.error('Error fetching bank account:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch bank account' },
       { status: 500 }
@@ -96,7 +97,7 @@ export async function PATCH(
       },
     })
   } catch (error) {
-    console.error('Error updating bank account:', error)
+    logger.error('Error updating bank account:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to update bank account' },
       { status: 500 }
@@ -166,7 +167,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true, message: 'Bank account removed' })
   } catch (error) {
-    console.error('Error removing bank account:', error)
+    logger.error('Error removing bank account:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to remove bank account' },
       { status: 500 }

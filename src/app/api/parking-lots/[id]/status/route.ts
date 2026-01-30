@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { logger } from '@/lib/logger'
 
 // GET /api/parking-lots/[id]/status - Get real-time parking lot status (public endpoint for kiosk)
 export async function GET(
@@ -101,7 +102,7 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('Error fetching parking status:', error)
+    logger.error('Error fetching parking status:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch parking status' },
       { status: 500 }

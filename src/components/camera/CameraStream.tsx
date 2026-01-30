@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { logger } from '@/lib/logger'
 import {
   Play,
   Pause,
@@ -108,7 +109,7 @@ export function CameraStream({
         URL.revokeObjectURL(url)
       }
     } catch (error) {
-      console.error('Snapshot error:', error)
+      logger.error('Snapshot error:', error instanceof Error ? error : undefined)
     }
   }
 

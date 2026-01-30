@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@/lib/db'
+import { logger } from '@/lib/logger'
 
 // ============================================
 // GATE CONTROLLER
@@ -85,7 +86,7 @@ export class GateController {
 
       return success
     } catch (error) {
-      console.error(`Gate ${this.gateId} open error:`, error)
+      logger.error(`Gate ${this.gateId} open error:`, error)
       return false
     }
   }
@@ -114,7 +115,7 @@ export class GateController {
 
       return success
     } catch (error) {
-      console.error(`Gate ${this.gateId} close error:`, error)
+      logger.error(`Gate ${this.gateId} close error:`, error)
       return false
     }
   }
@@ -149,7 +150,7 @@ export class GateController {
       case 'MQTT':
         return this.sendMqttCommand(command)
       default:
-        console.error(`Unknown protocol: ${this.protocol}`)
+        logger.error(`Unknown protocol: ${this.protocol}`)
         return false
     }
   }
@@ -176,7 +177,7 @@ export class GateController {
 
     // In production, this would use a serial port library
     // For now, log the command that would be sent
-    console.log(`RS485 Command to ${this.address}: ${buffer.toString('hex')}`)
+    logger.debug(`RS485 Command to ${this.address}: ${buffer.toString('hex')}`)
 
     // Simulate success - in production would await actual hardware response
     return true
@@ -185,14 +186,14 @@ export class GateController {
   private async sendRelayCommand(command: string): Promise<boolean> {
     // Relay control via GPIO or network relay controller
     const state = command === 'OPEN' ? 1 : 0
-    console.log(`Relay at ${this.address}: Set to ${state}`)
+    logger.debug(`Relay at ${this.address}: Set to ${state}`)
     return true
   }
 
   private async sendMqttCommand(command: string): Promise<boolean> {
     // MQTT command to gate topic
     const topic = `gates/${this.gateId}/command`
-    console.log(`MQTT to ${topic}: ${command}`)
+    logger.debug(`MQTT to ${topic}: ${command}`)
     return true
   }
 
@@ -296,7 +297,7 @@ export class DisplayController {
 
       return success
     } catch (error) {
-      console.error(`Display ${this.displayId} update error:`, error)
+      logger.error(`Display ${this.displayId} update error:`, error)
       await prisma.display.update({
         where: { id: this.displayId },
         data: { status: 'ERROR' }
@@ -378,13 +379,13 @@ export class DisplayController {
 
   private async sendUdpMessage(content: string): Promise<boolean> {
     // UDP message - would use dgram in Node.js
-    console.log(`UDP to ${this.address}:${this.port}: ${content}`)
+    logger.debug(`UDP to ${this.address}:${this.port}: ${content}`)
     return true
   }
 
   private async sendSerialMessage(content: string): Promise<boolean> {
     // Serial message - would use serialport library
-    console.log(`Serial to ${this.address}: ${content}`)
+    logger.debug(`Serial to ${this.address}: ${content}`)
     return true
   }
 }
@@ -418,7 +419,7 @@ export class TicketPrinter {
       const escPosData = this.generateEscPos(ticket)
       return await this.sendToPrinter(escPosData)
     } catch (error) {
-      console.error(`Printer ${this.printerId} error:`, error)
+      logger.error(`Printer ${this.printerId} error:`, error)
       return false
     }
   }
@@ -483,10 +484,10 @@ export class TicketPrinter {
       case 'NETWORK':
         return this.sendNetworkPrint(data)
       case 'USB':
-        console.log(`USB print to ${this.address}: ${data.length} bytes`)
+        logger.debug(`USB print to ${this.address}: ${data.length} bytes`)
         return true
       case 'SERIAL':
-        console.log(`Serial print to ${this.address}: ${data.length} bytes`)
+        logger.debug(`Serial print to ${this.address}: ${data.length} bytes`)
         return true
       default:
         return false
@@ -497,7 +498,7 @@ export class TicketPrinter {
     try {
       // Send raw data to printer port (usually 9100)
       const [host, port] = this.address.split(':')
-      console.log(`Network print to ${host}:${port || 9100}: ${data.length} bytes`)
+      logger.debug(`Network print to ${host}:${port || 9100}: ${data.length} bytes`)
       // In production, use net.Socket to send raw data
       return true
     } catch {
@@ -588,7 +589,7 @@ export class HardwareManager {
       }
     }
 
-    console.log(`Hardware initialized: ${this.gates.size} gates, ${this.displays.size} displays`)
+    logger.debug(`Hardware initialized: ${this.gates.size} gates, ${this.displays.size} displays`)
   }
 
   getGate(gateId: string): GateController | undefined {

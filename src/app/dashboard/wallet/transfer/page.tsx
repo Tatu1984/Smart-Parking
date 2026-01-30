@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -53,7 +54,7 @@ export default function TransferPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch wallets:', error)
+      logger.error('Failed to fetch wallets:', error instanceof Error ? error : undefined)
     }
   }
 
@@ -97,7 +98,7 @@ export default function TransferPage() {
         setError(data.error)
       }
     } catch (error) {
-      console.error('Transfer failed:', error)
+      logger.error('Transfer failed:', error instanceof Error ? error : undefined)
       setError('Transfer failed. Please try again.')
     } finally {
       setProcessing(false)

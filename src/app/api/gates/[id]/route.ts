@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { HardwareManager } from '@/lib/hardware'
+import { logger } from '@/lib/logger'
 
 const hardwareManager = HardwareManager.getInstance()
 
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       status
     })
   } catch (error) {
-    console.error('Get gate status error:', error)
+    logger.error('Get gate status error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to get gate status' },
       { status: 500 }
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       status
     })
   } catch (error) {
-    console.error('Control gate error:', error)
+    logger.error('Control gate error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to control gate' },
       { status: 500 }
@@ -134,7 +135,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ message: 'Gate removed successfully' })
   } catch (error) {
-    console.error('Remove gate error:', error)
+    logger.error('Remove gate error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to remove gate' },
       { status: 500 }

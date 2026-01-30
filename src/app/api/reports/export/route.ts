@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
 import { generateCsv, transactionColumns, walletTransactionColumns } from '@/lib/export/csv'
+import { logger } from '@/lib/logger'
 
 // GET /api/reports/export - Export data as CSV
 export async function GET(request: NextRequest) {
@@ -177,7 +178,7 @@ export async function GET(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Error exporting data:', error)
+    logger.error('Error exporting data:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to export data' },
       { status: 500 }

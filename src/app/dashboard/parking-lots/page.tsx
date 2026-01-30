@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -52,6 +53,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface ParkingLot {
   id: string
@@ -94,6 +96,12 @@ export default function ParkingLotsPage() {
   const [loading, setLoading] = useState(true)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [selectedLot, setSelectedLot] = useState<ParkingLot | null>(null)
+  const [isViewOpen, setIsViewOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchParkingLots = async () => {
     setLoading(true)
@@ -104,7 +112,7 @@ export default function ParkingLotsPage() {
         setParkingLots(data.data || [])
       }
     } catch (error) {
-      console.error('Failed to fetch parking lots:', error)
+      logger.error('Failed to fetch parking lots:', error instanceof Error ? error : undefined)
       toast.error('Failed to load parking lots')
     } finally {
       setLoading(false)
@@ -153,23 +161,77 @@ export default function ParkingLotsPage() {
     }
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this parking lot? All zones and slots will also be deleted.')) return
+  const handleDelete = async () => {
+    if (!deleteId) return
+    setDeleting(true)
 
     try {
-      const res = await fetch(`/api/parking-lots/${id}`, {
+      const res = await fetch(`/api/parking-lots/${deleteId}`, {
         method: 'DELETE',
       })
       const data = await res.json()
       if (data.success) {
         toast.success('Parking lot deleted')
+        setDeleteId(null)
         fetchParkingLots()
       } else {
         toast.error(data.error || 'Failed to delete parking lot')
       }
     } catch (error) {
       toast.error('Failed to delete parking lot')
+    } finally {
+      setDeleting(false)
     }
+  }
+
+  const handleUpdateParkingLot = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!selectedLot) return
+    setUpdating(true)
+    const formData = new FormData(e.currentTarget)
+
+    try {
+      const res = await fetch(`/api/parking-lots/${selectedLot.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.get('name'),
+          venueType: formData.get('venueType'),
+          address: formData.get('address') || undefined,
+          city: formData.get('city') || undefined,
+          state: formData.get('state') || undefined,
+          country: formData.get('country') || 'India',
+          currency: formData.get('currency') || 'INR',
+          status: formData.get('status'),
+          hasEvCharging: formData.get('hasEvCharging') === 'on',
+          hasValetService: formData.get('hasValetService') === 'on',
+          hasMultiLevel: formData.get('hasMultiLevel') === 'on',
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast.success('Parking lot updated successfully')
+        setIsEditOpen(false)
+        setSelectedLot(null)
+        fetchParkingLots()
+      } else {
+        toast.error(data.error || 'Failed to update parking lot')
+      }
+    } catch (error) {
+      toast.error('Failed to update parking lot')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const openViewDialog = (lot: ParkingLot) => {
+    setSelectedLot(lot)
+    setIsViewOpen(true)
+  }
+
+  const openEditDialog = (lot: ParkingLot) => {
+    setSelectedLot(lot)
+    setIsEditOpen(true)
   }
 
   const getStatusBadge = (status: string) => {
@@ -419,18 +481,18 @@ export default function ParkingLotsPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openViewDialog(lot)}>
                               <Eye className="mr-2 h-4 w-4" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditDialog(lot)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => handleDelete(lot.id)}
+                              onClick={() => setDeleteId(lot.id)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
@@ -446,6 +508,211 @@ export default function ParkingLotsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* View Details Dialog */}
+      <Dialog open={isViewOpen} onOpenChange={(open) => { setIsViewOpen(open); if (!open) setSelectedLot(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Parking Lot Details</DialogTitle>
+            <DialogDescription>
+              Detailed information about {selectedLot?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedLot && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Name</Label>
+                  <p className="font-medium">{selectedLot.name}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Slug</Label>
+                  <p className="font-medium">{selectedLot.slug}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Venue Type</Label>
+                  <p className="font-medium">{selectedLot.venueType}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <div className="mt-1">{getStatusBadge(selectedLot.status)}</div>
+                </div>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Location</Label>
+                <p className="font-medium">
+                  {selectedLot.address || '-'}, {selectedLot.city || '-'}, {selectedLot.state || '-'}, {selectedLot.country}
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Total Slots</Label>
+                  <p className="font-medium">{selectedLot.totalSlots}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Occupied</Label>
+                  <p className="font-medium">{selectedLot.occupiedSlots}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Available</Label>
+                  <p className="font-medium">{selectedLot.availableSlots}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Zones</Label>
+                  <p className="font-medium">{selectedLot._count.zones}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Cameras</Label>
+                  <p className="font-medium">{selectedLot._count.cameras}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Occupancy</Label>
+                  <p className="font-medium">{Math.round(selectedLot.occupancyRate)}%</p>
+                </div>
+              </div>
+              <div className="flex gap-4">
+                {selectedLot.hasEvCharging && <Badge variant="outline"><Zap className="mr-1 h-3 w-3" />EV Charging</Badge>}
+                {selectedLot.hasValetService && <Badge variant="outline">Valet Service</Badge>}
+                {selectedLot.hasMultiLevel && <Badge variant="outline">Multi-Level</Badge>}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewOpen(false)}>Close</Button>
+            <Button onClick={() => { setIsViewOpen(false); if (selectedLot) openEditDialog(selectedLot); }}>Edit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Delete Parking Lot"
+        description="Are you sure you want to delete this parking lot? All zones and slots will also be deleted. This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setSelectedLot(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Parking Lot</DialogTitle>
+            <DialogDescription>
+              Update the parking lot details
+            </DialogDescription>
+          </DialogHeader>
+          {selectedLot && (
+            <form onSubmit={handleUpdateParkingLot}>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-name">Name *</Label>
+                    <Input id="edit-name" name="name" defaultValue={selectedLot.name} required />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-slug">Slug</Label>
+                    <Input id="edit-slug" value={selectedLot.slug} disabled className="bg-muted" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-venueType">Venue Type *</Label>
+                    <Select name="venueType" defaultValue={selectedLot.venueType}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {venueTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-status">Status *</Label>
+                    <Select name="status" defaultValue={selectedLot.status}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ACTIVE">Active</SelectItem>
+                        <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                        <SelectItem value="CLOSED">Closed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-address">Address</Label>
+                  <Input id="edit-address" name="address" defaultValue={selectedLot.address || ''} placeholder="Street address" />
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-city">City</Label>
+                    <Input id="edit-city" name="city" defaultValue={selectedLot.city || ''} placeholder="City" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-state">State</Label>
+                    <Input id="edit-state" name="state" defaultValue={selectedLot.state || ''} placeholder="State" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-country">Country</Label>
+                    <Input id="edit-country" name="country" defaultValue={selectedLot.country} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-currency">Currency</Label>
+                    <Select name="currency" defaultValue={selectedLot.currency}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="INR">INR (₹)</SelectItem>
+                        <SelectItem value="USD">USD ($)</SelectItem>
+                        <SelectItem value="EUR">EUR (€)</SelectItem>
+                        <SelectItem value="GBP">GBP (£)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex gap-6">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="hasEvCharging" className="rounded" defaultChecked={selectedLot.hasEvCharging} />
+                    EV Charging
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="hasValetService" className="rounded" defaultChecked={selectedLot.hasValetService} />
+                    Valet Service
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="hasMultiLevel" className="rounded" defaultChecked={selectedLot.hasMultiLevel} />
+                    Multi-Level
+                  </label>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updating}>
+                  {updating ? 'Updating...' : 'Update Parking Lot'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

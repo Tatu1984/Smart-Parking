@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '@/lib/db'
+import { logger } from '@/lib/logger'
 
 // ============================================
 // TYPES
@@ -76,13 +77,13 @@ class OfflineQueueManager {
       if (!this.isOnline) {
         this.isOnline = true
         this.notifyListeners()
-        console.log('Connection restored - processing offline queue')
+        logger.debug('Connection restored - processing offline queue')
       }
     } catch {
       if (this.isOnline) {
         this.isOnline = false
         this.notifyListeners()
-        console.log('Connection lost - queuing operations offline')
+        logger.debug('Connection lost - queuing operations offline')
       }
     }
   }
@@ -169,10 +170,10 @@ class OfflineQueueManager {
 
       if (op.retryCount >= op.maxRetries) {
         op.status = 'failed'
-        console.error(`Operation ${operationId} failed after ${op.maxRetries} retries:`, error)
+        logger.error(`Operation ${operationId} failed after ${op.maxRetries} retries:`, error)
       } else {
         op.status = 'pending'
-        console.warn(`Operation ${operationId} failed, will retry (${op.retryCount}/${op.maxRetries})`)
+        logger.warn(`Operation ${operationId} failed, will retry (${op.retryCount}/${op.maxRetries})`)
       }
 
       this.queue.set(operationId, op)
@@ -226,7 +227,7 @@ class OfflineQueueManager {
 
       case 'GATE_OPERATION':
         // Gate operations are fire-and-forget, just log
-        console.log('Synced gate operation:', op.data)
+        logger.debug('Synced gate operation:', op.data)
         break
 
       case 'DETECTION_EVENT':
@@ -341,7 +342,7 @@ class OfflineQueueManager {
       try {
         listener(status)
       } catch (error) {
-        console.error('Error in sync listener:', error)
+        logger.error('Error in sync listener:', error)
       }
     }
   }

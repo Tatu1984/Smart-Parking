@@ -5,6 +5,7 @@ import {
   listWebhooks,
   WebhookEventType
 } from '@/lib/webhooks'
+import { logger } from '@/lib/logger'
 
 const VALID_EVENTS: WebhookEventType[] = [
   'vehicle.entry',
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ webhooks: safeWebhooks })
   } catch (error) {
-    console.error('List webhooks error:', error)
+    logger.error('List webhooks error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to list webhooks' },
       { status: 500 }
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
       message: 'Webhook registered successfully. Save the secret - it will not be shown again.'
     }, { status: 201 })
   } catch (error) {
-    console.error('Register webhook error:', error)
+    logger.error('Register webhook error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to register webhook' },
       { status: 500 }

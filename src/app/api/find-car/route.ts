@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { logger } from '@/lib/logger'
 
 /**
  * Find My Car API
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
       directions
     })
   } catch (error) {
-    console.error('Find car error:', error)
+    logger.error('Find car error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to search for vehicle' },
       { status: 500 }

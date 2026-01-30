@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/auth/session'
+import { logger } from '@/lib/logger'
 
 // GET /api/notifications - Get user notifications
 export async function GET(request: NextRequest) {
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
       hasMore: notifications.length === limit
     })
   } catch (error) {
-    console.error('Notifications GET error:', error)
+    logger.error('Notifications GET error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to fetch notifications' },
       { status: 500 }
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ notification })
   } catch (error) {
-    console.error('Notification create error:', error)
+    logger.error('Notification create error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to create notification' },
       { status: 500 }
@@ -118,7 +119,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Notification update error:', error)
+    logger.error('Notification update error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to update notifications' },
       { status: 500 }
@@ -162,7 +163,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Notification delete error:', error)
+    logger.error('Notification delete error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to delete notification' },
       { status: 500 }
