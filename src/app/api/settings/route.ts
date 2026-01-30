@@ -32,7 +32,7 @@ const settingsUpdateSchema = z.object({
     currency: z.string().length(3).optional(),
     timezone: z.string().optional(),
     venueType: z.enum(['AIRPORT', 'MALL', 'CINEMA', 'COMMERCIAL', 'HOSPITAL', 'STADIUM', 'HOTEL', 'RESIDENTIAL', 'OTHER']).optional(),
-    operatingHours: z.record(z.object({
+    operatingHours: z.record(z.string(), z.object({
       open: z.string(),
       close: z.string(),
     })).optional(),
