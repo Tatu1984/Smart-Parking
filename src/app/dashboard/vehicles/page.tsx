@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface Vehicle {
   id: string
@@ -96,6 +98,8 @@ export default function VehiclesPage() {
   const [creating, setCreating] = useState(false)
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 })
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchVehicles = async () => {
     setLoading(true)
@@ -113,7 +117,7 @@ export default function VehiclesPage() {
         setPagination(prev => ({ ...prev, ...data.pagination }))
       }
     } catch (error) {
-      console.error('Failed to fetch vehicles:', error)
+      logger.error('Failed to fetch vehicles:', error instanceof Error ? error : undefined)
       toast.error('Failed to load vehicles')
     } finally {
       setLoading(false)
@@ -191,23 +195,27 @@ export default function VehiclesPage() {
     }
   }
 
-  const handleDelete = async (vehicleId: string) => {
-    if (!confirm('Are you sure you want to delete this vehicle?')) return
+  const handleDelete = async () => {
+    if (!deleteId) return
+    setDeleting(true)
 
     try {
-      const res = await fetch(`/api/vehicles/${vehicleId}`, {
+      const res = await fetch(`/api/vehicles/${deleteId}`, {
         method: 'DELETE',
       })
       const data = await res.json()
       if (data.success) {
         toast.success('Vehicle deleted')
         setSelectedVehicle(null)
+        setDeleteId(null)
         fetchVehicles()
       } else {
         toast.error(data.error || 'Failed to delete vehicle')
       }
     } catch (error) {
       toast.error('Failed to delete vehicle')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -501,7 +509,7 @@ export default function VehiclesPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => handleDelete(vehicle.id)}
+                              onClick={() => setDeleteId(vehicle.id)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
@@ -625,6 +633,18 @@ export default function VehiclesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Delete Vehicle"
+        description="Are you sure you want to delete this vehicle? This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   )
 }

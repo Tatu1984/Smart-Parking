@@ -3,6 +3,7 @@ import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
 import { nanoid } from 'nanoid'
 import QRCode from 'qrcode'
+import { logger } from '@/lib/logger'
 
 // GET /api/payments/request - Get payment requests
 export async function GET(request: NextRequest) {
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: formattedPayments })
   } catch (error) {
-    console.error('Error fetching payment requests:', error)
+    logger.error('Error fetching payment requests:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch payment requests' },
       { status: 500 }
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
           },
         })
       } catch (err) {
-        console.error('QR generation failed:', err)
+        logger.error('QR generation failed:', err instanceof Error ? err : undefined)
       }
     }
 
@@ -174,7 +175,7 @@ export async function POST(request: NextRequest) {
         : 'Payment link created. Share it with the payer.',
     })
   } catch (error) {
-    console.error('Error creating payment request:', error)
+    logger.error('Error creating payment request:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to create payment request' },
       { status: 500 }

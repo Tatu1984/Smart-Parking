@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { spawn, ChildProcess } from 'child_process'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 // Store active FFmpeg processes
 const activeStreams = new Map<string, ChildProcess>()
@@ -98,24 +99,24 @@ export async function GET(
 
         ffmpeg.stderr.on('data', (data: Buffer) => {
           // FFmpeg outputs info to stderr, log for debugging
-          console.log(`FFmpeg [${id}]:`, data.toString())
+          logger.debug(`FFmpeg [${id}]: ${data.toString()}`)
         })
 
         ffmpeg.on('close', (code) => {
-          console.log(`FFmpeg stream closed for camera ${id} with code ${code}`)
+          logger.info(`FFmpeg stream closed for camera ${id} with code ${code}`)
           activeStreams.delete(id)
           controller.close()
         })
 
         ffmpeg.on('error', (error) => {
-          console.error(`FFmpeg error for camera ${id}:`, error)
+          logger.error(`FFmpeg error for camera ${id}:`, error instanceof Error ? error : undefined)
           activeStreams.delete(id)
           controller.error(error)
         })
 
         // Handle client disconnect
         request.signal.addEventListener('abort', () => {
-          console.log(`Client disconnected from camera ${id}`)
+          logger.info(`Client disconnected from camera ${id}`)
           ffmpeg.kill('SIGTERM')
           activeStreams.delete(id)
         })
@@ -140,7 +141,7 @@ export async function GET(
       }
     })
   } catch (error) {
-    console.error('Stream error:', error)
+    logger.error('Stream error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to start stream' },
       { status: 500 }
@@ -172,7 +173,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'No active stream' })
   } catch (error) {
-    console.error('Stop stream error:', error)
+    logger.error('Stop stream error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to stop stream' },
       { status: 500 }

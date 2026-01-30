@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -54,6 +55,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface Slot {
   id: string
@@ -116,6 +118,8 @@ export default function SlotsPage() {
   const [creating, setCreating] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 })
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchZones = async () => {
     try {
@@ -125,7 +129,7 @@ export default function SlotsPage() {
         setZones(data.data || [])
       }
     } catch (error) {
-      console.error('Failed to fetch zones:', error)
+      logger.error('Failed to fetch zones:', error instanceof Error ? error : undefined)
     }
   }
 
@@ -146,7 +150,7 @@ export default function SlotsPage() {
         setPagination(prev => ({ ...prev, ...data.pagination }))
       }
     } catch (error) {
-      console.error('Failed to fetch slots:', error)
+      logger.error('Failed to fetch slots:', error instanceof Error ? error : undefined)
       toast.error('Failed to load slots')
     } finally {
       setLoading(false)
@@ -227,23 +231,27 @@ export default function SlotsPage() {
     }
   }
 
-  const handleDelete = async (slotId: string) => {
-    if (!confirm('Are you sure you want to delete this slot?')) return
+  const handleDelete = async () => {
+    if (!deleteId) return
+    setDeleting(true)
 
     try {
-      const res = await fetch(`/api/slots/${slotId}`, {
+      const res = await fetch(`/api/slots/${deleteId}`, {
         method: 'DELETE',
       })
       const data = await res.json()
       if (data.success) {
         toast.success('Slot deleted')
         setSelectedSlot(null)
+        setDeleteId(null)
         fetchSlots()
       } else {
         toast.error(data.error || 'Failed to delete slot')
       }
     } catch (error) {
       toast.error('Failed to delete slot')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -586,7 +594,7 @@ export default function SlotsPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => handleDelete(slot.id)}
+                              onClick={() => setDeleteId(slot.id)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
@@ -698,6 +706,18 @@ export default function SlotsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Delete Slot"
+        description="Are you sure you want to delete this slot? This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   )
 }

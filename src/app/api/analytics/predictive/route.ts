@@ -8,6 +8,7 @@ import {
   detectAnomalies,
   analyzeCapacity
 } from '@/lib/analytics/predictive'
+import { logger } from '@/lib/logger'
 
 /**
  * Get predictive analytics
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
       data
     })
   } catch (error) {
-    console.error('Predictive analytics error:', error)
+    logger.error('Predictive analytics error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to generate predictions' },
       { status: 500 }

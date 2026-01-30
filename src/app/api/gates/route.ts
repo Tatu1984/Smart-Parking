@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { HardwareManager } from '@/lib/hardware'
+import { logger } from '@/lib/logger'
 
 const hardwareManager = HardwareManager.getInstance()
 
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ gates: gatesWithStatus })
   } catch (error) {
-    console.error('List gates error:', error)
+    logger.error('List gates error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to list gates' },
       { status: 500 }
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       gate: { id, name, type }
     }, { status: 201 })
   } catch (error) {
-    console.error('Register gate error:', error)
+    logger.error('Register gate error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to register gate' },
       { status: 500 }

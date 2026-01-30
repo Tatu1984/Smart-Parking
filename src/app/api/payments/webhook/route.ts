@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import crypto from 'crypto'
 import { sendNotification } from '@/lib/notifications'
+import { logger } from '@/lib/logger'
 
 const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET
 
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
     // In production, require proper signature verification
     if (process.env.NODE_ENV === 'production') {
       if (!RAZORPAY_WEBHOOK_SECRET) {
-        console.error('RAZORPAY_WEBHOOK_SECRET not configured')
+        logger.error('RAZORPAY_WEBHOOK_SECRET not configured')
         return NextResponse.json(
           { error: 'Webhook not configured' },
           { status: 500 }
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (!signature) {
-        console.error('Missing webhook signature')
+        logger.error('Missing webhook signature')
         return NextResponse.json({ error: 'Missing signature' }, { status: 401 })
       }
 
@@ -37,11 +38,11 @@ export async function POST(request: NextRequest) {
 
       if (signatureBuffer.length !== expectedBuffer.length ||
           !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)) {
-        console.error('Invalid webhook signature')
+        logger.error('Invalid webhook signature')
         return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
       }
     } else {
-      // Development mode: verify if secret is configured, otherwise log warning
+      // Development mode: verify if secret is configured, otherwise skip silently
       if (RAZORPAY_WEBHOOK_SECRET && signature) {
         const expectedSignature = crypto
           .createHmac('sha256', RAZORPAY_WEBHOOK_SECRET)
@@ -49,17 +50,17 @@ export async function POST(request: NextRequest) {
           .digest('hex')
 
         if (signature !== expectedSignature) {
-          console.warn('WARNING: Webhook signature mismatch in development')
+          logger.debug('Webhook signature mismatch in development')
         }
       } else {
-        console.warn('WARNING: Webhook signature verification skipped in development')
+        logger.debug('Webhook signature verification skipped in development')
       }
     }
 
     const payload = JSON.parse(body)
     const { event, payload: eventPayload } = payload
 
-    console.log(`Razorpay webhook received: ${event}`)
+    logger.info(`Razorpay webhook received: ${event}`)
 
     switch (event) {
       case 'payment.captured':
@@ -79,12 +80,12 @@ export async function POST(request: NextRequest) {
         break
 
       default:
-        console.log(`Unhandled webhook event: ${event}`)
+        logger.debug(`Unhandled webhook event: ${event}`)
     }
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error('Webhook processing error:', error)
+    logger.error('Webhook processing error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Webhook processing failed' },
       { status: 500 }
@@ -114,7 +115,7 @@ async function handlePaymentCaptured(paymentEntity: {
     })
 
     if (!payment) {
-      console.log(`Payment not found for order: ${paymentEntity.order_id}`)
+      logger.debug(`Payment not found for order: ${paymentEntity.order_id}`)
       return
     }
 
@@ -144,9 +145,9 @@ async function handlePaymentCaptured(paymentEntity: {
       })
     }
 
-    console.log(`Payment captured: ${paymentEntity.id}`)
+    logger.info(`Payment captured: ${paymentEntity.id}`)
   } catch (error) {
-    console.error('Error handling payment captured:', error)
+    logger.error('Error handling payment captured:', error instanceof Error ? error : undefined)
   }
 }
 
@@ -200,9 +201,9 @@ async function handlePaymentFailed(paymentEntity: {
       }
     }
 
-    console.log(`Payment failed: ${paymentEntity.id}`)
+    logger.info(`Payment failed: ${paymentEntity.id}`)
   } catch (error) {
-    console.error('Error handling payment failed:', error)
+    logger.error('Error handling payment failed:', error instanceof Error ? error : undefined)
   }
 }
 
@@ -238,9 +239,9 @@ async function handleRefundCreated(refundEntity: {
       }
     })
 
-    console.log(`Refund created: ${refundEntity.id}`)
+    logger.info(`Refund created: ${refundEntity.id}`)
   } catch (error) {
-    console.error('Error handling refund created:', error)
+    logger.error('Error handling refund created:', error instanceof Error ? error : undefined)
   }
 }
 
@@ -275,8 +276,8 @@ async function handleOrderPaid(
       })
     }
 
-    console.log(`Order paid: ${orderEntity.id}`)
+    logger.info(`Order paid: ${orderEntity.id}`)
   } catch (error) {
-    console.error('Error handling order paid:', error)
+    logger.error('Error handling order paid:', error instanceof Error ? error : undefined)
   }
 }

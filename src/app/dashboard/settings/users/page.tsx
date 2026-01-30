@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -60,6 +61,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface User {
   id: string
@@ -106,6 +108,58 @@ const roleLabels: Record<string, string> = {
   VIEWER: 'Viewer',
 }
 
+// Password strength calculation
+function getPasswordStrength(password: string): { score: number; label: string; color: string } {
+  if (!password) return { score: 0, label: '', color: '' }
+
+  let score = 0
+
+  // Length checks
+  if (password.length >= 8) score++
+  if (password.length >= 12) score++
+
+  // Character type checks
+  if (/[a-z]/.test(password)) score++
+  if (/[A-Z]/.test(password)) score++
+  if (/[0-9]/.test(password)) score++
+  if (/[^a-zA-Z0-9]/.test(password)) score++
+
+  // Normalize to 6 max
+  score = Math.min(score, 6)
+
+  if (score <= 2) return { score, label: 'Weak', color: 'bg-red-500' }
+  if (score <= 4) return { score, label: 'Medium', color: 'bg-yellow-500' }
+  return { score, label: 'Strong', color: 'bg-green-500' }
+}
+
+function PasswordStrengthMeter({ password }: { password: string }) {
+  const { score, label, color } = getPasswordStrength(password)
+
+  if (!password) return null
+
+  return (
+    <div className="mt-2 space-y-1">
+      <div className="flex gap-1">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className={cn(
+              'h-1.5 flex-1 rounded-full transition-colors',
+              i < score ? color : 'bg-muted'
+            )}
+          />
+        ))}
+      </div>
+      <p className={cn(
+        'text-xs',
+        score <= 2 ? 'text-red-500' : score <= 4 ? 'text-yellow-600' : 'text-green-500'
+      )}>
+        Password strength: {label}
+      </p>
+    </div>
+  )
+}
+
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
@@ -118,6 +172,8 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 })
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const [formData, setFormData] = useState({
     email: '',
@@ -145,7 +201,7 @@ export default function UsersPage() {
         setPagination(prev => ({ ...prev, ...data.pagination }))
       }
     } catch (error) {
-      console.error('Failed to fetch users:', error)
+      logger.error('Failed to fetch users:', error instanceof Error ? error : undefined)
       toast.error('Failed to load users')
     } finally {
       setLoading(false)
@@ -235,22 +291,26 @@ export default function UsersPage() {
     }
   }
 
-  const handleDelete = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user?')) return
+  const handleDelete = async () => {
+    if (!deleteId) return
+    setDeleting(true)
 
     try {
-      const res = await fetch(`/api/users/${userId}`, {
+      const res = await fetch(`/api/users/${deleteId}`, {
         method: 'DELETE',
       })
       const data = await res.json()
       if (data.success) {
         toast.success('User deleted successfully')
+        setDeleteId(null)
         fetchUsers()
       } else {
         toast.error(data.error || 'Failed to delete user')
       }
     } catch (error) {
       toast.error('Failed to delete user')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -374,6 +434,7 @@ export default function UsersPage() {
                       required
                       minLength={8}
                     />
+                    <PasswordStrengthMeter password={formData.password} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
@@ -617,7 +678,7 @@ export default function UsersPage() {
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => handleDelete(user.id)}
+                              onClick={() => setDeleteId(user.id)}
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
@@ -699,6 +760,7 @@ export default function UsersPage() {
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   minLength={8}
                 />
+                <PasswordStrengthMeter password={formData.password} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
@@ -815,6 +877,18 @@ export default function UsersPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Delete User"
+        description="Are you sure you want to delete this user? This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   )
 }

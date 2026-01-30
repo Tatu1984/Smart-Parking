@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import prisma from '@/lib/db'
 import { verifyToken } from './jwt'
+import { logger } from '@/lib/logger'
 
 export interface AuthUser {
   id: string
@@ -36,7 +37,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 
     return user as AuthUser | null
   } catch (error) {
-    console.error('Error getting current user:', error)
+    logger.error('Error getting current user:', error instanceof Error ? error : undefined)
     return null
   }
 }

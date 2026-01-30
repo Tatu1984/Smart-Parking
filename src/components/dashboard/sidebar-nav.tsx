@@ -20,6 +20,9 @@ import {
   ChevronLeft,
   LogOut,
   Building2,
+  Wallet,
+  ArrowLeftRight,
+  Landmark,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -31,6 +34,7 @@ import {
 } from '@/components/ui/tooltip'
 import { useUIStore } from '@/store'
 import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
 
 const navigation = [
   {
@@ -58,6 +62,14 @@ const navigation = [
     ],
   },
   {
+    title: 'Finance',
+    items: [
+      { name: 'Wallet', href: '/dashboard/wallet', icon: Wallet },
+      { name: 'Transfers', href: '/dashboard/wallet/transfer', icon: ArrowLeftRight },
+      { name: 'Bank Accounts', href: '/dashboard/wallet/bank-accounts', icon: Landmark },
+    ],
+  },
+  {
     title: 'Insights',
     items: [
       { name: 'Analytics', href: '/dashboard/analytics', icon: BarChart3 },
@@ -69,7 +81,7 @@ const navigation = [
     items: [
       { name: 'Settings', href: '/dashboard/settings', icon: Settings },
       { name: 'Users', href: '/dashboard/settings/users', icon: Users },
-      { name: 'Alerts', href: '/dashboard/settings/alerts', icon: Bell },
+      { name: 'Alerts', href: '/dashboard/settings', icon: Bell },
     ],
   },
 ]
@@ -94,7 +106,7 @@ export function SidebarNav() {
         toast.error('Failed to logout')
       }
     } catch (error) {
-      console.error('Logout error:', error)
+      logger.error('Logout error:', error instanceof Error ? error : undefined)
       toast.error('Failed to logout')
     }
   }

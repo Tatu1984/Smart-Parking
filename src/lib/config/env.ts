@@ -3,6 +3,8 @@
  * Validates all required environment variables at startup
  */
 
+import { logger } from '@/lib/logger'
+
 interface EnvConfig {
   // Database
   DATABASE_URL: string
@@ -173,19 +175,19 @@ export function validateEnvironment(): void {
   const result = env.validate()
 
   if (result.warnings.length > 0) {
-    console.warn('⚠️  Environment Warnings:')
-    result.warnings.forEach((w) => console.warn(`   - ${w}`))
+    logger.warn('Environment Warnings:')
+    result.warnings.forEach((w) => logger.warn(`   - ${w}`))
   }
 
   if (!result.valid) {
-    console.error('❌ Environment Validation Failed:')
-    result.errors.forEach((e) => console.error(`   - ${e}`))
+    logger.error('Environment Validation Failed:')
+    result.errors.forEach((e) => logger.error(`   - ${e}`))
 
     if (env.isProduction()) {
       throw new Error('Environment validation failed. Cannot start in production.')
     }
   } else {
-    console.log('✅ Environment validation passed')
+    logger.info('Environment validation passed')
   }
 }
 

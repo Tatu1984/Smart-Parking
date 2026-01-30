@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 /**
  * Simple GraphQL-like API endpoint
@@ -367,7 +368,7 @@ export async function POST(request: NextRequest) {
       data: { [queryName]: result }
     })
   } catch (error) {
-    console.error('GraphQL error:', error)
+    logger.error('GraphQL error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       {
         errors: [{

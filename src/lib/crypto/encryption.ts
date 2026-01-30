@@ -4,6 +4,7 @@
  */
 
 import crypto from 'crypto'
+import { logger } from '@/lib/logger'
 
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 16
@@ -24,7 +25,7 @@ function getEncryptionKey(): Buffer {
   }
 
   // Development fallback - NOT SECURE FOR PRODUCTION
-  console.warn('WARNING: Using development encryption key. Set ENCRYPTION_KEY in production!')
+  logger.warn('WARNING: Using development encryption key. Set ENCRYPTION_KEY in production!')
   return crypto.scryptSync('dev-encryption-key-not-for-production', 'sparking-salt', 32)
 }
 

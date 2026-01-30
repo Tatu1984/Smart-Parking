@@ -3,6 +3,8 @@
  * Provides a unified interface for caching data
  */
 
+import { logger } from '@/lib/logger'
+
 interface CacheEntry<T> {
   value: T
   expiresAt: number
@@ -83,7 +85,7 @@ class RedisCache {
   constructor(redisUrl: string) {
     this.redisUrl = redisUrl
     this.fallback = new MemoryCache()
-    console.log(`Redis cache configured`)
+    logger.info(`Redis cache configured`)
   }
 
   private async executeCommand(command: string[]): Promise<unknown> {
@@ -101,7 +103,7 @@ class RedisCache {
         const data = await response.json()
         return data.result
       } catch (error) {
-        console.error('Redis command failed:', error)
+        logger.error('Redis command failed:', error instanceof Error ? error : undefined)
         throw error
       }
     }
@@ -177,12 +179,12 @@ export function getCache(): Cache {
     if (redisUrl && process.env.NODE_ENV === 'production') {
       // Use Redis in production if configured
       cacheInstance = new RedisCache(redisUrl)
-      console.log('Using Redis cache')
+      logger.info('Using Redis cache')
     } else {
       // Use memory cache in development or when Redis is not configured
       cacheInstance = new MemoryCache()
       if (process.env.NODE_ENV === 'production') {
-        console.warn('WARNING: Using in-memory cache in production. Configure REDIS_URL for distributed caching.')
+        logger.warn('WARNING: Using in-memory cache in production. Configure REDIS_URL for distributed caching.')
       }
     }
   }

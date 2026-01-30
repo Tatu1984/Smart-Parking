@@ -4,6 +4,7 @@
  */
 
 import { getCache, CacheKeys, CacheTTL } from '../cache'
+import { logger } from '@/lib/logger'
 
 interface RateLimitResult {
   limited: boolean
@@ -93,7 +94,7 @@ export async function checkRateLimit(
     }
   } catch (error) {
     // If cache fails, allow the request (fail open)
-    console.error('Rate limit check failed:', error)
+    logger.error('Rate limit check failed:', error instanceof Error ? error : undefined)
     return {
       limited: false,
       remaining: config.maxRequests,

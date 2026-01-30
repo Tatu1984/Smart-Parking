@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -119,7 +120,7 @@ export default function WalletPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch wallets:', error)
+      logger.error('Failed to fetch wallets:', error instanceof Error ? error : undefined)
     } finally {
       setLoading(false)
     }
@@ -133,7 +134,7 @@ export default function WalletPage() {
         setTransactions(data.data)
       }
     } catch (error) {
-      console.error('Failed to fetch transactions:', error)
+      logger.error('Failed to fetch transactions:', error instanceof Error ? error : undefined)
     }
   }
 
@@ -150,7 +151,7 @@ export default function WalletPage() {
         fetchWallets()
       }
     } catch (error) {
-      console.error('Failed to create wallet:', error)
+      logger.error('Failed to create wallet:', error instanceof Error ? error : undefined)
     } finally {
       setProcessing(false)
     }
@@ -186,7 +187,7 @@ export default function WalletPage() {
         alert(data.error)
       }
     } catch (error) {
-      console.error('Deposit failed:', error)
+      logger.error('Deposit failed:', error instanceof Error ? error : undefined)
     } finally {
       setProcessing(false)
     }
@@ -222,7 +223,7 @@ export default function WalletPage() {
         alert(data.error)
       }
     } catch (error) {
-      console.error('Withdrawal failed:', error)
+      logger.error('Withdrawal failed:', error instanceof Error ? error : undefined)
     } finally {
       setProcessing(false)
     }

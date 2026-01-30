@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -56,6 +57,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface Zone {
   id: string
@@ -110,6 +112,8 @@ export default function ZonesPage() {
   const [editingZone, setEditingZone] = useState<Zone | null>(null)
   const [selectedParkingLotId, setSelectedParkingLotId] = useState<string>('')
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 })
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchZones = async () => {
     setLoading(true)
@@ -127,7 +131,7 @@ export default function ZonesPage() {
         setPagination(prev => ({ ...prev, ...data.pagination }))
       }
     } catch (error) {
-      console.error('Failed to fetch zones:', error)
+      logger.error('Failed to fetch zones:', error instanceof Error ? error : undefined)
       toast.error('Failed to load zones')
     } finally {
       setLoading(false)
@@ -141,7 +145,7 @@ export default function ZonesPage() {
         throw new Error(`HTTP error! status: ${res.status}`)
       }
       const data = await res.json()
-      console.log('Parking lots response:', data)
+      logger.debug('Parking lots response:', { data })
       if (data.success && data.data && data.data.length > 0) {
         setParkingLots(data.data)
         setSelectedParkingLotId(data.data[0].id)
@@ -159,7 +163,7 @@ export default function ZonesPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch parking lots:', error)
+      logger.error('Failed to fetch parking lots:', error instanceof Error ? error : undefined)
       // Fallback: extract unique parking lots from zones
       const uniqueLots = zones.reduce((acc: ParkingLot[], zone) => {
         if (zone.parkingLot && !acc.find(l => l.id === zone.parkingLot.id)) {
@@ -272,23 +276,27 @@ export default function ZonesPage() {
     }
   }
 
-  const handleDelete = async (zoneId: string) => {
-    if (!confirm('Are you sure you want to delete this zone? All slots in this zone will also be deleted.')) return
+  const handleDelete = async () => {
+    if (!deleteId) return
+    setDeleting(true)
 
     try {
-      const res = await fetch(`/api/zones/${zoneId}`, {
+      const res = await fetch(`/api/zones/${deleteId}`, {
         method: 'DELETE',
       })
       const data = await res.json()
       if (data.success) {
         toast.success('Zone deleted')
         setSelectedZone(null)
+        setDeleteId(null)
         fetchZones()
       } else {
         toast.error(data.error || 'Failed to delete zone')
       }
     } catch (error) {
       toast.error('Failed to delete zone')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -528,7 +536,7 @@ export default function ZonesPage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => handleDelete(zone.id)}
+                          onClick={() => setDeleteId(zone.id)}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
@@ -715,6 +723,18 @@ export default function ZonesPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Delete Zone"
+        description="Are you sure you want to delete this zone? All slots in this zone will also be deleted. This action cannot be undone."
+        confirmText="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   )
 }

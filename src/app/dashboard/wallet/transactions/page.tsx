@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -86,7 +87,7 @@ export default function WalletTransactionsPage() {
         setSelectedWalletId(data.data[0].id)
       }
     } catch (error) {
-      console.error('Failed to fetch wallets:', error)
+      logger.error('Failed to fetch wallets:', error instanceof Error ? error : undefined)
     }
   }
 
@@ -111,7 +112,7 @@ export default function WalletTransactionsPage() {
         setTotalPages(data.pagination.pages)
       }
     } catch (error) {
-      console.error('Failed to fetch transactions:', error)
+      logger.error('Failed to fetch transactions:', error instanceof Error ? error : undefined)
     } finally {
       setLoading(false)
     }

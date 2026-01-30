@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth/session'
 import prisma from '@/lib/db'
 import { isSandboxMode, getSandboxConfig, DEMO_VEHICLES } from '@/lib/sandbox'
 import { v4 as uuid } from 'uuid'
+import { logger } from '@/lib/logger'
 
 // POST /api/sandbox/simulate - Simulate parking events
 export async function POST(request: NextRequest) {
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error('Simulation error:', error)
+    logger.error('Simulation error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       {
         success: false,

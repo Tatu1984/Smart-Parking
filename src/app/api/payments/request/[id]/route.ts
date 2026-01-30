@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
+import { logger } from '@/lib/logger'
 
 // GET /api/payments/request/[id] - Get payment request details (public endpoint)
 export async function GET(
@@ -55,7 +56,7 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('Error fetching payment:', error)
+    logger.error('Error fetching payment:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch payment' },
       { status: 500 }
@@ -95,7 +96,7 @@ export async function DELETE(
       message: 'Payment request cancelled',
     })
   } catch (error) {
-    console.error('Error cancelling payment:', error)
+    logger.error('Error cancelling payment:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to cancel payment' },
       { status: 500 }

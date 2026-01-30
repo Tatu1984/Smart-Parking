@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -37,6 +38,8 @@ import {
 import { formatCurrency } from '@/lib/utils/currency'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
+import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface BankAccount {
   id: string
@@ -73,12 +76,34 @@ const SANDBOX_BANKS = [
   { ifsc: 'KKBK0000001', name: 'Kotak Mahindra Bank (Sandbox)' },
 ]
 
+// Validation functions
+function validateAccountNumber(value: string): string | null {
+  if (!value) return 'Account number is required'
+  const digits = value.replace(/\D/g, '')
+  if (digits.length < 9 || digits.length > 18) {
+    return 'Account number must be 9-18 digits'
+  }
+  return null
+}
+
+function validateIFSC(value: string): string | null {
+  if (!value) return 'IFSC code is required'
+  // IFSC format: 4 letters + 0 + 6 alphanumeric
+  const ifscPattern = /^[A-Z]{4}0[A-Z0-9]{6}$/
+  if (!ifscPattern.test(value.toUpperCase())) {
+    return 'Invalid IFSC format (e.g., SBIN0001234)'
+  }
+  return null
+}
+
 export default function BankAccountsPage() {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
   const [wallets, setWallets] = useState<Wallet[]>([])
   const [loading, setLoading] = useState(true)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Form state
   const [selectedWalletId, setSelectedWalletId] = useState('')
@@ -88,6 +113,10 @@ export default function BankAccountsPage() {
   const [ifscCode, setIfscCode] = useState('')
   const [accountType, setAccountType] = useState('SAVINGS')
   const [isSandbox, setIsSandbox] = useState(true)
+
+  // Validation errors
+  const [accountNumberError, setAccountNumberError] = useState<string | null>(null)
+  const [ifscError, setIfscError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchData()
@@ -113,15 +142,26 @@ export default function BankAccountsPage() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch data:', error)
+      logger.error('Failed to fetch data:', error instanceof Error ? error : undefined)
     } finally {
       setLoading(false)
     }
   }
 
   const handleAddAccount = async () => {
-    if (!selectedWalletId || !accountHolderName || !accountNumber || !ifscCode) {
-      alert('Please fill all required fields')
+    // Validate fields
+    const accError = validateAccountNumber(accountNumber)
+    const ifscErr = isSandbox ? null : validateIFSC(ifscCode)
+
+    setAccountNumberError(accError)
+    setIfscError(ifscErr)
+
+    if (accError || ifscErr) {
+      return
+    }
+
+    if (!selectedWalletId || !accountHolderName) {
+      toast.error('Please fill all required fields')
       return
     }
 
@@ -143,14 +183,16 @@ export default function BankAccountsPage() {
 
       const data = await res.json()
       if (data.success) {
+        toast.success('Bank account added successfully')
         setAddDialogOpen(false)
         resetForm()
         fetchData()
       } else {
-        alert(data.error)
+        toast.error(data.error || 'Failed to add bank account')
       }
     } catch (error) {
-      console.error('Failed to add bank account:', error)
+      logger.error('Failed to add bank account:', error instanceof Error ? error : undefined)
+      toast.error('Failed to add bank account')
     } finally {
       setProcessing(false)
     }
@@ -165,29 +207,39 @@ export default function BankAccountsPage() {
       })
 
       if (res.ok) {
+        toast.success('Primary account updated')
         fetchData()
+      } else {
+        toast.error('Failed to set primary account')
       }
     } catch (error) {
-      console.error('Failed to set primary:', error)
+      logger.error('Failed to set primary:', error instanceof Error ? error : undefined)
+      toast.error('Failed to set primary account')
     }
   }
 
-  const handleDelete = async (accountId: string) => {
-    if (!confirm('Are you sure you want to remove this bank account?')) return
+  const handleDelete = async () => {
+    if (!deleteId) return
+    setDeleting(true)
 
     try {
-      const res = await fetch(`/api/bank-accounts/${accountId}`, {
+      const res = await fetch(`/api/bank-accounts/${deleteId}`, {
         method: 'DELETE',
       })
 
       const data = await res.json()
       if (data.success) {
+        toast.success('Bank account removed')
+        setDeleteId(null)
         fetchData()
       } else {
-        alert(data.error)
+        toast.error(data.error || 'Failed to remove bank account')
       }
     } catch (error) {
-      console.error('Failed to delete account:', error)
+      logger.error('Failed to delete account:', error instanceof Error ? error : undefined)
+      toast.error('Failed to remove bank account')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -198,6 +250,8 @@ export default function BankAccountsPage() {
     setIfscCode('')
     setAccountType('SAVINGS')
     setIsSandbox(true)
+    setAccountNumberError(null)
+    setIfscError(null)
   }
 
   const handleSandboxBankSelect = (ifsc: string) => {
@@ -300,19 +354,35 @@ export default function BankAccountsPage() {
                 <Label>Account Number</Label>
                 <Input
                   value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value)}
+                  onChange={(e) => {
+                    setAccountNumber(e.target.value)
+                    setAccountNumberError(null)
+                  }}
+                  onBlur={() => setAccountNumberError(validateAccountNumber(accountNumber))}
                   placeholder={isSandbox ? '1234567890123456' : 'Enter account number'}
+                  className={accountNumberError ? 'border-red-500 focus-visible:ring-red-500' : ''}
                 />
+                {accountNumberError && (
+                  <p className="text-sm text-red-500">{accountNumberError}</p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label>IFSC Code</Label>
                 <Input
                   value={ifscCode}
-                  onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
+                  onChange={(e) => {
+                    setIfscCode(e.target.value.toUpperCase())
+                    setIfscError(null)
+                  }}
+                  onBlur={() => !isSandbox && setIfscError(validateIFSC(ifscCode))}
                   placeholder="SBIN0000001"
                   disabled={isSandbox && !!ifscCode}
+                  className={ifscError ? 'border-red-500 focus-visible:ring-red-500' : ''}
                 />
+                {ifscError && (
+                  <p className="text-sm text-red-500">{ifscError}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -441,7 +511,7 @@ export default function BankAccountsPage() {
                     variant="outline"
                     size="sm"
                     className="text-red-500 hover:text-red-500"
-                    onClick={() => handleDelete(account.id)}
+                    onClick={() => setDeleteId(account.id)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -451,6 +521,18 @@ export default function BankAccountsPage() {
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+        title="Remove Bank Account"
+        description="Are you sure you want to remove this bank account? This action cannot be undone."
+        confirmText="Remove"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
     </div>
   )
 }

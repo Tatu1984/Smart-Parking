@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { HardwareManager } from '@/lib/hardware'
+import { logger } from '@/lib/logger'
 
 const hardwareManager = HardwareManager.getInstance()
 
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ displays: displaysWithStatus })
   } catch (error) {
-    console.error('List displays error:', error)
+    logger.error('List displays error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to list displays' },
       { status: 500 }
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
       display: { id, name, type }
     }, { status: 201 })
   } catch (error) {
-    console.error('Register display error:', error)
+    logger.error('Register display error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to register display' },
       { status: 500 }

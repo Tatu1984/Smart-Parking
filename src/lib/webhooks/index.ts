@@ -5,6 +5,7 @@
 
 import crypto from 'crypto'
 import { prisma } from '@/lib/db'
+import { logger } from '@/lib/logger'
 
 // ============================================
 // TYPES
@@ -84,7 +85,7 @@ export async function registerWebhook(config: {
   webhookRegistry.set(id, webhook)
 
   // In production, store in database
-  console.log(`Webhook registered: ${id} -> ${config.url}`)
+  logger.info(`Webhook registered: ${id} -> ${config.url}`)
 
   return webhook
 }
@@ -240,7 +241,7 @@ function handleDeliveryFailure(
     // Disable webhook after too many failures
     webhook.enabled = false
     webhookRegistry.set(webhook.id, webhook)
-    console.error(`Webhook ${webhook.id} disabled after ${webhook.retryCount} failures`)
+    logger.error(`Webhook ${webhook.id} disabled after ${webhook.retryCount} failures`)
   }
 
   return {

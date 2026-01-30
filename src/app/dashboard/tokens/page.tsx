@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -136,7 +137,7 @@ export default function TokensPage() {
         setPagination(prev => ({ ...prev, ...data.pagination }))
       }
     } catch (error) {
-      console.error('Failed to fetch tokens:', error)
+      logger.error('Failed to fetch tokens:', error instanceof Error ? error : undefined)
       toast.error('Failed to load tokens')
     } finally {
       setLoading(false)

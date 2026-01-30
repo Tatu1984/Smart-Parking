@@ -24,54 +24,28 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 
-// Fallback mock data when API data is not available
-const fallbackStats = {
-  totalSlots: 450,
-  occupiedSlots: 312,
-  availableSlots: 138,
-  occupancyRate: 69.3,
-  todayEntries: 234,
-  todayExits: 198,
-  todayRevenue: 45670,
-  activeTokens: 36,
-  onlineCameras: 28,
-  totalCameras: 30,
-  avgDuration: 150,
-}
-
-const fallbackZones = [
-  { zoneId: '1', zoneName: 'Zone A - Ground Floor', zoneCode: 'A', totalSlots: 100, occupiedSlots: 85, availableSlots: 15, occupancyRate: 85 },
-  { zoneId: '2', zoneName: 'Zone B - Level 1', zoneCode: 'B', totalSlots: 120, occupiedSlots: 90, availableSlots: 30, occupancyRate: 75 },
-  { zoneId: '3', zoneName: 'Zone C - Level 2', zoneCode: 'C', totalSlots: 130, occupiedSlots: 78, availableSlots: 52, occupancyRate: 60 },
-  { zoneId: '4', zoneName: 'VIP Parking', zoneCode: 'VIP', totalSlots: 50, occupiedSlots: 32, availableSlots: 18, occupancyRate: 64 },
-  { zoneId: '5', zoneName: 'EV Charging', zoneCode: 'EV', totalSlots: 50, occupiedSlots: 27, availableSlots: 23, occupancyRate: 54 },
-]
-
-const mockOccupancyData = Array.from({ length: 24 }, (_, i) => ({
-  time: `${String(i).padStart(2, '0')}:00`,
-  occupancy: Math.floor(40 + Math.random() * 50),
-}))
-
-const fallbackActivities = [
-  { id: '1', type: 'entry' as const, title: 'Vehicle Entry', description: 'KA-01-AB-1234 entered via Gate 1, allocated A-045', time: '2 min ago', status: 'success' as const },
-  { id: '2', type: 'payment' as const, title: 'Payment Received', description: 'Token TK2412-XYZ paid Rs 120 via UPI', time: '5 min ago', status: 'success' as const },
-  { id: '3', type: 'exit' as const, title: 'Vehicle Exit', description: 'MH-02-CD-5678 exited via Gate 2, duration 3h 45m', time: '8 min ago' },
-  { id: '4', type: 'alert' as const, title: 'High Occupancy', description: 'Zone A reached 85% capacity', time: '15 min ago', status: 'warning' as const },
-  { id: '5', type: 'camera' as const, title: 'Camera Online', description: 'Zone B Camera 3 reconnected', time: '20 min ago' },
-  { id: '6', type: 'entry' as const, title: 'Vehicle Entry', description: 'TN-10-EF-9012 entered via Gate 1, allocated B-078', time: '25 min ago' },
-  { id: '7', type: 'payment' as const, title: 'Payment Failed', description: 'Token TK2412-ABC payment declined', time: '30 min ago', status: 'error' as const },
-  { id: '8', type: 'exit' as const, title: 'Vehicle Exit', description: 'DL-03-GH-3456 exited via Gate 1, duration 1h 20m', time: '35 min ago' },
-]
-
 const currency: CurrencyCode = 'INR'
 
-export default function DashboardPage() {
-  const { stats: apiStats, zones: apiZones, activities: apiActivities, loading, error, lastUpdated, refresh } = useDashboardData()
+// Default empty stats for loading state
+const emptyStats = {
+  totalSlots: 0,
+  occupiedSlots: 0,
+  availableSlots: 0,
+  occupancyRate: 0,
+  todayEntries: 0,
+  todayExits: 0,
+  todayRevenue: 0,
+  activeTokens: 0,
+  onlineCameras: 0,
+  totalCameras: 0,
+  avgDuration: 0,
+}
 
-  // Use API data if available, otherwise fallback to mock data
-  const stats = apiStats || fallbackStats
-  const zones = apiZones.length > 0 ? apiZones : fallbackZones
-  const activities = apiActivities.length > 0 ? apiActivities : fallbackActivities
+export default function DashboardPage() {
+  const { stats: apiStats, zones, activities, loading, error, lastUpdated, refresh, occupancyData } = useDashboardData()
+
+  // Use API data or empty defaults
+  const stats = apiStats || emptyStats
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -197,7 +171,7 @@ export default function DashboardPage() {
         <TabsContent value="charts" className="mt-4">
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <OccupancyChart data={mockOccupancyData} />
+              <OccupancyChart data={occupancyData} />
             </div>
             <div>
               <ZoneOccupancyCard zones={zones} />

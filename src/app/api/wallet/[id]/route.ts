@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
+import { logger } from '@/lib/logger'
 
 // GET /api/wallet/[id] - Get wallet details
 export async function GET(
@@ -78,7 +79,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: formattedWallet })
   } catch (error) {
-    console.error('Error fetching wallet:', error)
+    logger.error('Error fetching wallet:', error instanceof Error ? error : undefined)
     return NextResponse.json({ success: false, error: 'Failed to fetch wallet' }, { status: 500 })
   }
 }
@@ -131,7 +132,7 @@ export async function PATCH(
       },
     })
   } catch (error) {
-    console.error('Error updating wallet:', error)
+    logger.error('Error updating wallet:', error instanceof Error ? error : undefined)
     return NextResponse.json({ success: false, error: 'Failed to update wallet' }, { status: 500 })
   }
 }

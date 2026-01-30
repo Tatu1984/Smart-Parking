@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { spawn } from 'child_process'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/auth'
+import { logger } from '@/lib/logger'
 
 /**
  * Camera Snapshot API
@@ -62,7 +63,7 @@ export async function GET(
       }
     })
   } catch (error) {
-    console.error('Snapshot error:', error)
+    logger.error('Snapshot error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to capture snapshot' },
       { status: 500 }
@@ -95,7 +96,7 @@ function captureSnapshot(rtspUrl: string): Promise<Buffer | null> {
 
     ffmpeg.stderr.on('data', (data: Buffer) => {
       // FFmpeg outputs info to stderr, ignore unless debugging
-      console.log('FFmpeg snapshot:', data.toString().slice(0, 100))
+      logger.debug(`FFmpeg snapshot: ${data.toString().slice(0, 100)}`)
     })
 
     ffmpeg.on('close', (code) => {
@@ -109,7 +110,7 @@ function captureSnapshot(rtspUrl: string): Promise<Buffer | null> {
 
     ffmpeg.on('error', (error) => {
       clearTimeout(timeout)
-      console.error('FFmpeg snapshot error:', error)
+      logger.error('FFmpeg snapshot error:', error instanceof Error ? error : undefined)
       resolve(null)
     })
   })

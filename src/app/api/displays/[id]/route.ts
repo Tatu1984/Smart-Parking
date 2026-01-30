@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { HardwareManager } from '@/lib/hardware'
+import { logger } from '@/lib/logger'
 
 const hardwareManager = HardwareManager.getInstance()
 
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       status
     })
   } catch (error) {
-    console.error('Get display status error:', error)
+    logger.error('Get display status error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to get display status' },
       { status: 500 }
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       status
     })
   } catch (error) {
-    console.error('Update display error:', error)
+    logger.error('Update display error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to update display' },
       { status: 500 }
@@ -159,7 +160,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({ message: 'Display removed successfully' })
   } catch (error) {
-    console.error('Remove display error:', error)
+    logger.error('Remove display error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to remove display' },
       { status: 500 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { logger } from '@/lib/logger'
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -116,7 +117,7 @@ export default function ReportsPage() {
         })
       }
     } catch (error) {
-      console.error('Failed to fetch report data:', error)
+      logger.error('Failed to fetch report data:', error instanceof Error ? error : undefined)
       toast.error('Failed to load report data')
     } finally {
       setLoading(false)

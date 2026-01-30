@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { createOrder, getPublicKey } from '@/lib/payments/razorpay'
 import { calculateParkingFee } from '@/lib/payments'
 import { getSession } from '@/lib/auth/session'
+import { logger } from '@/lib/logger'
 
 // POST /api/payments - Create a payment order
 export async function POST(request: NextRequest) {
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
       } : null
     })
   } catch (error) {
-    console.error('Payment creation error:', error)
+    logger.error('Payment creation error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to create payment order' },
       { status: 500 }
@@ -171,7 +172,7 @@ export async function GET(request: NextRequest) {
       hasMore: offset + transactions.length < total
     })
   } catch (error) {
-    console.error('Transactions GET error:', error)
+    logger.error('Transactions GET error:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to fetch transactions' },
       { status: 500 }

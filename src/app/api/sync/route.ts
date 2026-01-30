@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSession } from '@/lib/auth'
 import { getOfflineQueue } from '@/lib/sync/offline-queue'
+import { logger } from '@/lib/logger'
 
 const queue = getOfflineQueue()
 
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response)
   } catch (error) {
-    console.error('Get sync status error:', error)
+    logger.error('Get sync status error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to get sync status' },
       { status: 500 }
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
       status: queue.getStatus()
     })
   } catch (error) {
-    console.error('Sync action error:', error)
+    logger.error('Sync action error', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { error: 'Failed to perform sync action' },
       { status: 500 }

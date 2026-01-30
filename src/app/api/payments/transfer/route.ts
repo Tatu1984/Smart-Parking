@@ -3,6 +3,7 @@ import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
 import { nanoid } from 'nanoid'
 import { emitBalanceUpdate, emitWalletTransaction } from '@/lib/socket/server'
+import { logger } from '@/lib/logger'
 
 // POST /api/payments/transfer - Transfer money between wallets (PayPal-style)
 export async function POST(request: NextRequest) {
@@ -185,7 +186,7 @@ export async function POST(request: NextRequest) {
       message: 'Transfer completed successfully',
     })
   } catch (error) {
-    console.error('Error processing transfer:', error)
+    logger.error('Error processing transfer:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to process transfer' },
       { status: 500 }

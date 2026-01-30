@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
+import { logger } from '@/lib/logger'
 
 // POST /api/bank-accounts/[id]/verify - Verify penny drop amount
 export async function POST(
@@ -114,7 +115,7 @@ export async function POST(
       message: 'Bank account verified successfully',
     })
   } catch (error) {
-    console.error('Error verifying bank account:', error)
+    logger.error('Error verifying bank account:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to verify bank account' },
       { status: 500 }

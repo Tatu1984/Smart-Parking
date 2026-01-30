@@ -3,6 +3,7 @@ import prisma from '@/lib/db'
 import { getCurrentUser } from '@/lib/auth/session'
 import { nanoid } from 'nanoid'
 import { emitBalanceUpdate, emitWalletTransaction } from '@/lib/socket/server'
+import { logger } from '@/lib/logger'
 
 // POST /api/payments/request/[id]/pay - Pay a payment request
 export async function POST(
@@ -180,7 +181,7 @@ export async function POST(
       message: 'Payment completed successfully',
     })
   } catch (error) {
-    console.error('Error processing payment:', error)
+    logger.error('Error processing payment:', error instanceof Error ? error : undefined)
     return NextResponse.json(
       { success: false, error: 'Failed to process payment' },
       { status: 500 }
