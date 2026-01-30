@@ -86,7 +86,7 @@ export class GateController {
 
       return success
     } catch (error) {
-      logger.error(`Gate ${this.gateId} open error:`, error)
+      logger.error(`Gate ${this.gateId} open error:`, error instanceof Error ? error : undefined)
       return false
     }
   }
@@ -115,7 +115,7 @@ export class GateController {
 
       return success
     } catch (error) {
-      logger.error(`Gate ${this.gateId} close error:`, error)
+      logger.error(`Gate ${this.gateId} close error:`, error instanceof Error ? error : undefined)
       return false
     }
   }
@@ -297,7 +297,7 @@ export class DisplayController {
 
       return success
     } catch (error) {
-      logger.error(`Display ${this.displayId} update error:`, error)
+      logger.error(`Display ${this.displayId} update error:`, error instanceof Error ? error : undefined)
       await prisma.display.update({
         where: { id: this.displayId },
         data: { status: 'ERROR' }
@@ -419,7 +419,7 @@ export class TicketPrinter {
       const escPosData = this.generateEscPos(ticket)
       return await this.sendToPrinter(escPosData)
     } catch (error) {
-      logger.error(`Printer ${this.printerId} error:`, error)
+      logger.error(`Printer ${this.printerId} error:`, error instanceof Error ? error : undefined)
       return false
     }
   }

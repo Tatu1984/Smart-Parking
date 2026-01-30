@@ -143,7 +143,7 @@ export async function sendEmail(payload: NotificationPayload): Promise<Notificat
       }
     }
   } catch (error) {
-    logger.error('Email send error:', error)
+    logger.error('Email send error:', error instanceof Error ? error : undefined)
     return {
       success: false,
       channel: 'email',
@@ -293,7 +293,7 @@ export async function sendSMS(payload: NotificationPayload): Promise<Notificatio
       }
     }
   } catch (error) {
-    logger.error('SMS send error:', error)
+    logger.error('SMS send error:', error instanceof Error ? error : undefined)
     return {
       success: false,
       channel: 'sms',
@@ -408,7 +408,7 @@ async function storeInAppNotification(
       channel: 'in-app'
     }
   } catch (error) {
-    logger.error('In-app notification error:', error)
+    logger.error('In-app notification error:', error instanceof Error ? error : undefined)
     return {
       success: false,
       channel: 'in-app',

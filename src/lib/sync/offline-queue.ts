@@ -170,7 +170,7 @@ class OfflineQueueManager {
 
       if (op.retryCount >= op.maxRetries) {
         op.status = 'failed'
-        logger.error(`Operation ${operationId} failed after ${op.maxRetries} retries:`, error)
+        logger.error(`Operation ${operationId} failed after ${op.maxRetries} retries:`, error instanceof Error ? error : undefined)
       } else {
         op.status = 'pending'
         logger.warn(`Operation ${operationId} failed, will retry (${op.retryCount}/${op.maxRetries})`)
@@ -342,7 +342,7 @@ class OfflineQueueManager {
       try {
         listener(status)
       } catch (error) {
-        logger.error('Error in sync listener:', error)
+        logger.error('Error in sync listener:', error instanceof Error ? error : undefined)
       }
     }
   }
