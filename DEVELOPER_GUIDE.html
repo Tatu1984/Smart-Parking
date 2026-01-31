@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SParking - Developer Guide</title>
+<style>
+  @page {
+    margin: 0.75in;
+    size: A4;
+  }
+  body {
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 10pt;
+    line-height: 1.5;
+    max-width: 8.5in;
+    margin: 0 auto;
+    padding: 0.75in;
+    color: #333;
+  }
+  h1 {
+    color: #1E3A5F;
+    font-size: 22pt;
+    text-align: center;
+    border-bottom: 3px solid #3182CE;
+    padding-bottom: 10px;
+  }
+  h2 {
+    color: #1E3A5F;
+    font-size: 14pt;
+    border-bottom: 1px solid #3182CE;
+    padding-bottom: 5px;
+    margin-top: 25px;
+    page-break-after: avoid;
+  }
+  h3 {
+    color: #2D5A8A;
+    font-size: 12pt;
+    margin-top: 15px;
+    page-break-after: avoid;
+  }
+  h4 {
+    color: #3182CE;
+    font-size: 10pt;
+    margin-top: 12px;
+  }
+  .cover-page {
+    text-align: center;
+    page-break-after: always;
+    padding-top: 2in;
+  }
+  .cover-page h1 {
+    font-size: 32pt;
+    border: none;
+  }
+  .cover-page .subtitle {
+    font-size: 16pt;
+    color: #666;
+    margin-top: 15px;
+  }
+  .cover-page .version {
+    font-size: 12pt;
+    color: #888;
+    margin-top: 30px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 9pt;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 6px;
+    text-align: left;
+  }
+  th {
+    background-color: #1E3A5F;
+    color: white;
+  }
+  tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+  pre, code {
+    background-color: #f5f5f5;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 9pt;
+  }
+  pre {
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    border: 1px solid #ddd;
+  }
+  code {
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .note {
+    background-color: #E8F4FD;
+    border-left: 4px solid #3182CE;
+    padding: 8px 12px;
+    margin: 10px 0;
+    font-size: 9pt;
+  }
+  .warning {
+    background-color: #FFF3CD;
+    border-left: 4px solid #FFC107;
+    padding: 8px 12px;
+    margin: 10px 0;
+    font-size: 9pt;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+  ul, ol {
+    margin: 5px 0;
+    padding-left: 20px;
+  }
+  li {
+    margin: 3px 0;
+  }
+  footer {
+    text-align: center;
+    font-size: 8pt;
+    color: #888;
+    margin-top: 30px;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover-page">
+  <h1>SParking</h1>
+  <div class="subtitle">Developer Guide</div>
+  <div class="subtitle">AI-Powered Smart Parking Management System</div>
+  <div class="version">
+    Version 2.0<br>
+    January 2026
+  </div>
+  <div style="margin-top: 80px; font-size: 10pt; color: #888;">
+    Technical Documentation for Development Team
+  </div>
+</div>
+
+<!-- Table of Contents -->
+<h2>Table of Contents</h2>
+<ol>
+  <li>Project Overview</li>
+  <li>Tech Stack</li>
+  <li>Project Structure</li>
+  <li>Getting Started</li>
+  <li>Environment Variables</li>
+  <li>Database Schema</li>
+  <li>API Reference</li>
+  <li>Frontend Architecture</li>
+  <li>Authentication & Authorization</li>
+  <li>AI Pipeline</li>
+  <li>Hardware Integration</li>
+  <li>Payment System</li>
+  <li>Camera System</li>
+  <li>Notification System</li>
+  <li>Testing</li>
+  <li>Deployment</li>
+  <li>Security Best Practices</li>
+  <li>Troubleshooting</li>
+</ol>
+
+<!-- Chapter 1 -->
+<h2 class="page-break">1. Project Overview</h2>
+
+<p>SParking is a comprehensive AI-powered parking management system designed for facilities ranging from small parking lots to large multi-level commercial parking structures.</p>
+
+<h3>Key Features</h3>
+<table>
+  <tr><th>Feature</th><th>Description</th></tr>
+  <tr><td>Vehicle Detection</td><td>YOLOv8-based detection with &lt;100ms latency</td></tr>
+  <tr><td>ANPR</td><td>Automatic License Plate Recognition using Intel OpenVINO</td></tr>
+  <tr><td>Payment Gateway</td><td>Stripe/Razorpay integration + digital wallet system</td></tr>
+  <tr><td>Hardware Control</td><td>Gates, LED displays, ticket printers</td></tr>
+  <tr><td>Analytics</td><td>Predictive occupancy, revenue reports, traffic patterns</td></tr>
+  <tr><td>Multi-tenant</td><td>Support for multiple parking lots and organizations</td></tr>
+  <tr><td>Real-time</td><td>WebSocket updates for live monitoring</td></tr>
+  <tr><td>Offline Support</td><td>Offline queue with automatic sync</td></tr>
+  <tr><td>Multi-currency</td><td>INR, USD, EUR, GBP support</td></tr>
+</table>
+
+<h3>System Architecture</h3>
+<pre>
+┌─────────────────────────────────────────────────────────────────┐
+│                        Web Browser                               │
+│                    (Next.js Frontend)                            │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────────┐
+│                    Next.js API Routes                            │
+│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐      │
+│  │  Auth    │ Parking  │ Payment  │ Hardware │ Analytics │      │
+│  └──────────┴──────────┴──────────┴──────────┴──────────┘      │
+└─────────────────────────┬───────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────────┐
+│                     PostgreSQL (Prisma)                          │
+└─────────────────────────────────────────────────────────────────┘
+</pre>
+
+<!-- Chapter 2 -->
+<h2 class="page-break">2. Tech Stack</h2>
+
+<h3>Frontend</h3>
+<table>
+  <tr><th>Technology</th><th>Version</th><th>Purpose</th></tr>
+  <tr><td>Next.js</td><td>16.x</td><td>React framework with App Router</td></tr>
+  <tr><td>React</td><td>19.x</td><td>UI library</td></tr>
+  <tr><td>Tailwind CSS</td><td>4.x</td><td>Styling</td></tr>
+  <tr><td>shadcn/ui</td><td>Latest</td><td>UI component library</td></tr>
+  <tr><td>Recharts</td><td>2.x</td><td>Charts and visualizations</td></tr>
+  <tr><td>Socket.io-client</td><td>4.x</td><td>Real-time updates</td></tr>
+  <tr><td>React Hook Form</td><td>7.x</td><td>Form handling</td></tr>
+  <tr><td>Zod</td><td>3.x</td><td>Schema validation</td></tr>
+</table>
+
+<h3>Backend</h3>
+<table>
+  <tr><th>Technology</th><th>Version</th><th>Purpose</th></tr>
+  <tr><td>Node.js</td><td>18+</td><td>Runtime</td></tr>
+  <tr><td>Next.js API Routes</td><td>16.x</td><td>REST API</td></tr>
+  <tr><td>Prisma</td><td>7.x</td><td>ORM</td></tr>
+  <tr><td>PostgreSQL</td><td>14+</td><td>Database</td></tr>
+  <tr><td>JSON Web Tokens</td><td>-</td><td>Authentication</td></tr>
+  <tr><td>bcryptjs</td><td>-</td><td>Password hashing</td></tr>
+</table>
+
+<h3>AI Pipeline</h3>
+<table>
+  <tr><th>Technology</th><th>Version</th><th>Purpose</th></tr>
+  <tr><td>Python</td><td>3.8+</td><td>Runtime</td></tr>
+  <tr><td>YOLOv8</td><td>Latest</td><td>Vehicle detection</td></tr>
+  <tr><td>OpenVINO</td><td>Latest</td><td>ANPR optimization</td></tr>
+  <tr><td>OpenCV</td><td>4.x</td><td>Video processing</td></tr>
+  <tr><td>FFmpeg</td><td>5.x</td><td>Stream handling</td></tr>
+</table>
+
+<!-- Chapter 3 -->
+<h2 class="page-break">3. Project Structure</h2>
+
+<pre>
+sparking/
+├── src/
+│   ├── app/                          # Next.js App Router
+│   │   ├── api/                      # API Routes (50+ endpoints)
+│   │   │   ├── auth/                 # Authentication
+│   │   │   ├── parking-lots/         # Parking lot CRUD
+│   │   │   ├── zones/                # Zone management
+│   │   │   ├── slots/                # Slot management
+│   │   │   ├── cameras/              # Camera CRUD + streaming
+│   │   │   ├── tokens/               # Parking tokens
+│   │   │   ├── vehicles/             # Vehicle registry
+│   │   │   ├── payments/             # Payment processing
+│   │   │   ├── wallet/               # Digital wallet
+│   │   │   ├── analytics/            # Analytics & predictive
+│   │   │   ├── reports/              # Report generation
+│   │   │   ├── settings/             # System settings
+│   │   │   └── ...
+│   │   ├── dashboard/                # Admin dashboard pages
+│   │   └── pay/[ref]/                # Payment page (public)
+│   ├── components/                   # React components
+│   │   ├── ui/                       # shadcn/ui components
+│   │   ├── dashboard/                # Dashboard layout
+│   │   └── camera/                   # Camera components
+│   ├── hooks/                        # Custom React hooks
+│   ├── lib/                          # Utility libraries
+│   │   ├── auth/                     # Authentication
+│   │   ├── hardware/                 # Hardware drivers
+│   │   ├── notifications/            # Notification system
+│   │   └── ...
+│   └── __tests__/                    # Test files
+├── prisma/
+│   └── schema.prisma                 # Database schema
+├── ai-pipeline/                      # Python AI service
+└── public/                           # Static assets
+</pre>
+
+<!-- Chapter 4 -->
+<h2 class="page-break">4. Getting Started</h2>
+
+<h3>Prerequisites</h3>
+<ul>
+  <li>Node.js 18+ (LTS recommended)</li>
+  <li>PostgreSQL 14+ (or Neon account)</li>
+  <li>Python 3.8+ (for AI pipeline)</li>
+  <li>FFmpeg 5+ (for camera streaming)</li>
+  <li>Git</li>
+</ul>
+
+<h3>Installation</h3>
+<pre>
+# Clone the repository
+git clone https://github.com/your-org/sparking.git
+cd sparking
+
+# Install Node.js dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your configuration
+
+# Generate Prisma client
+npx prisma generate
+
+# Push database schema (development)
+npx prisma db push
+
+# Start development server
+npm run dev
+</pre>
+
+<h3>Verify Installation</h3>
+<ol>
+  <li>Open http://localhost:3000</li>
+  <li>Check API health: http://localhost:3000/api/health</li>
+  <li>Access dashboard: http://localhost:3000/dashboard</li>
+</ol>
+
+<!-- Chapter 5 -->
+<h2 class="page-break">5. Environment Variables</h2>
+
+<h3>Required Variables</h3>
+<pre>
+# ===========================================
+# REQUIRED - Application Core
+# ===========================================
+
+NODE_ENV=development
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_NAME=SParking
+
+# Database (PostgreSQL)
+DATABASE_URL="postgresql://postgres:password@localhost:5432/sparking"
+
+# Authentication (minimum 32 characters)
+JWT_SECRET="your-super-secure-jwt-secret-minimum-32-characters"
+
+# AI Pipeline Detection API Key
+DETECTION_API_KEY="your-detection-api-key"
+</pre>
+
+<h3>Optional Variables</h3>
+<pre>
+# Email Provider: console, resend, sendgrid, smtp
+EMAIL_PROVIDER=console
+EMAIL_FROM=Sparking &lt;noreply@sparking.app&gt;
+
+# Payment Gateway
+STRIPE_SECRET_KEY=sk_test_...
+RAZORPAY_KEY_ID=your-razorpay-key
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX_REQUESTS=100
+</pre>
+
+<!-- Chapter 6 -->
+<h2 class="page-break">6. Database Schema</h2>
+
+<h3>Core Models</h3>
+
+<h4>Organization</h4>
+<pre>
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+
+  settings    OrganizationSettings?
+  users       User[]
+  parkingLots ParkingLot[]
+  wallets     Wallet[]
+}
+</pre>
+
+<h4>ParkingLot</h4>
+<pre>
+model ParkingLot {
+  id           String           @id @default(cuid())
+  name         String
+  slug         String           @unique
+  address      String?
+  city         String?
+  totalSlots   Int              @default(0)
+  status       ParkingLotStatus @default(ACTIVE)
+
+  zones        Zone[]
+  cameras      Camera[]
+  gates        Gate[]
+  tokens       Token[]
+}
+</pre>
+
+<h4>Token (Parking Session)</h4>
+<pre>
+model Token {
+  id             String      @id @default(cuid())
+  tokenNumber    String      @unique
+  licensePlate   String?
+  vehicleType    VehicleType?
+  entryTime      DateTime    @default(now())
+  exitTime       DateTime?
+  status         TokenStatus @default(ACTIVE)
+
+  parkingLotId   String
+  parkingLot     ParkingLot  @relation(fields: [parkingLotId])
+  allocatedSlotId String?
+  allocatedSlot  Slot?       @relation(fields: [allocatedSlotId])
+
+  transactions   Transaction[]
+}
+</pre>
+
+<h3>Key Enums</h3>
+<pre>
+enum TokenStatus { ACTIVE, COMPLETED, EXPIRED, LOST, CANCELLED }
+enum SlotStatus { AVAILABLE, OCCUPIED, RESERVED, MAINTENANCE, BLOCKED }
+enum VehicleType { CAR, SUV, MOTORCYCLE, BUS, TRUCK, VAN }
+enum PaymentMethod { CASH, UPI, CARD, WALLET, BANK_TRANSFER }
+</pre>
+
+<!-- Chapter 7 -->
+<h2 class="page-break">7. API Reference</h2>
+
+<h3>Authentication</h3>
+<pre>
+# Login
+POST /api/auth/login
+{ "email": "user@example.com", "password": "password123" }
+
+# Use token in requests
+Authorization: Bearer &lt;token&gt;
+</pre>
+
+<h3>API Endpoints Summary</h3>
+
+<h4>Authentication</h4>
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+  <tr><td>POST</td><td>/api/auth/login</td><td>User login</td></tr>
+  <tr><td>POST</td><td>/api/auth/logout</td><td>User logout</td></tr>
+  <tr><td>GET</td><td>/api/auth/me</td><td>Get current user</td></tr>
+</table>
+
+<h4>Parking Lots</h4>
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+  <tr><td>GET</td><td>/api/parking-lots</td><td>List parking lots</td></tr>
+  <tr><td>POST</td><td>/api/parking-lots</td><td>Create parking lot</td></tr>
+  <tr><td>GET</td><td>/api/parking-lots/:id</td><td>Get parking lot</td></tr>
+  <tr><td>PATCH</td><td>/api/parking-lots/:id</td><td>Update parking lot</td></tr>
+  <tr><td>DELETE</td><td>/api/parking-lots/:id</td><td>Delete parking lot</td></tr>
+</table>
+
+<h4>Tokens</h4>
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+  <tr><td>GET</td><td>/api/tokens</td><td>List tokens</td></tr>
+  <tr><td>POST</td><td>/api/tokens</td><td>Create token (entry)</td></tr>
+  <tr><td>GET</td><td>/api/tokens/:id</td><td>Get token</td></tr>
+  <tr><td>PATCH</td><td>/api/tokens/:id</td><td>Update token</td></tr>
+</table>
+
+<h4>Cameras</h4>
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+  <tr><td>GET</td><td>/api/cameras</td><td>List cameras</td></tr>
+  <tr><td>POST</td><td>/api/cameras</td><td>Add camera</td></tr>
+  <tr><td>GET</td><td>/api/cameras/:id/stream</td><td>MJPEG live stream</td></tr>
+  <tr><td>GET</td><td>/api/cameras/:id/snapshot</td><td>Capture snapshot</td></tr>
+</table>
+
+<h4>Payments</h4>
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+  <tr><td>GET</td><td>/api/payments</td><td>List payments</td></tr>
+  <tr><td>POST</td><td>/api/payments/parking</td><td>Pay for parking</td></tr>
+  <tr><td>POST</td><td>/api/payments/deposit</td><td>Add money to wallet</td></tr>
+  <tr><td>POST</td><td>/api/payments/withdraw</td><td>Withdraw to bank</td></tr>
+  <tr><td>POST</td><td>/api/payments/transfer</td><td>Wallet transfer</td></tr>
+</table>
+
+<h4>Wallet</h4>
+<table>
+  <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+  <tr><td>GET</td><td>/api/wallet</td><td>List wallets</td></tr>
+  <tr><td>GET</td><td>/api/wallet/:id/balance</td><td>Get balance</td></tr>
+  <tr><td>GET</td><td>/api/wallet/:id/transactions</td><td>Get transactions</td></tr>
+</table>
+
+<h3>Response Format</h3>
+<pre>
+// Success Response
+{ "success": true, "data": { ... }, "message": "Operation successful" }
+
+// Error Response
+{ "success": false, "error": "Error message", "code": "ERROR_CODE" }
+</pre>
+
+<!-- Chapter 8 -->
+<h2 class="page-break">8. Frontend Architecture</h2>
+
+<h3>Page Structure</h3>
+<pre>
+/                              # Landing page
+/dashboard                     # Main dashboard
+/dashboard/parking-lots        # Parking lot management
+/dashboard/zones               # Zone management
+/dashboard/slots               # Slot management
+/dashboard/cameras             # Camera management
+/dashboard/tokens              # Token management
+/dashboard/vehicles            # Vehicle registry
+/dashboard/wallet              # Digital wallet
+/dashboard/analytics           # Analytics dashboard
+/dashboard/reports             # Reports
+/dashboard/settings            # Settings
+</pre>
+
+<h3>Component Pattern</h3>
+<pre>
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+
+export function MyComponent() {
+  return (
+    &lt;Card&gt;
+      &lt;CardHeader&gt;
+        &lt;CardTitle&gt;Title&lt;/CardTitle&gt;
+      &lt;/CardHeader&gt;
+      &lt;CardContent&gt;
+        &lt;Button&gt;Click Me&lt;/Button&gt;
+      &lt;/CardContent&gt;
+    &lt;/Card&gt;
+  )
+}
+</pre>
+
+<h3>Data Fetching Pattern</h3>
+<pre>
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { toast } from 'sonner'
+
+export default function DataPage() {
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const fetchData = useCallback(async () =&gt; {
+    try {
+      const response = await fetch('/api/resource')
+      const json = await response.json()
+      setData(json.data || [])
+    } catch (error) {
+      toast.error('Failed to load data')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() =&gt; { fetchData() }, [fetchData])
+
+  if (loading) return &lt;div&gt;Loading...&lt;/div&gt;
+  return &lt;div&gt;{/* Render data */}&lt;/div&gt;
+}
+</pre>
+
+<!-- Chapter 9 -->
+<h2 class="page-break">9. Authentication & Authorization</h2>
+
+<h3>JWT Token Structure</h3>
+<pre>
+interface JWTPayload {
+  userId: string
+  email: string
+  role: UserRole
+  organizationId: string
+  iat: number  // Issued at
+  exp: number  // Expiration
+}
+</pre>
+
+<h3>Getting Current User</h3>
+<pre>
+import { getCurrentUser } from '@/lib/auth/session'
+
+export async function GET(request: NextRequest) {
+  const user = await getCurrentUser()
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // User is authenticated
+}
+</pre>
+
+<h3>User Roles</h3>
+<table>
+  <tr><th>Role</th><th>Permissions</th></tr>
+  <tr><td>SUPER_ADMIN</td><td>Full access</td></tr>
+  <tr><td>ADMIN</td><td>All except system settings</td></tr>
+  <tr><td>MANAGER</td><td>Operations, reports, no users</td></tr>
+  <tr><td>OPERATOR</td><td>Entry/exit, tokens, payments</td></tr>
+  <tr><td>FINANCE</td><td>Payments, reports</td></tr>
+  <tr><td>VIEWER</td><td>Dashboard view only</td></tr>
+</table>
+
+<!-- Chapter 10 -->
+<h2 class="page-break">10. AI Pipeline</h2>
+
+<h3>Overview</h3>
+<p>The AI pipeline is a Python service that:</p>
+<ol>
+  <li>Captures RTSP video streams from cameras</li>
+  <li>Runs vehicle detection using YOLOv8</li>
+  <li>Performs license plate recognition (ANPR)</li>
+  <li>Publishes detection events to the Next.js API</li>
+</ol>
+
+<h3>Running the Pipeline</h3>
+<pre>
+cd ai-pipeline
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python -m src.pipeline --config config.json
+</pre>
+
+<h3>Configuration</h3>
+<pre>
+{
+  "cameras": [
+    {
+      "id": "cam-entry-1",
+      "rtsp_url": "rtsp://admin:password@192.168.1.100:554/stream",
+      "parking_lot_id": "lot-1",
+      "enabled": true
+    }
+  ],
+  "api_endpoint": "http://localhost:3000/api/realtime/detection",
+  "api_key": "your-detection-api-key",
+  "device": "CPU",
+  "confidence_threshold": 0.5
+}
+</pre>
+
+<!-- Chapter 11 -->
+<h2 class="page-break">11. Hardware Integration</h2>
+
+<h3>Gate Controller</h3>
+<pre>
+import { HardwareManager } from '@/lib/hardware'
+
+const manager = HardwareManager.getInstance()
+await manager.initialize(parkingLotId)
+
+const gate = manager.getGate('gate-entry-1')
+await gate.open(5000)  // Open for 5 seconds
+await gate.close()
+</pre>
+
+<h3>Display Controller</h3>
+<pre>
+const display = manager.getDisplay('display-1')
+await display.showMessage('Welcome!')
+await display.updateAvailability(45, 100)
+await display.showDirectionalArrow('LEFT', 'Zone A')
+</pre>
+
+<h3>Supported Protocols</h3>
+<table>
+  <tr><th>Protocol</th><th>Gate</th><th>Display</th><th>Printer</th></tr>
+  <tr><td>HTTP/REST</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>RS485</td><td>Yes</td><td>Yes</td><td>-</td></tr>
+  <tr><td>MQTT</td><td>Yes</td><td>Yes</td><td>-</td></tr>
+  <tr><td>ESC/POS</td><td>-</td><td>-</td><td>Yes</td></tr>
+</table>
+
+<!-- Chapter 12 -->
+<h2 class="page-break">12. Payment System</h2>
+
+<h3>Payment Flow</h3>
+<pre>
+Entry → Token Created → Parking → Exit Request → Fee Calculated → Payment → Token Completed → Gate Opens
+</pre>
+
+<h3>Fee Calculation</h3>
+<pre>
+function calculateParkingFee(entryTime, exitTime, pricingRule) {
+  const hours = Math.ceil((exitTime - entryTime) / (1000 * 60 * 60))
+  let fee = pricingRule.baseRate
+
+  if (pricingRule.pricingModel === 'HOURLY') {
+    fee += hours * pricingRule.hourlyRate
+  }
+
+  if (pricingRule.dailyMaxRate && fee > pricingRule.dailyMaxRate) {
+    fee = pricingRule.dailyMaxRate
+  }
+
+  return fee
+}
+</pre>
+
+<!-- Chapter 13 -->
+<h2>13. Camera System</h2>
+
+<h3>Adding a Camera</h3>
+<pre>
+POST /api/cameras
+{
+  "parkingLotId": "lot-1",
+  "name": "Entry Camera 1",
+  "rtspUrl": "rtsp://admin:password@192.168.1.100:554/stream",
+  "username": "admin",
+  "password": "password"
+}
+</pre>
+
+<h3>Stream Endpoints</h3>
+<pre>
+GET /api/cameras/:id/stream    # MJPEG live stream
+GET /api/cameras/:id/snapshot  # Single frame capture
+</pre>
+
+<!-- Chapter 14 -->
+<h2>14. Notification System</h2>
+
+<pre>
+import { sendNotification } from '@/lib/notifications'
+
+// Send email
+await sendNotification({
+  channel: 'email',
+  to: 'user@example.com',
+  subject: 'Parking Receipt',
+  template: 'parking-receipt',
+  data: { tokenNumber: 'TKN-001', amount: 150 }
+})
+
+// Send SMS
+await sendNotification({
+  channel: 'sms',
+  to: '+919876543210',
+  message: 'Your parking token TKN-001 has been created.'
+})
+</pre>
+
+<!-- Chapter 15 -->
+<h2 class="page-break">15. Testing</h2>
+
+<h3>Running Tests</h3>
+<pre>
+npm test                    # Run all tests
+npm run test:coverage       # Run with coverage
+npm run test:watch          # Watch mode
+</pre>
+
+<h3>Writing Tests</h3>
+<pre>
+import { describe, it, expect } from 'vitest'
+
+describe('MyFunction', () => {
+  it('should do something', () => {
+    const result = myFunction('input')
+    expect(result).toBe('expected')
+  })
+})
+</pre>
+
+<!-- Chapter 16 -->
+<h2>16. Deployment</h2>
+
+<h3>Vercel Deployment</h3>
+<pre>
+vercel            # Preview deployment
+vercel --prod     # Production deployment
+</pre>
+
+<h3>Required Environment Variables</h3>
+<ul>
+  <li>DATABASE_URL - PostgreSQL connection string</li>
+  <li>JWT_SECRET - Authentication secret</li>
+  <li>DETECTION_API_KEY - AI pipeline key</li>
+</ul>
+
+<h3>Docker (AI Pipeline)</h3>
+<pre>
+docker build -t sparking-ai-pipeline ./ai-pipeline
+docker run -d --name ai-pipeline sparking-ai-pipeline
+</pre>
+
+<!-- Chapter 17 -->
+<h2 class="page-break">17. Security Best Practices</h2>
+
+<h3>Input Validation</h3>
+<pre>
+const schema = z.object({
+  email: z.string().email(),
+  amount: z.number().positive(),
+  licensePlate: z.string().regex(/^[A-Z]{2}\d{2}[A-Z]{2}\d{4}$/),
+})
+</pre>
+
+<h3>Key Practices</h3>
+<ul>
+  <li>Always validate input using Zod schemas</li>
+  <li>Use Prisma ORM (prevents SQL injection)</li>
+  <li>Hash passwords with bcrypt</li>
+  <li>JWT tokens with expiration</li>
+  <li>Rate limit login attempts</li>
+  <li>Encrypt sensitive data</li>
+  <li>Never commit .env files</li>
+</ul>
+
+<!-- Chapter 18 -->
+<h2>18. Troubleshooting</h2>
+
+<h3>Common Issues</h3>
+<table>
+  <tr><th>Issue</th><th>Solution</th></tr>
+  <tr><td>Database connection error</td><td>Check DATABASE_URL, run <code>npx prisma db pull</code></td></tr>
+  <tr><td>Build errors</td><td>Clear cache: <code>rm -rf .next node_modules/.cache</code></td></tr>
+  <tr><td>TypeScript errors</td><td>Run <code>npx prisma generate</code></td></tr>
+  <tr><td>Camera stream not working</td><td>Check FFmpeg installation, RTSP URL</td></tr>
+</table>
+
+<h3>Debug Mode</h3>
+<pre>
+LOG_LEVEL=debug npm run dev
+</pre>
+
+<hr>
+
+<h3>Document Information</h3>
+<table>
+  <tr><td><strong>Document:</strong></td><td>SParking Developer Guide</td></tr>
+  <tr><td><strong>Version:</strong></td><td>2.0</td></tr>
+  <tr><td><strong>Last Updated:</strong></td><td>January 2026</td></tr>
+</table>
+
+<footer>
+  <p>&copy; 2026 SParking - All rights reserved.</p>
+</footer>
+
+</body>
+</html>
