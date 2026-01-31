@@ -1,0 +1,1752 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SParking - Smart Parking Management System - User Manual</title>
+<style>
+  body {
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    max-width: 8.5in;
+    margin: 0 auto;
+    padding: 1in;
+    color: #333;
+  }
+  h1 {
+    color: #1E3A5F;
+    font-size: 24pt;
+    text-align: center;
+    border-bottom: 3px solid #3182CE;
+    padding-bottom: 10px;
+    margin-top: 0;
+  }
+  h2 {
+    color: #1E3A5F;
+    font-size: 16pt;
+    border-bottom: 1px solid #3182CE;
+    padding-bottom: 5px;
+    margin-top: 30px;
+    page-break-after: avoid;
+  }
+  h3 {
+    color: #2D5A8A;
+    font-size: 13pt;
+    margin-top: 20px;
+    page-break-after: avoid;
+  }
+  h4 {
+    color: #3182CE;
+    font-size: 11pt;
+    margin-top: 15px;
+  }
+  .cover-page {
+    text-align: center;
+    page-break-after: always;
+    padding-top: 2in;
+  }
+  .cover-page h1 {
+    font-size: 36pt;
+    border: none;
+  }
+  .cover-page .subtitle {
+    font-size: 18pt;
+    color: #666;
+    margin-top: 20px;
+  }
+  .cover-page .version {
+    font-size: 14pt;
+    color: #888;
+    margin-top: 40px;
+  }
+  .cover-page .logo {
+    font-size: 72pt;
+    color: #1E3A5F;
+    margin-bottom: 20px;
+  }
+  .toc {
+    page-break-after: always;
+  }
+  .toc h2 {
+    text-align: center;
+  }
+  .toc ul {
+    list-style: none;
+    padding-left: 0;
+  }
+  .toc li {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+  .toc a {
+    text-decoration: none;
+    color: #333;
+  }
+  .toc .section {
+    font-weight: bold;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 10pt;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+  }
+  th {
+    background-color: #1E3A5F;
+    color: white;
+  }
+  tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+  .note {
+    background-color: #E8F4FD;
+    border-left: 4px solid #3182CE;
+    padding: 10px 15px;
+    margin: 15px 0;
+  }
+  .warning {
+    background-color: #FFF3CD;
+    border-left: 4px solid #FFC107;
+    padding: 10px 15px;
+    margin: 15px 0;
+  }
+  .tip {
+    background-color: #D4EDDA;
+    border-left: 4px solid #28A745;
+    padding: 10px 15px;
+    margin: 15px 0;
+  }
+  .steps {
+    background-color: #f5f5f5;
+    padding: 15px;
+    border-radius: 5px;
+    margin: 15px 0;
+  }
+  .steps ol {
+    margin: 0;
+    padding-left: 20px;
+  }
+  .steps li {
+    margin: 8px 0;
+  }
+  code {
+    background-color: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Consolas', monospace;
+    font-size: 10pt;
+  }
+  .screenshot-placeholder {
+    background-color: #eee;
+    border: 2px dashed #ccc;
+    padding: 40px;
+    text-align: center;
+    color: #888;
+    margin: 15px 0;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+  footer {
+    text-align: center;
+    font-size: 9pt;
+    color: #888;
+    margin-top: 40px;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover-page">
+  <div class="logo">P</div>
+  <h1>SParking</h1>
+  <div class="subtitle">Smart Parking Management System</div>
+  <div class="subtitle">User Manual</div>
+  <div class="version">
+    Version 1.0<br>
+    January 2026
+  </div>
+  <div style="margin-top: 100px; font-size: 10pt; color: #888;">
+    Confidential - For Authorized Users Only
+  </div>
+</div>
+
+<!-- Table of Contents -->
+<div class="toc">
+  <h2>Table of Contents</h2>
+  <ul>
+    <li class="section">1. Introduction</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;1.1 About SParking</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;1.2 System Requirements</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;1.3 Getting Started</li>
+    <li class="section">2. Dashboard Overview</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;2.1 Navigation</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;2.2 Key Metrics</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;2.3 System Health</li>
+    <li class="section">3. Parking Management</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;3.1 Parking Lots</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;3.2 Zones</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;3.3 Slots</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;3.4 Cameras</li>
+    <li class="section">4. Daily Operations</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;4.1 Token Management</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;4.2 Vehicle Registry</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;4.3 Live Monitoring</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;4.4 Vehicle Entry Process</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;4.5 Vehicle Exit Process</li>
+    <li class="section">5. Financial Management</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;5.1 Wallet Management</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;5.2 Bank Accounts</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;5.3 Payments & Transactions</li>
+    <li class="section">6. Analytics & Reports</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;6.1 Analytics Dashboard</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;6.2 Generating Reports</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;6.3 Exporting Data</li>
+    <li class="section">7. System Settings</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;7.1 Organization Settings</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;7.2 Alert Configuration</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;7.3 Security Settings</li>
+    <li>&nbsp;&nbsp;&nbsp;&nbsp;7.4 User Management</li>
+    <li class="section">8. Troubleshooting</li>
+    <li class="section">9. Glossary</li>
+    <li class="section">10. Support & Contact</li>
+  </ul>
+</div>
+
+<!-- Chapter 1: Introduction -->
+<h2>1. Introduction</h2>
+
+<h3>1.1 About SParking</h3>
+<p>SParking is a comprehensive smart parking management system designed to streamline parking operations for facilities of all sizes. From small parking lots to large multi-level commercial parking structures, SParking provides the tools you need to efficiently manage vehicles, process payments, and gain valuable insights into your parking operations.</p>
+
+<p><strong>Key Features:</strong></p>
+<ul>
+  <li><strong>Automatic Number Plate Recognition (ANPR)</strong> - Automated vehicle identification using AI-powered camera systems</li>
+  <li><strong>Real-time Monitoring</strong> - Live dashboard with occupancy tracking and camera feeds</li>
+  <li><strong>Multi-Payment Support</strong> - Accept Cash, UPI, Card, and digital wallet payments</li>
+  <li><strong>Zone-based Management</strong> - Organize parking by zones, levels, and vehicle types</li>
+  <li><strong>Comprehensive Analytics</strong> - Detailed reports and predictive analytics</li>
+  <li><strong>Hardware Integration</strong> - Control gates, displays, and ticket printers</li>
+  <li><strong>Multi-currency Support</strong> - INR, USD, EUR, GBP</li>
+</ul>
+
+<h3>1.2 System Requirements</h3>
+<table>
+  <tr>
+    <th>Component</th>
+    <th>Requirement</th>
+  </tr>
+  <tr>
+    <td>Web Browser</td>
+    <td>Google Chrome (recommended), Firefox, Safari, or Edge (latest versions)</td>
+  </tr>
+  <tr>
+    <td>Internet Connection</td>
+    <td>Stable broadband connection (minimum 5 Mbps for camera streaming)</td>
+  </tr>
+  <tr>
+    <td>Screen Resolution</td>
+    <td>Minimum 1280x720, recommended 1920x1080 or higher</td>
+  </tr>
+  <tr>
+    <td>Device</td>
+    <td>Desktop, laptop, or tablet (responsive design supported)</td>
+  </tr>
+</table>
+
+<h3>1.3 Getting Started</h3>
+
+<h4>Logging In</h4>
+<div class="steps">
+<ol>
+  <li>Open your web browser and navigate to your SParking URL (provided by your administrator)</li>
+  <li>Enter your <strong>Email Address</strong> in the email field</li>
+  <li>Enter your <strong>Password</strong> in the password field</li>
+  <li>Click the <strong>"Sign In"</strong> button</li>
+  <li>Upon successful login, you will be redirected to the Dashboard</li>
+</ol>
+</div>
+
+<div class="note">
+<strong>Note:</strong> If you forget your password, contact your system administrator to reset it. For security reasons, passwords must be at least 8 characters and include uppercase, lowercase, numbers, and special characters.
+</div>
+
+<h4>First-Time Setup Checklist</h4>
+<table>
+  <tr>
+    <th>Step</th>
+    <th>Action</th>
+    <th>Location</th>
+  </tr>
+  <tr>
+    <td>1</td>
+    <td>Configure organization settings</td>
+    <td>Settings > Organization</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>Set up parking lot details</td>
+    <td>Parking Lots > Add New</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>Create zones</td>
+    <td>Zones > Add Zone</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>Configure parking slots</td>
+    <td>Slots > Add Slots</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>Connect cameras</td>
+    <td>Cameras > Add Camera</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td>Set up payment methods</td>
+    <td>Settings > Payments</td>
+  </tr>
+</table>
+
+<!-- Chapter 2: Dashboard Overview -->
+<h2 class="page-break">2. Dashboard Overview</h2>
+
+<h3>2.1 Navigation</h3>
+<p>The SParking dashboard uses a sidebar navigation system with the following main sections:</p>
+
+<table>
+  <tr>
+    <th>Section</th>
+    <th>Icon</th>
+    <th>Purpose</th>
+  </tr>
+  <tr>
+    <td><strong>Overview</strong></td>
+    <td>Home</td>
+    <td>Main dashboard with key metrics and real-time status</td>
+  </tr>
+  <tr>
+    <td><strong>Live</strong></td>
+    <td>Monitor</td>
+    <td>Real-time camera feeds and event monitoring</td>
+  </tr>
+  <tr>
+    <td colspan="3" style="background-color: #f0f0f0;"><strong>PARKING MANAGEMENT</strong></td>
+  </tr>
+  <tr>
+    <td>Parking Lots</td>
+    <td>Building</td>
+    <td>Manage parking facilities</td>
+  </tr>
+  <tr>
+    <td>Zones</td>
+    <td>Layers</td>
+    <td>Configure parking zones and levels</td>
+  </tr>
+  <tr>
+    <td>Slots</td>
+    <td>Grid</td>
+    <td>Manage individual parking spaces</td>
+  </tr>
+  <tr>
+    <td>Cameras</td>
+    <td>Camera</td>
+    <td>Set up and monitor cameras</td>
+  </tr>
+  <tr>
+    <td colspan="3" style="background-color: #f0f0f0;"><strong>OPERATIONS</strong></td>
+  </tr>
+  <tr>
+    <td>Tokens</td>
+    <td>Ticket</td>
+    <td>Manage parking permits and tickets</td>
+  </tr>
+  <tr>
+    <td>Vehicles</td>
+    <td>Car</td>
+    <td>Vehicle registry and tracking</td>
+  </tr>
+  <tr>
+    <td>Transactions</td>
+    <td>Receipt</td>
+    <td>Payment transaction history</td>
+  </tr>
+  <tr>
+    <td colspan="3" style="background-color: #f0f0f0;"><strong>FINANCE</strong></td>
+  </tr>
+  <tr>
+    <td>Wallet</td>
+    <td>Wallet</td>
+    <td>Digital wallet management</td>
+  </tr>
+  <tr>
+    <td colspan="3" style="background-color: #f0f0f0;"><strong>INSIGHTS</strong></td>
+  </tr>
+  <tr>
+    <td>Analytics</td>
+    <td>Chart</td>
+    <td>Performance analytics and trends</td>
+  </tr>
+  <tr>
+    <td>Reports</td>
+    <td>Document</td>
+    <td>Generate and export reports</td>
+  </tr>
+  <tr>
+    <td colspan="3" style="background-color: #f0f0f0;"><strong>SYSTEM</strong></td>
+  </tr>
+  <tr>
+    <td>Settings</td>
+    <td>Gear</td>
+    <td>System configuration</td>
+  </tr>
+</table>
+
+<h3>2.2 Key Metrics</h3>
+<p>The main dashboard displays real-time metrics in card format:</p>
+
+<table>
+  <tr>
+    <th>Metric</th>
+    <th>Description</th>
+    <th>What to Monitor</th>
+  </tr>
+  <tr>
+    <td><strong>Total Capacity</strong></td>
+    <td>Shows occupied vs. available slots</td>
+    <td>Ensure sufficient availability during peak hours</td>
+  </tr>
+  <tr>
+    <td><strong>Occupancy Rate</strong></td>
+    <td>Percentage of slots currently occupied</td>
+    <td>High rates (>90%) may indicate need for overflow management</td>
+  </tr>
+  <tr>
+    <td><strong>Today's Revenue</strong></td>
+    <td>Total revenue collected today</td>
+    <td>Compare with historical averages</td>
+  </tr>
+  <tr>
+    <td><strong>Active Tokens</strong></td>
+    <td>Number of vehicles currently parked</td>
+    <td>Should match occupied slots</td>
+  </tr>
+  <tr>
+    <td><strong>Daily Entries</strong></td>
+    <td>Vehicles entered today</td>
+    <td>Track traffic patterns</td>
+  </tr>
+  <tr>
+    <td><strong>Daily Exits</strong></td>
+    <td>Vehicles exited today</td>
+    <td>Compare with entries for flow analysis</td>
+  </tr>
+  <tr>
+    <td><strong>Online Cameras</strong></td>
+    <td>Active cameras vs. total installed</td>
+    <td>All cameras should be online for optimal ANPR</td>
+  </tr>
+  <tr>
+    <td><strong>Avg. Duration</strong></td>
+    <td>Average parking time today</td>
+    <td>Helps in pricing optimization</td>
+  </tr>
+</table>
+
+<h3>2.3 System Health</h3>
+<p>The dashboard includes a system health panel showing the status of critical components:</p>
+
+<table>
+  <tr>
+    <th>Component</th>
+    <th>Status Indicators</th>
+  </tr>
+  <tr>
+    <td>AI Pipeline</td>
+    <td>Online (green) / Offline (red) - ANPR detection system</td>
+  </tr>
+  <tr>
+    <td>Database</td>
+    <td>Connected (green) / Error (red) - Data storage system</td>
+  </tr>
+  <tr>
+    <td>Camera Network</td>
+    <td>Shows online/total cameras ratio</td>
+  </tr>
+  <tr>
+    <td>Gate Controllers</td>
+    <td>Online (green) / Offline (red) - Entry/exit gates</td>
+  </tr>
+  <tr>
+    <td>Payment Gateway</td>
+    <td>Active (green) / Down (red) - Payment processing</td>
+  </tr>
+</table>
+
+<div class="warning">
+<strong>Warning:</strong> If any system component shows a red/offline status, contact your technical support team immediately to ensure uninterrupted operations.
+</div>
+
+<!-- Chapter 3: Parking Management -->
+<h2 class="page-break">3. Parking Management</h2>
+
+<h3>3.1 Parking Lots</h3>
+<p>Parking lots are the top-level organizational unit in SParking. Each lot represents a physical parking facility.</p>
+
+<h4>Creating a New Parking Lot</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Parking Lots</strong> from the sidebar</li>
+  <li>Click the <strong>"Add Parking Lot"</strong> button</li>
+  <li>Fill in the required information:
+    <ul>
+      <li><strong>Name:</strong> Display name for the parking lot</li>
+      <li><strong>Address:</strong> Physical street address</li>
+      <li><strong>City:</strong> City location</li>
+      <li><strong>Country:</strong> Select from dropdown</li>
+      <li><strong>Currency:</strong> Default currency for pricing (INR, USD, EUR, GBP)</li>
+      <li><strong>Venue Type:</strong> Mall, Airport, Hospital, Hotel, Commercial, Stadium, Cinema, or Residential</li>
+    </ul>
+  </li>
+  <li>Enable optional features:
+    <ul>
+      <li><strong>EV Charging:</strong> If electric vehicle charging is available</li>
+      <li><strong>Valet Service:</strong> If valet parking is offered</li>
+    </ul>
+  </li>
+  <li>Click <strong>"Create"</strong> to save</li>
+</ol>
+</div>
+
+<h4>Parking Lot Status</h4>
+<table>
+  <tr>
+    <th>Status</th>
+    <th>Description</th>
+    <th>When to Use</th>
+  </tr>
+  <tr>
+    <td style="color: green;"><strong>ACTIVE</strong></td>
+    <td>Fully operational</td>
+    <td>Normal operations</td>
+  </tr>
+  <tr>
+    <td style="color: orange;"><strong>MAINTENANCE</strong></td>
+    <td>Under maintenance</td>
+    <td>During repairs or upgrades</td>
+  </tr>
+  <tr>
+    <td style="color: red;"><strong>CLOSED</strong></td>
+    <td>Not accepting vehicles</td>
+    <td>After hours or permanent closure</td>
+  </tr>
+</table>
+
+<h3>3.2 Zones</h3>
+<p>Zones help organize your parking lot into logical sections. Each zone can have different characteristics and pricing.</p>
+
+<h4>Zone Types</h4>
+<table>
+  <tr>
+    <th>Type</th>
+    <th>Code</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>General</td>
+    <td>GENERAL</td>
+    <td>Standard parking for all vehicles</td>
+  </tr>
+  <tr>
+    <td>VIP</td>
+    <td>VIP</td>
+    <td>Premium parking spots (may have higher rates)</td>
+  </tr>
+  <tr>
+    <td>EV Charging</td>
+    <td>EV_CHARGING</td>
+    <td>Dedicated spots with charging stations</td>
+  </tr>
+  <tr>
+    <td>Accessible</td>
+    <td>DISABLED</td>
+    <td>Handicapped accessible parking</td>
+  </tr>
+  <tr>
+    <td>Staff</td>
+    <td>STAFF</td>
+    <td>Reserved for employees</td>
+  </tr>
+  <tr>
+    <td>Visitor</td>
+    <td>VISITOR</td>
+    <td>Guest parking areas</td>
+  </tr>
+  <tr>
+    <td>Short Term</td>
+    <td>SHORT_TERM</td>
+    <td>Quick parking (15-30 min)</td>
+  </tr>
+  <tr>
+    <td>Long Term</td>
+    <td>LONG_TERM</td>
+    <td>Extended parking (airport style)</td>
+  </tr>
+  <tr>
+    <td>Two Wheeler</td>
+    <td>TWO_WHEELER</td>
+    <td>Motorcycle and scooter parking</td>
+  </tr>
+  <tr>
+    <td>Valet</td>
+    <td>VALET</td>
+    <td>Valet service parking</td>
+  </tr>
+  <tr>
+    <td>Reserved</td>
+    <td>RESERVED</td>
+    <td>Pre-booked or monthly pass holders</td>
+  </tr>
+</table>
+
+<h4>Creating a Zone</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Zones</strong> from the sidebar</li>
+  <li>Click <strong>"Add Zone"</strong></li>
+  <li>Enter zone details:
+    <ul>
+      <li><strong>Name:</strong> e.g., "Ground Floor A"</li>
+      <li><strong>Code:</strong> Short code e.g., "GF-A"</li>
+      <li><strong>Level:</strong> Floor number (0 for ground)</li>
+      <li><strong>Type:</strong> Select from zone types</li>
+      <li><strong>Color:</strong> Pick a color for visual identification on maps</li>
+      <li><strong>Description:</strong> Optional notes</li>
+    </ul>
+  </li>
+  <li>Click <strong>"Create"</strong></li>
+</ol>
+</div>
+
+<h3>3.3 Slots</h3>
+<p>Slots represent individual parking spaces within zones.</p>
+
+<h4>Bulk Slot Creation</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Slots</strong> from the sidebar</li>
+  <li>Click <strong>"Add Slots"</strong></li>
+  <li>Select the <strong>Zone</strong> where slots will be added</li>
+  <li>Configure slot generation:
+    <ul>
+      <li><strong>Prefix:</strong> e.g., "A" (creates A001, A002, etc.)</li>
+      <li><strong>Start Number:</strong> Starting number</li>
+      <li><strong>Count:</strong> Number of slots to create</li>
+      <li><strong>Slot Type:</strong> Standard, Compact, Large, Handicapped, EV Charging, Motorcycle, VIP</li>
+      <li><strong>Vehicle Type:</strong> Allowed vehicle type</li>
+    </ul>
+  </li>
+  <li>Enable features as needed:
+    <ul>
+      <li><strong>EV Charger:</strong> Slot has charging capability</li>
+      <li><strong>Accessible:</strong> Wheelchair accessible</li>
+    </ul>
+  </li>
+  <li>Click <strong>"Create Slots"</strong></li>
+</ol>
+</div>
+
+<h4>Slot Status Indicators</h4>
+<table>
+  <tr>
+    <th>Status</th>
+    <th>Color</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>Available</td>
+    <td style="background-color: #22c55e; color: white;">Green</td>
+    <td>Empty and ready for use</td>
+  </tr>
+  <tr>
+    <td>Occupied</td>
+    <td style="background-color: #ef4444; color: white;">Red</td>
+    <td>Currently has a vehicle</td>
+  </tr>
+  <tr>
+    <td>Reserved</td>
+    <td style="background-color: #3b82f6; color: white;">Blue</td>
+    <td>Booked/pre-reserved</td>
+  </tr>
+  <tr>
+    <td>Maintenance</td>
+    <td style="background-color: #f59e0b; color: white;">Orange</td>
+    <td>Under maintenance</td>
+  </tr>
+  <tr>
+    <td>Blocked</td>
+    <td style="background-color: #6b7280; color: white;">Gray</td>
+    <td>Temporarily unavailable</td>
+  </tr>
+</table>
+
+<h3>3.4 Cameras</h3>
+<p>Cameras are used for ANPR (Automatic Number Plate Recognition) and live monitoring.</p>
+
+<h4>Adding a Camera</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Cameras</strong> from the sidebar</li>
+  <li>Click <strong>"Add Camera"</strong></li>
+  <li>Enter camera details:
+    <ul>
+      <li><strong>Name:</strong> Descriptive name e.g., "Entry Gate Camera 1"</li>
+      <li><strong>RTSP URL:</strong> Camera stream URL (e.g., rtsp://192.168.1.100:554/stream)</li>
+      <li><strong>ONVIF URL:</strong> For PTZ control (optional)</li>
+      <li><strong>Username:</strong> Camera login username</li>
+      <li><strong>Password:</strong> Camera login password</li>
+      <li><strong>Position:</strong> Description of camera location</li>
+      <li><strong>Coverage:</strong> Number of slots this camera monitors</li>
+    </ul>
+  </li>
+  <li>Enable features:
+    <ul>
+      <li><strong>Infrared:</strong> Night vision capability</li>
+      <li><strong>PTZ:</strong> Pan-Tilt-Zoom support</li>
+    </ul>
+  </li>
+  <li>Assign camera to slots for ANPR detection</li>
+  <li>Click <strong>"Save"</strong></li>
+</ol>
+</div>
+
+<div class="tip">
+<strong>Tip:</strong> For optimal ANPR performance, position cameras at a 15-30 degree angle to capture license plates clearly. Ensure adequate lighting or use IR-enabled cameras for 24/7 operation.
+</div>
+
+<!-- Chapter 4: Daily Operations -->
+<h2 class="page-break">4. Daily Operations</h2>
+
+<h3>4.1 Token Management</h3>
+<p>Tokens are the core of parking operations - they track vehicle entry, parking duration, and fees.</p>
+
+<h4>Token Types</h4>
+<table>
+  <tr>
+    <th>Type</th>
+    <th>Description</th>
+    <th>Use Case</th>
+  </tr>
+  <tr>
+    <td>QR Code</td>
+    <td>Generated QR code ticket</td>
+    <td>Standard parking (printed or digital)</td>
+  </tr>
+  <tr>
+    <td>RFID</td>
+    <td>Radio-frequency tag</td>
+    <td>Monthly pass holders</td>
+  </tr>
+  <tr>
+    <td>Barcode</td>
+    <td>Barcode ticket</td>
+    <td>Legacy ticket systems</td>
+  </tr>
+  <tr>
+    <td>ANPR</td>
+    <td>License plate recognition</td>
+    <td>Ticketless entry/exit</td>
+  </tr>
+  <tr>
+    <td>Manual</td>
+    <td>Manually entered</td>
+    <td>Backup when systems are down</td>
+  </tr>
+</table>
+
+<h4>Token Status Flow</h4>
+<p><strong>ACTIVE</strong> → (Vehicle exits and pays) → <strong>COMPLETED</strong></p>
+<p><strong>ACTIVE</strong> → (Ticket lost) → <strong>LOST</strong> → (Lost fee paid) → <strong>COMPLETED</strong></p>
+<p><strong>ACTIVE</strong> → (Time exceeded) → <strong>EXPIRED</strong></p>
+<p><strong>ACTIVE</strong> → (Cancelled) → <strong>CANCELLED</strong></p>
+
+<h4>Creating a Manual Token</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Tokens</strong></li>
+  <li>Click <strong>"Generate Token"</strong></li>
+  <li>Enter vehicle details:
+    <ul>
+      <li><strong>License Plate:</strong> Vehicle registration number</li>
+      <li><strong>Vehicle Type:</strong> Car, SUV, Motorcycle, etc.</li>
+      <li><strong>Entry Type:</strong> Select token type</li>
+    </ul>
+  </li>
+  <li>System automatically:
+    <ul>
+      <li>Assigns a token number</li>
+      <li>Records entry timestamp</li>
+      <li>Allocates an available slot</li>
+    </ul>
+  </li>
+  <li>Print ticket if using physical tokens</li>
+</ol>
+</div>
+
+<h4>Processing Token Exit</h4>
+<div class="steps">
+<ol>
+  <li>Search for the token by:
+    <ul>
+      <li>Token number</li>
+      <li>License plate</li>
+      <li>QR code scan</li>
+    </ul>
+  </li>
+  <li>Review parking details:
+    <ul>
+      <li>Entry time</li>
+      <li>Duration</li>
+      <li>Calculated fee</li>
+    </ul>
+  </li>
+  <li>Select payment method: Cash, UPI, or Card</li>
+  <li>Process payment</li>
+  <li>Token is marked as <strong>COMPLETED</strong></li>
+  <li>Gate opens automatically</li>
+</ol>
+</div>
+
+<h3>4.2 Vehicle Registry</h3>
+<p>The vehicle registry maintains a database of all vehicles that have used your parking facility.</p>
+
+<h4>Vehicle Classifications</h4>
+<table>
+  <tr>
+    <th>Classification</th>
+    <th>Description</th>
+    <th>System Behavior</th>
+  </tr>
+  <tr>
+    <td style="color: gold;"><strong>VIP</strong></td>
+    <td>Premium members</td>
+    <td>Priority parking, may have special rates</td>
+  </tr>
+  <tr>
+    <td style="color: green;"><strong>Whitelisted</strong></td>
+    <td>Pre-approved vehicles</td>
+    <td>Automatic gate opening, no ticket required</td>
+  </tr>
+  <tr>
+    <td style="color: red;"><strong>Blacklisted</strong></td>
+    <td>Denied access</td>
+    <td>Gate remains closed, alert generated</td>
+  </tr>
+  <tr>
+    <td><strong>Regular</strong></td>
+    <td>Standard visitors</td>
+    <td>Normal parking process</td>
+  </tr>
+</table>
+
+<h4>Registering a Vehicle</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Vehicles</strong></li>
+  <li>Click <strong>"Register Vehicle"</strong></li>
+  <li>Enter details:
+    <ul>
+      <li><strong>License Plate:</strong> Registration number</li>
+      <li><strong>Vehicle Type:</strong> Car, SUV, Motorcycle, Bus, Truck, Van</li>
+      <li><strong>Make/Model:</strong> e.g., Toyota Camry</li>
+      <li><strong>Color:</strong> Vehicle color</li>
+      <li><strong>Owner Name:</strong> Owner's name</li>
+      <li><strong>Phone:</strong> Contact number</li>
+      <li><strong>Email:</strong> Contact email</li>
+    </ul>
+  </li>
+  <li>Set classification (VIP, Whitelisted, Blacklisted, or Regular)</li>
+  <li>Click <strong>"Save"</strong></li>
+</ol>
+</div>
+
+<h3>4.3 Live Monitoring</h3>
+<p>The Live View provides real-time monitoring of your parking facility.</p>
+
+<h4>Live View Features</h4>
+<ul>
+  <li><strong>Multi-Camera Grid:</strong> View 1, 4, or 9 cameras simultaneously</li>
+  <li><strong>Live Event Feed:</strong> Real-time events (ENTRY, EXIT, DETECTION, ALERT)</li>
+  <li><strong>Parking Map:</strong> Visual representation of slot occupancy</li>
+  <li><strong>Camera Status:</strong> Online/offline indicators</li>
+  <li><strong>Full-Screen Mode:</strong> Expand individual camera view</li>
+</ul>
+
+<h4>Grid Layout Options</h4>
+<table>
+  <tr>
+    <th>Layout</th>
+    <th>Cameras</th>
+    <th>Best For</th>
+  </tr>
+  <tr>
+    <td>1x1</td>
+    <td>1 camera</td>
+    <td>Detailed single camera monitoring</td>
+  </tr>
+  <tr>
+    <td>2x2</td>
+    <td>4 cameras</td>
+    <td>Entry/exit gate monitoring</td>
+  </tr>
+  <tr>
+    <td>3x3</td>
+    <td>9 cameras</td>
+    <td>Full facility overview</td>
+  </tr>
+</table>
+
+<h3>4.4 Vehicle Entry Process</h3>
+<p>The standard vehicle entry workflow:</p>
+
+<div class="steps">
+<ol>
+  <li><strong>Vehicle Arrives:</strong> Vehicle approaches entry gate</li>
+  <li><strong>Detection:</strong>
+    <ul>
+      <li><strong>ANPR Mode:</strong> Camera captures license plate automatically</li>
+      <li><strong>Manual Mode:</strong> Operator enters plate number or issues ticket</li>
+    </ul>
+  </li>
+  <li><strong>Vehicle Check:</strong> System checks if vehicle is blacklisted
+    <ul>
+      <li>If blacklisted: Gate remains closed, alert generated</li>
+      <li>If whitelisted/VIP: Gate opens automatically</li>
+      <li>If regular: Proceed to token generation</li>
+    </ul>
+  </li>
+  <li><strong>Slot Allocation:</strong> System assigns available slot based on vehicle type</li>
+  <li><strong>Token Generation:</strong> Entry token created with timestamp</li>
+  <li><strong>Gate Opens:</strong> Entry barrier lifts</li>
+  <li><strong>Display Update:</strong> Digital signage shows available slots count</li>
+  <li><strong>Vehicle Parks:</strong> Driver proceeds to allocated area</li>
+</ol>
+</div>
+
+<h3>4.5 Vehicle Exit Process</h3>
+<p>The standard vehicle exit workflow:</p>
+
+<div class="steps">
+<ol>
+  <li><strong>Vehicle Approaches Exit:</strong> Vehicle arrives at exit gate</li>
+  <li><strong>Token Identification:</strong>
+    <ul>
+      <li><strong>ANPR Mode:</strong> Plate recognized, token retrieved automatically</li>
+      <li><strong>QR/Barcode:</strong> Driver scans ticket</li>
+      <li><strong>Manual:</strong> Operator searches token</li>
+    </ul>
+  </li>
+  <li><strong>Fee Calculation:</strong>
+    <ul>
+      <li>System calculates duration</li>
+      <li>Applies pricing rules</li>
+      <li>Adds any applicable taxes</li>
+    </ul>
+  </li>
+  <li><strong>Payment:</strong>
+    <ul>
+      <li><strong>Cash:</strong> Operator collects cash and marks paid</li>
+      <li><strong>UPI:</strong> Customer scans QR and pays digitally</li>
+      <li><strong>Card:</strong> Card payment processed</li>
+      <li><strong>Wallet:</strong> Deducted from digital wallet</li>
+    </ul>
+  </li>
+  <li><strong>Token Completed:</strong> Token marked as COMPLETED</li>
+  <li><strong>Gate Opens:</strong> Exit barrier lifts</li>
+  <li><strong>Slot Released:</strong> Parking slot marked as available</li>
+  <li><strong>Receipt:</strong> Optional receipt generated</li>
+</ol>
+</div>
+
+<!-- Chapter 5: Financial Management -->
+<h2 class="page-break">5. Financial Management</h2>
+
+<h3>5.1 Wallet Management</h3>
+<p>SParking includes a digital wallet system for managing parking facility finances.</p>
+
+<h4>Wallet Types</h4>
+<table>
+  <tr>
+    <th>Type</th>
+    <th>Purpose</th>
+  </tr>
+  <tr>
+    <td>Personal</td>
+    <td>Individual user wallets</td>
+  </tr>
+  <tr>
+    <td>Business</td>
+    <td>Organization/facility wallet</td>
+  </tr>
+  <tr>
+    <td>Sandbox</td>
+    <td>Test wallet with virtual money (for testing)</td>
+  </tr>
+</table>
+
+<h4>Wallet Actions</h4>
+<ul>
+  <li><strong>Add Money:</strong> Deposit funds from linked bank account</li>
+  <li><strong>Withdraw:</strong> Transfer funds to bank account</li>
+  <li><strong>Send:</strong> Transfer to another wallet</li>
+  <li><strong>Request:</strong> Request payment from customers</li>
+</ul>
+
+<h4>Adding Money to Wallet</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Wallet</strong></li>
+  <li>Click <strong>"Add Money"</strong></li>
+  <li>Select source bank account</li>
+  <li>Enter amount</li>
+  <li>Confirm transaction</li>
+  <li>Balance updates in real-time</li>
+</ol>
+</div>
+
+<h3>5.2 Bank Accounts</h3>
+<p>Link bank accounts for deposits and withdrawals.</p>
+
+<h4>Adding a Bank Account</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Wallet > Bank Accounts</strong></li>
+  <li>Click <strong>"Add Account"</strong></li>
+  <li>Enter account details:
+    <ul>
+      <li><strong>Bank Name:</strong> Select from list</li>
+      <li><strong>Account Number:</strong> Full account number</li>
+      <li><strong>IFSC Code:</strong> Bank branch code</li>
+      <li><strong>Account Type:</strong> Savings or Current</li>
+      <li><strong>Account Holder:</strong> Name on account</li>
+    </ul>
+  </li>
+  <li>Click <strong>"Add Account"</strong></li>
+  <li>Complete verification process (if required)</li>
+</ol>
+</div>
+
+<div class="note">
+<strong>Note:</strong> Bank account verification may take 1-2 business days. Until verified, the account cannot be used for withdrawals.
+</div>
+
+<h4>Account Verification Status</h4>
+<table>
+  <tr>
+    <th>Status</th>
+    <th>Description</th>
+    <th>Actions Available</th>
+  </tr>
+  <tr>
+    <td>UNVERIFIED</td>
+    <td>Pending verification</td>
+    <td>View only</td>
+  </tr>
+  <tr>
+    <td>VERIFIED</td>
+    <td>Fully verified</td>
+    <td>Deposit, Withdraw</td>
+  </tr>
+  <tr>
+    <td>FAILED</td>
+    <td>Verification failed</td>
+    <td>Delete, Re-add</td>
+  </tr>
+</table>
+
+<h3>5.3 Payments & Transactions</h3>
+<p>Track all parking payments and financial transactions.</p>
+
+<h4>Transaction Types</h4>
+<table>
+  <tr>
+    <th>Type</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>Parking Fee</td>
+    <td>Standard parking charges</td>
+  </tr>
+  <tr>
+    <td>Lost Ticket Fee</td>
+    <td>Penalty for lost tickets</td>
+  </tr>
+  <tr>
+    <td>Overstay Charge</td>
+    <td>Additional fee for exceeding time limits</td>
+  </tr>
+  <tr>
+    <td>Deposit</td>
+    <td>Money added to wallet</td>
+  </tr>
+  <tr>
+    <td>Withdrawal</td>
+    <td>Money transferred to bank</td>
+  </tr>
+  <tr>
+    <td>Transfer</td>
+    <td>Wallet-to-wallet transfer</td>
+  </tr>
+</table>
+
+<h4>Payment Methods</h4>
+<ul>
+  <li><strong>Cash:</strong> Physical currency collected at exit</li>
+  <li><strong>UPI:</strong> Digital payment via UPI apps (Google Pay, PhonePe, etc.)</li>
+  <li><strong>Card:</strong> Credit/Debit card payment</li>
+  <li><strong>Wallet:</strong> SParking digital wallet balance</li>
+</ul>
+
+<h4>Viewing Transaction History</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Transactions</strong></li>
+  <li>Use filters to narrow results:
+    <ul>
+      <li>Date range</li>
+      <li>Payment method</li>
+      <li>Transaction type</li>
+      <li>Status (Completed, Pending, Failed)</li>
+    </ul>
+  </li>
+  <li>Click any transaction to view details</li>
+  <li>Export data using the Export button</li>
+</ol>
+</div>
+
+<!-- Chapter 6: Analytics & Reports -->
+<h2 class="page-break">6. Analytics & Reports</h2>
+
+<h3>6.1 Analytics Dashboard</h3>
+<p>The Analytics module provides insights into your parking operations.</p>
+
+<h4>Time Period Selection</h4>
+<table>
+  <tr>
+    <th>Period</th>
+    <th>Use Case</th>
+  </tr>
+  <tr>
+    <td>24 Hours</td>
+    <td>Daily operations review</td>
+  </tr>
+  <tr>
+    <td>7 Days</td>
+    <td>Weekly trends analysis</td>
+  </tr>
+  <tr>
+    <td>30 Days</td>
+    <td>Monthly performance review</td>
+  </tr>
+  <tr>
+    <td>90 Days</td>
+    <td>Quarterly analysis</td>
+  </tr>
+</table>
+
+<h4>Available Charts</h4>
+<ul>
+  <li><strong>Occupancy Trends:</strong> Line chart showing occupancy over time</li>
+  <li><strong>Revenue Analysis:</strong> Area chart of revenue patterns</li>
+  <li><strong>Vehicle Distribution:</strong> Pie chart by vehicle type</li>
+  <li><strong>Zone Performance:</strong> Comparison across zones</li>
+  <li><strong>Peak Hours:</strong> Heatmap of busiest times</li>
+  <li><strong>Traffic Patterns:</strong> Entry/exit flow visualization</li>
+</ul>
+
+<h4>Key Metrics</h4>
+<table>
+  <tr>
+    <th>Metric</th>
+    <th>Description</th>
+    <th>How to Interpret</th>
+  </tr>
+  <tr>
+    <td>Total Vehicles</td>
+    <td>Count of vehicles in period</td>
+    <td>Traffic volume indicator</td>
+  </tr>
+  <tr>
+    <td>Total Revenue</td>
+    <td>Sum of parking fees</td>
+    <td>Financial performance</td>
+  </tr>
+  <tr>
+    <td>Average Duration</td>
+    <td>Mean parking time</td>
+    <td>Customer behavior insight</td>
+  </tr>
+  <tr>
+    <td>Peak Occupancy</td>
+    <td>Maximum occupancy rate</td>
+    <td>Capacity planning</td>
+  </tr>
+  <tr>
+    <td>Peak Hours</td>
+    <td>Busiest time of day</td>
+    <td>Staffing optimization</td>
+  </tr>
+</table>
+
+<h3>6.2 Generating Reports</h3>
+<p>Create detailed reports for various purposes.</p>
+
+<h4>Report Types</h4>
+<table>
+  <tr>
+    <th>Report</th>
+    <th>Contents</th>
+    <th>Use Case</th>
+  </tr>
+  <tr>
+    <td>Transaction Report</td>
+    <td>All parking transactions with details</td>
+    <td>Financial auditing</td>
+  </tr>
+  <tr>
+    <td>Daily Summary</td>
+    <td>Day-end summary of operations</td>
+    <td>Daily reconciliation</td>
+  </tr>
+  <tr>
+    <td>Zone Performance</td>
+    <td>Utilization by zone</td>
+    <td>Space optimization</td>
+  </tr>
+  <tr>
+    <td>Revenue Analysis</td>
+    <td>Revenue breakdown by source</td>
+    <td>Financial planning</td>
+  </tr>
+  <tr>
+    <td>Vehicle Statistics</td>
+    <td>Vehicle type distribution</td>
+    <td>Capacity planning</td>
+  </tr>
+</table>
+
+<h4>Creating a Report</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Reports</strong></li>
+  <li>Click <strong>"Generate Report"</strong></li>
+  <li>Select report type from dropdown</li>
+  <li>Set date range (From and To dates)</li>
+  <li>Click <strong>"Generate"</strong></li>
+  <li>View report summary on screen</li>
+  <li>Click <strong>"Export"</strong> to download</li>
+</ol>
+</div>
+
+<h3>6.3 Exporting Data</h3>
+<p>Export reports and data in various formats.</p>
+
+<h4>Export Formats</h4>
+<table>
+  <tr>
+    <th>Format</th>
+    <th>Best For</th>
+  </tr>
+  <tr>
+    <td>PDF</td>
+    <td>Printing, sharing, archiving</td>
+  </tr>
+  <tr>
+    <td>CSV</td>
+    <td>Data analysis in Excel, further processing</td>
+  </tr>
+</table>
+
+<div class="tip">
+<strong>Tip:</strong> Schedule daily reports to be automatically emailed to stakeholders. Configure this in Settings > Alerts > Daily Report.
+</div>
+
+<!-- Chapter 7: System Settings -->
+<h2 class="page-break">7. System Settings</h2>
+
+<h3>7.1 Organization Settings</h3>
+<p>Configure your organization's profile and defaults.</p>
+
+<h4>Available Settings</h4>
+<table>
+  <tr>
+    <th>Setting</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>Organization Name</td>
+    <td>Your company/facility name</td>
+  </tr>
+  <tr>
+    <td>Primary Color</td>
+    <td>Brand color for UI elements</td>
+  </tr>
+  <tr>
+    <td>Secondary Color</td>
+    <td>Accent color</td>
+  </tr>
+  <tr>
+    <td>Default Currency</td>
+    <td>INR, USD, EUR, or GBP</td>
+  </tr>
+  <tr>
+    <td>Default Timezone</td>
+    <td>Facility timezone</td>
+  </tr>
+  <tr>
+    <td>ANPR Enabled</td>
+    <td>Toggle automatic plate recognition</td>
+  </tr>
+  <tr>
+    <td>EV Charging Enabled</td>
+    <td>Toggle EV features</td>
+  </tr>
+</table>
+
+<h4>Pricing Configuration</h4>
+<table>
+  <tr>
+    <th>Model</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>Flat Rate</td>
+    <td>Fixed price regardless of duration</td>
+  </tr>
+  <tr>
+    <td>Hourly</td>
+    <td>Charge per hour (most common)</td>
+  </tr>
+  <tr>
+    <td>Slab</td>
+    <td>Different rates for different durations</td>
+  </tr>
+  <tr>
+    <td>Dynamic</td>
+    <td>Rates change based on demand</td>
+  </tr>
+</table>
+
+<h3>7.2 Alert Configuration</h3>
+<p>Set up notifications for important events.</p>
+
+<h4>Alert Types</h4>
+<table>
+  <tr>
+    <th>Alert</th>
+    <th>Trigger</th>
+    <th>Recommended Action</th>
+  </tr>
+  <tr>
+    <td>High Occupancy</td>
+    <td>Occupancy exceeds threshold (e.g., 90%)</td>
+    <td>Prepare overflow, update signage</td>
+  </tr>
+  <tr>
+    <td>Camera Offline</td>
+    <td>Camera stops responding</td>
+    <td>Check network, restart camera</td>
+  </tr>
+  <tr>
+    <td>Payment Failure</td>
+    <td>Payment processing errors</td>
+    <td>Check payment gateway</td>
+  </tr>
+  <tr>
+    <td>Daily Report</td>
+    <td>Scheduled daily summary</td>
+    <td>Review operations</td>
+  </tr>
+</table>
+
+<h4>Notification Channels</h4>
+<ul>
+  <li><strong>Email:</strong> Send alerts to email addresses</li>
+  <li><strong>SMS:</strong> Text message alerts (requires SMS configuration)</li>
+  <li><strong>Webhook:</strong> Send to external systems (for integration)</li>
+  <li><strong>In-App:</strong> Notifications within SParking</li>
+</ul>
+
+<h4>Configuring Alerts</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Settings > Alerts</strong></li>
+  <li>Toggle alerts on/off as needed</li>
+  <li>Enter email recipients (comma-separated)</li>
+  <li>Enter SMS numbers if SMS is configured</li>
+  <li>Add webhook URL for external integrations</li>
+  <li>Click <strong>"Save"</strong></li>
+</ol>
+</div>
+
+<h3>7.3 Security Settings</h3>
+<p>Configure security options for your facility.</p>
+
+<h4>Security Options</h4>
+<table>
+  <tr>
+    <th>Setting</th>
+    <th>Description</th>
+    <th>Recommendation</th>
+  </tr>
+  <tr>
+    <td>Two-Factor Auth</td>
+    <td>Require 2FA for login</td>
+    <td>Enable for admin accounts</td>
+  </tr>
+  <tr>
+    <td>Session Timeout</td>
+    <td>Auto-logout after inactivity</td>
+    <td>4-8 hours recommended</td>
+  </tr>
+  <tr>
+    <td>Audit Logging</td>
+    <td>Log all user actions</td>
+    <td>Keep enabled</td>
+  </tr>
+  <tr>
+    <td>License Plate Hashing</td>
+    <td>Encrypt stored plate numbers</td>
+    <td>Enable for privacy compliance</td>
+  </tr>
+  <tr>
+    <td>Transaction Retention</td>
+    <td>How long to keep records</td>
+    <td>Per local regulations</td>
+  </tr>
+  <tr>
+    <td>Video Retention</td>
+    <td>How long to keep footage</td>
+    <td>30-90 days typical</td>
+  </tr>
+</table>
+
+<h3>7.4 User Management</h3>
+<p>Manage system users and their access levels.</p>
+
+<h4>User Roles</h4>
+<table>
+  <tr>
+    <th>Role</th>
+    <th>Access Level</th>
+  </tr>
+  <tr>
+    <td>Super Admin</td>
+    <td>Full access to all features and settings</td>
+  </tr>
+  <tr>
+    <td>Admin</td>
+    <td>Manage users, settings, and operations</td>
+  </tr>
+  <tr>
+    <td>Manager</td>
+    <td>Operations, reports, no system settings</td>
+  </tr>
+  <tr>
+    <td>Operator</td>
+    <td>Day-to-day operations only</td>
+  </tr>
+  <tr>
+    <td>Finance</td>
+    <td>Payments and financial reports</td>
+  </tr>
+  <tr>
+    <td>Viewer</td>
+    <td>Read-only dashboard access</td>
+  </tr>
+</table>
+
+<h4>Adding a New User</h4>
+<div class="steps">
+<ol>
+  <li>Navigate to <strong>Settings > Users</strong></li>
+  <li>Click <strong>"Add User"</strong></li>
+  <li>Enter user details:
+    <ul>
+      <li><strong>Name:</strong> Full name</li>
+      <li><strong>Email:</strong> Login email</li>
+      <li><strong>Phone:</strong> Contact number</li>
+      <li><strong>Role:</strong> Select appropriate role</li>
+    </ul>
+  </li>
+  <li>Set initial password (user should change on first login)</li>
+  <li>Click <strong>"Create User"</strong></li>
+</ol>
+</div>
+
+<!-- Chapter 8: Troubleshooting -->
+<h2 class="page-break">8. Troubleshooting</h2>
+
+<h3>Common Issues and Solutions</h3>
+
+<table>
+  <tr>
+    <th>Issue</th>
+    <th>Possible Cause</th>
+    <th>Solution</th>
+  </tr>
+  <tr>
+    <td>Cannot log in</td>
+    <td>Wrong credentials or account locked</td>
+    <td>Reset password or contact admin</td>
+  </tr>
+  <tr>
+    <td>Camera shows offline</td>
+    <td>Network issue or camera power</td>
+    <td>Check network cable, restart camera</td>
+  </tr>
+  <tr>
+    <td>Gate not opening</td>
+    <td>Hardware connection issue</td>
+    <td>Check controller connection, manual override</td>
+  </tr>
+  <tr>
+    <td>ANPR not detecting plates</td>
+    <td>Poor lighting or camera angle</td>
+    <td>Adjust camera, clean lens, check lighting</td>
+  </tr>
+  <tr>
+    <td>Payment failed</td>
+    <td>Gateway issue or insufficient funds</td>
+    <td>Check payment gateway status, try different method</td>
+  </tr>
+  <tr>
+    <td>Slow performance</td>
+    <td>Network congestion or browser cache</td>
+    <td>Clear browser cache, check internet speed</td>
+  </tr>
+  <tr>
+    <td>Reports not generating</td>
+    <td>Large date range or system load</td>
+    <td>Try smaller date range, wait and retry</td>
+  </tr>
+  <tr>
+    <td>Display not updating</td>
+    <td>Connection to display lost</td>
+    <td>Check display connection, restart</td>
+  </tr>
+</table>
+
+<h3>Emergency Procedures</h3>
+
+<h4>System Down</h4>
+<div class="steps">
+<ol>
+  <li>Switch to manual ticket processing</li>
+  <li>Use physical barrier controls</li>
+  <li>Record entries/exits manually</li>
+  <li>Contact technical support immediately</li>
+  <li>Enter manual records into system once restored</li>
+</ol>
+</div>
+
+<h4>Payment Gateway Down</h4>
+<div class="steps">
+<ol>
+  <li>Accept cash payments only</li>
+  <li>Issue manual receipts</li>
+  <li>Record all transactions for later entry</li>
+  <li>Check gateway status page</li>
+  <li>Reconcile once restored</li>
+</ol>
+</div>
+
+<h4>Power Outage</h4>
+<div class="steps">
+<ol>
+  <li>UPS should maintain critical systems briefly</li>
+  <li>Use manual gate overrides</li>
+  <li>Flashlights for ticket verification</li>
+  <li>System auto-recovers when power restored</li>
+</ol>
+</div>
+
+<!-- Chapter 9: Glossary -->
+<h2 class="page-break">9. Glossary</h2>
+
+<table>
+  <tr>
+    <th>Term</th>
+    <th>Definition</th>
+  </tr>
+  <tr>
+    <td><strong>ANPR</strong></td>
+    <td>Automatic Number Plate Recognition - AI-powered system that reads vehicle license plates</td>
+  </tr>
+  <tr>
+    <td><strong>Token</strong></td>
+    <td>A parking permit/ticket assigned to a vehicle upon entry</td>
+  </tr>
+  <tr>
+    <td><strong>Zone</strong></td>
+    <td>A designated area within a parking lot (e.g., Level 1, VIP Section)</td>
+  </tr>
+  <tr>
+    <td><strong>Slot</strong></td>
+    <td>An individual parking space</td>
+  </tr>
+  <tr>
+    <td><strong>Occupancy Rate</strong></td>
+    <td>Percentage of parking slots currently in use</td>
+  </tr>
+  <tr>
+    <td><strong>RTSP</strong></td>
+    <td>Real Time Streaming Protocol - used for camera video streams</td>
+  </tr>
+  <tr>
+    <td><strong>ONVIF</strong></td>
+    <td>Open Network Video Interface Forum - standard for IP camera control</td>
+  </tr>
+  <tr>
+    <td><strong>PTZ</strong></td>
+    <td>Pan-Tilt-Zoom - camera movement capabilities</td>
+  </tr>
+  <tr>
+    <td><strong>UPI</strong></td>
+    <td>Unified Payments Interface - Indian digital payment system</td>
+  </tr>
+  <tr>
+    <td><strong>RFID</strong></td>
+    <td>Radio-Frequency Identification - wireless identification tags</td>
+  </tr>
+  <tr>
+    <td><strong>QR Code</strong></td>
+    <td>Quick Response code - 2D barcode for scanning</td>
+  </tr>
+  <tr>
+    <td><strong>Webhook</strong></td>
+    <td>Automated message sent to external systems when events occur</td>
+  </tr>
+  <tr>
+    <td><strong>Sandbox</strong></td>
+    <td>Test environment with virtual money for testing</td>
+  </tr>
+  <tr>
+    <td><strong>KYC</strong></td>
+    <td>Know Your Customer - identity verification process</td>
+  </tr>
+  <tr>
+    <td><strong>IFSC</strong></td>
+    <td>Indian Financial System Code - bank branch identifier</td>
+  </tr>
+  <tr>
+    <td><strong>GST</strong></td>
+    <td>Goods and Services Tax - Indian tax system</td>
+  </tr>
+  <tr>
+    <td><strong>EV</strong></td>
+    <td>Electric Vehicle</td>
+  </tr>
+</table>
+
+<!-- Chapter 10: Support -->
+<h2 class="page-break">10. Support & Contact</h2>
+
+<h3>Getting Help</h3>
+<p>If you need assistance with SParking, here are your support options:</p>
+
+<h4>In-App Help</h4>
+<ul>
+  <li>Click the <strong>Help</strong> icon in the header for contextual help</li>
+  <li>View tooltips by hovering over information icons</li>
+  <li>Check the notification center for system messages</li>
+</ul>
+
+<h4>Technical Support</h4>
+<table>
+  <tr>
+    <th>Support Level</th>
+    <th>Response Time</th>
+    <th>Contact Method</th>
+  </tr>
+  <tr>
+    <td>Critical (System Down)</td>
+    <td>Within 1 hour</td>
+    <td>Emergency Hotline</td>
+  </tr>
+  <tr>
+    <td>High (Major Feature Issue)</td>
+    <td>Within 4 hours</td>
+    <td>Support Email/Phone</td>
+  </tr>
+  <tr>
+    <td>Medium (Minor Issue)</td>
+    <td>Within 24 hours</td>
+    <td>Support Email</td>
+  </tr>
+  <tr>
+    <td>Low (Question/Enhancement)</td>
+    <td>Within 48 hours</td>
+    <td>Support Email</td>
+  </tr>
+</table>
+
+<h4>Before Contacting Support</h4>
+<div class="steps">
+<ol>
+  <li>Note the exact error message (screenshot if possible)</li>
+  <li>Record the steps that led to the issue</li>
+  <li>Note the time the issue occurred</li>
+  <li>Check if the issue affects all users or just you</li>
+  <li>Try basic troubleshooting (clear cache, refresh page)</li>
+</ol>
+</div>
+
+<h4>Contact Information</h4>
+<p><em>[Your organization's support contact information goes here]</em></p>
+<ul>
+  <li><strong>Support Email:</strong> support@yourcompany.com</li>
+  <li><strong>Support Phone:</strong> +91-XXX-XXX-XXXX</li>
+  <li><strong>Emergency Hotline:</strong> +91-XXX-XXX-XXXX</li>
+  <li><strong>Support Hours:</strong> Monday-Saturday, 9 AM - 6 PM IST</li>
+</ul>
+
+<hr>
+
+<h3>Document Information</h3>
+<table>
+  <tr>
+    <td><strong>Document Title:</strong></td>
+    <td>SParking User Manual</td>
+  </tr>
+  <tr>
+    <td><strong>Version:</strong></td>
+    <td>1.0</td>
+  </tr>
+  <tr>
+    <td><strong>Last Updated:</strong></td>
+    <td>January 2026</td>
+  </tr>
+  <tr>
+    <td><strong>Classification:</strong></td>
+    <td>Confidential - For Authorized Users Only</td>
+  </tr>
+</table>
+
+<footer>
+  <p>&copy; 2026 SParking - Smart Parking Management System. All rights reserved.</p>
+  <p>This document is confidential and intended for authorized users only.</p>
+</footer>
+
+</body>
+</html>
