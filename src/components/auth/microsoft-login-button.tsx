@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { PublicClientApplication, InteractionRequiredAuthError } from '@azure/msal-browser'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
-import { msalConfig, loginRequest } from '@/lib/auth/msal-config'
+import { getMsalConfig, loginRequest } from '@/lib/auth/msal-config'
 
 // Microsoft logo SVG component
 function MicrosoftLogo({ className }: { className?: string }) {
@@ -31,15 +31,12 @@ export function MicrosoftLoginButton({ onError }: MicrosoftLoginButtonProps) {
   const [isLoading, setIsLoading] = useState(false)
 
   const handleMicrosoftLogin = useCallback(async () => {
-    // Check if Microsoft auth is configured
-    if (!process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID) {
-      onError?.('Microsoft login is not configured')
-      return
-    }
-
     setIsLoading(true)
 
     try {
+      // Get MSAL config with current origin as redirect URI
+      const msalConfig = getMsalConfig()
+
       // Initialize MSAL instance
       const msalInstance = new PublicClientApplication(msalConfig)
       await msalInstance.initialize()
