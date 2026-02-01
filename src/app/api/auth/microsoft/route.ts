@@ -1,51 +1,29 @@
 import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api'
-import { loginSchema } from '@/lib/validators'
-import bcrypt from 'bcryptjs'
 import { signToken } from '@/lib/auth/jwt'
+import { verifyMicrosoftToken, findOrCreateMicrosoftUser, UserWithRelations } from '@/lib/auth/microsoft'
 import { cookies } from 'next/headers'
+import { z } from 'zod'
+
+const microsoftLoginSchema = z.object({
+  idToken: z.string().min(1, 'ID token is required'),
+})
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password } = loginSchema.parse(body)
+    const { idToken } = microsoftLoginSchema.parse(body)
 
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: {
-        organization: {
-          select: { id: true, name: true, slug: true },
-        },
-        assignedLots: {
-          include: {
-            parkingLot: {
-              select: { id: true, name: true, slug: true },
-            },
-          },
-        },
-      },
-    })
+    // Verify the Microsoft ID token
+    const verifiedUser = await verifyMicrosoftToken(idToken)
 
-    if (!user) {
-      return errorResponse('Invalid email or password', 401)
-    }
+    // Find or create the user
+    const user = await findOrCreateMicrosoftUser(verifiedUser)
 
+    // Check if user is active
     if (user.status !== 'ACTIVE') {
       return errorResponse('Account is not active', 403)
-    }
-
-    // Check if user is OAuth-only (no password set)
-    if (!user.passwordHash) {
-      return errorResponse(
-        'This account uses Microsoft login. Please sign in with Microsoft.',
-        400
-      )
-    }
-
-    const isValidPassword = await bcrypt.compare(password, user.passwordHash)
-    if (!isValidPassword) {
-      return errorResponse('Invalid email or password', 401)
     }
 
     // Check concurrent session limit
@@ -107,7 +85,7 @@ export async function POST(request: NextRequest) {
       path: '/',
     })
 
-    // Note: Token is set in httpOnly cookie, not returned in response body for security
+    // Return user info (token is in httpOnly cookie)
     return successResponse({
       user: {
         id: user.id,
@@ -115,10 +93,22 @@ export async function POST(request: NextRequest) {
         name: user.name,
         role: user.role,
         organization: user.organization,
-        assignedLots: user.assignedLots.map((a: { parkingLot: { id: string; name: string; slug: string } }) => a.parkingLot),
+        assignedLots: user.assignedLots.map((a: UserWithRelations['assignedLots'][number]) => a.parkingLot),
       },
     })
   } catch (error) {
+    // Handle specific Microsoft auth errors
+    if (error instanceof Error) {
+      if (error.message.includes('Token verification failed')) {
+        return errorResponse(error.message, 401)
+      }
+      if (error.message.includes('User not found')) {
+        return errorResponse(error.message, 403)
+      }
+      if (error.message.includes('No organization available')) {
+        return errorResponse(error.message, 500)
+      }
+    }
     return handleApiError(error)
   }
 }
