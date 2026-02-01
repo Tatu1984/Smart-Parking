@@ -53,16 +53,23 @@ model OrganizationSettings {
 // USER MANAGEMENT & AUTHENTICATION
 // ============================================
 
+enum AuthProvider {
+  LOCAL
+  MICROSOFT
+}
+
 model User {
   id             String   @id @default(cuid())
   email          String   @unique
-  passwordHash   String
+  passwordHash   String?  // Nullable for OAuth-only users
   name           String
   phone          String?
   avatar         String?
   role           UserRole @default(OPERATOR)
   status         UserStatus @default(ACTIVE)
   organizationId String
+  authProvider   AuthProvider @default(LOCAL)
+  providerUserId String?  // Microsoft 'oid' claim
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -71,6 +78,7 @@ model User {
   auditLogs      AuditLog[]
   assignedLots   ParkingLotAssignment[]
 
+  @@unique([authProvider, providerUserId])
   @@map("users")
 }
 

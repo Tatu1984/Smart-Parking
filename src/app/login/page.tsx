@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { ParkingSquare, Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react'
+import { MicrosoftLoginButton } from '@/components/auth/microsoft-login-button'
 
 function LoginForm() {
   const router = useRouter()
@@ -135,6 +136,21 @@ function LoginForm() {
               'Sign in'
             )}
           </Button>
+
+          {/* Microsoft Login - Enable after running: npx prisma migrate deploy */}
+          {process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID && (
+            <>
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+              <MicrosoftLoginButton onError={setError} />
+            </>
+          )}
         </form>
       </CardContent>
       <CardFooter className="flex flex-col gap-4">
