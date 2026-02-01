@@ -4,7 +4,7 @@ import { Configuration, LogLevel, PopupRequest } from '@azure/msal-browser'
 export const msalConfig: Configuration = {
   auth: {
     clientId: process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || '',
-    authority: `https://login.microsoftonline.com/${process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || 'common'}`,
+    authority: `https://login.microsoftonline.com/${process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || '88714d9d-6787-42a3-929c-4242bac15119'}`,
     redirectUri: process.env.NEXT_PUBLIC_AZURE_AD_REDIRECT_URI || 'http://localhost:3000',
     postLogoutRedirectUri: '/',
   },
