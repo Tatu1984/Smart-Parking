@@ -73,8 +73,13 @@ export async function verifyMicrosoftToken(idToken: string): Promise<VerifiedMic
     const claims = payload as unknown as MicrosoftIdTokenClaims
 
     // Validate issuer format (Microsoft v2.0 tokens)
+    // For single-tenant: validate exact tenant ID
+    // For multi-tenant: validate issuer pattern
+    const tenantId = process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || '88714d9d-6787-42a3-929c-4242bac15119'
+    const expectedIssuer = `https://login.microsoftonline.com/${tenantId}/v2.0`
     const expectedIssuerPattern = /^https:\/\/login\.microsoftonline\.com\/[a-f0-9-]+\/v2\.0$/
-    if (!expectedIssuerPattern.test(claims.iss)) {
+
+    if (claims.iss !== expectedIssuer && !expectedIssuerPattern.test(claims.iss)) {
       throw new Error('Invalid token issuer')
     }
 
