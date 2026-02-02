@@ -1,0 +1,79 @@
+# Milvus configuration overrides for SParking
+
+# Common settings
+common:
+  # Storage type (local for Docker, S3/MinIO for production)
+  storageType: local
+
+# Proxy settings
+proxy:
+  # Maximum message size for gRPC (100MB for large batch inserts)
+  maxReceiveMessageSize: 104857600
+  maxSendMessageSize: 104857600
+
+  # Connection limits
+  maxConnectionNum: 100
+  maxTaskNum: 1024
+
+# Query settings
+queryCoord:
+  # Enable search result caching
+  enableQueryCoord: true
+  searchCacheEnabled: true
+
+# Index settings
+indexCoord:
+  # Build index threshold
+  minSegmentSizeToEnableIndex: 1024
+
+# Data settings
+dataCoord:
+  # Segment settings
+  segment:
+    maxSize: 512  # MB
+    sealProportion: 0.25
+  compaction:
+    enabled: true
+
+# RootCoord settings
+rootCoord:
+  # Garbage collection
+  minGCIntervalS: 600  # 10 minutes
+
+# Quota and limits
+quotaAndLimits:
+  # Enable quota management
+  enabled: true
+
+  # Collection limits
+  limits:
+    maxCollections: 64
+    maxPartitionsPerCollection: 64
+
+  # DML limits (insert/delete rate)
+  dml:
+    enabled: true
+    # Max insert rate per second per collection
+    collectionInsertRate:
+      max: 10000000  # 10MB/s
+    # Max delete rate per second per collection
+    collectionDeleteRate:
+      max: 1000000  # 1MB/s
+
+  # DQL limits (search/query rate)
+  dql:
+    enabled: true
+    # Max search rate per second per collection
+    collectionSearchRate:
+      max: 1000
+    # Max query rate per second per collection
+    collectionQueryRate:
+      max: 1000
+
+# Log settings
+log:
+  level: info
+  format: text
+  maxSize: 300  # MB
+  maxAge: 10  # days
+  maxBackups: 20

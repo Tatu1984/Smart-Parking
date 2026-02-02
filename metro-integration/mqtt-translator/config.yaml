@@ -1,0 +1,63 @@
+# Metro AI Suite to SParking MQTT Translator Configuration
+
+# MQTT Connection Settings
+mqtt:
+  host: ${MQTT_HOST:-mqtt}
+  port: ${MQTT_PORT:-1883}
+  client_id: metro-translator
+  keepalive: 60
+
+# API Configuration
+api:
+  endpoint: ${API_ENDPOINT:-http://app:3000/api/realtime/detection}
+  api_key: ${DETECTION_API_KEY}
+  timeout: 10
+  retry_attempts: 3
+  retry_delay: 1
+
+# Topic Mappings
+# Maps Metro AI Suite topic patterns to SParking camera IDs
+# Metro publishes to: object_detection_<camera_index>
+# Format: metro_topic_suffix -> camera_uuid
+topic_mappings:
+  # Example mappings - configure based on your camera setup
+  # "1": "camera-uuid-1"
+  # "2": "camera-uuid-2"
+  # For dynamic mapping, set CAMERA_MAPPING environment variable as JSON
+  # e.g., CAMERA_MAPPING='{"1": "camera-uuid-1", "2": "camera-uuid-2"}'
+
+# Detection Settings
+detection:
+  # Minimum confidence threshold to forward detections
+  min_confidence: 0.5
+
+  # Labels to track (Metro DL Streamer labels)
+  tracked_labels:
+    - car
+    - truck
+    - bus
+    - motorcycle
+    - bicycle
+
+  # Label mapping from Metro to SParking vehicle types
+  label_mapping:
+    car: CAR
+    truck: TRUCK
+    bus: BUS
+    motorcycle: MOTORCYCLE
+    bicycle: BICYCLE
+    suv: SUV
+    van: VAN
+
+# Metro Topic Configuration
+metro:
+  # Topic prefix for Metro AI Suite object detection
+  topic_prefix: ${METRO_MQTT_TOPIC_PREFIX:-object_detection}
+
+  # Subscribe pattern (# is wildcard)
+  subscribe_pattern: "${METRO_MQTT_TOPIC_PREFIX:-object_detection}_#"
+
+# Logging Configuration
+logging:
+  level: ${LOG_LEVEL:-INFO}
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

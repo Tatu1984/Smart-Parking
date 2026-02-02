@@ -1,0 +1,21 @@
+# Embedded etcd configuration for Milvus
+# This configuration is used when running Milvus in standalone mode
+
+listen-client-urls: http://0.0.0.0:2379
+advertise-client-urls: http://0.0.0.0:2379
+quota-backend-bytes: 4294967296  # 4GB
+auto-compaction-mode: periodic
+auto-compaction-retention: "1h"
+
+# Snapshot settings
+snapshot-count: 50000
+max-snapshots: 5
+max-wals: 5
+
+# Performance tuning
+heartbeat-interval: 500
+election-timeout: 5000
+
+# Logging
+log-level: warn
+log-outputs: [default]

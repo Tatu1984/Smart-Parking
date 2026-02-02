@@ -8,7 +8,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-sparking}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sparking_secret}
+      # SECURITY: Change in production - generate with: openssl rand -base64 32
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_sparking_db_password_change_me}
       POSTGRES_DB: ${POSTGRES_DB:-sparking}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -49,12 +50,18 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://${POSTGRES_USER:-sparking}:${POSTGRES_PASSWORD:-sparking_secret}@postgres:5432/${POSTGRES_DB:-sparking}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-sparking}:${POSTGRES_PASSWORD:-dev_sparking_db_password_change_me}@postgres:5432/${POSTGRES_DB:-sparking}
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
     ports:
       - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,6 +113,12 @@ services:
     ports:
       - "1883:1883"
       - "9001:9001"  # WebSocket
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     networks:
       - sparking-network
 
@@ -120,16 +133,265 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     depends_on:
       - app
     networks:
       - sparking-network
+
+  # Node-RED for Metro AI automation rules
+  node-red:
+    image: nodered/node-red:3.1
+    container_name: sparking-nodered
+    restart: unless-stopped
+    environment:
+      - TZ=UTC
+      - NODE_RED_CREDENTIAL_SECRET=${NODE_RED_CREDENTIAL_SECRET:-}
+      - DETECTION_API_KEY=${DETECTION_API_KEY}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - ./metro-integration/node-red:/data
+    ports:
+      - "1880:1880"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:1880"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      mqtt:
+        condition: service_started
+      app:
+        condition: service_healthy
+    networks:
+      - sparking-network
+
+  # Metro AI Suite MQTT Translator
+  mqtt-translator:
+    build: ./metro-integration/mqtt-translator
+    container_name: sparking-mqtt-translator
+    restart: unless-stopped
+    environment:
+      - MQTT_HOST=mqtt
+      - MQTT_PORT=1883
+      - API_ENDPOINT=http://app:3000/api/realtime/detection
+      - DETECTION_API_KEY=${DETECTION_API_KEY}
+      - METRO_MQTT_TOPIC_PREFIX=${METRO_MQTT_TOPIC_PREFIX:-object_detection}
+      - CAMERA_MAPPING=${CAMERA_MAPPING:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "translator.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      mqtt:
+        condition: service_started
+      app:
+        condition: service_healthy
+    networks:
+      - sparking-network
+
+  # Intel DL Streamer Pipeline Server
+  dlstreamer-pipeline-server:
+    image: ${DLSTREAMER_IMAGE:-intel/dlstreamer-pipeline-server:latest}
+    container_name: sparking-dlstreamer
+    restart: unless-stopped
+    privileged: true
+    environment:
+      - ENABLE_WEBRTC=true
+      - MQTT_HOST=mqtt
+      - MQTT_PORT=1883
+      - REST_SERVER_PORT=8080
+      - GST_DEBUG=${GST_DEBUG:-1}
+    volumes:
+      - ./metro-integration/dlstreamer/config.json:/home/pipeline-server/config.json:ro
+      - ./metro-integration/dlstreamer/models:/home/pipeline-server/models:ro
+    devices:
+      - /dev/dri:/dev/dri
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/pipelines"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      - mqtt
+    networks:
+      - sparking-network
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+
+  # MediaMTX for WebRTC streaming
+  mediamtx:
+    image: bluenviron/mediamtx:1.11.3
+    container_name: sparking-mediamtx
+    restart: unless-stopped
+    environment:
+      - MTX_PROTOCOLS=tcp,webrtc
+      - MTX_WEBRTCADDRESS=:8889
+    ports:
+      - "8554:8554"
+      - "8889:8889"
+      - "8890:8890/udp"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8889/v3/paths/list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - sparking-network
+
+  # Coturn TURN server for WebRTC NAT traversal
+  coturn:
+    image: coturn/coturn:4.7
+    container_name: sparking-coturn
+    restart: unless-stopped
+    command: >
+      -n
+      --realm=sparking.local
+      --fingerprint
+      --listening-port=3478
+      --min-port=49152
+      --max-port=65535
+      # SECURITY: Change in production - generate with: openssl rand -base64 24
+      --user=${TURN_USERNAME:-sparking}:${TURN_PASSWORD:-dev_turn_password_change_me}
+      --lt-cred-mech
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+    networks:
+      - sparking-network
+
+  # Grafana for monitoring dashboards
+  grafana:
+    image: grafana/grafana:11.5.4
+    container_name: sparking-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      # SECURITY: Change in production - generate with: openssl rand -base64 24
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-dev_grafana_admin_change_me}
+      - GF_INSTALL_PLUGINS=grafana-mqtt-datasource
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL:-http://localhost/grafana}
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes:
+      - ./metro-integration/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./metro-integration/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./metro-integration/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - mqtt
+    networks:
+      - sparking-network
+
+  # MilvusDB for vehicle image vector search
+  milvus-db:
+    image: milvusdb/milvus:v2.5.15
+    container_name: sparking-milvus
+    restart: unless-stopped
+    environment:
+      - ETCD_USE_EMBED=true
+      - ETCD_DATA_DIR=/var/lib/milvus/etcd
+      - COMMON_STORAGETYPE=local
+    volumes:
+      - milvus_data:/var/lib/milvus
+      - ./metro-integration/milvus/embedEtcd.yaml:/milvus/configs/embedEtcd.yaml:ro
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    networks:
+      - sparking-network
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+  # Milvus UI (Attu)
+  milvus-ui:
+    image: zilliz/attu:v2.4
+    container_name: sparking-milvus-ui
+    restart: unless-stopped
+    environment:
+      - MILVUS_URL=milvus-db:19530
+    ports:
+      - "8000:3000"
+    depends_on:
+      milvus-db:
+        condition: service_healthy
+    networks:
+      - sparking-network
+
+  # Feature Matching Service for vehicle image search
+  feature-matching:
+    build: ./metro-integration/feature-matching
+    container_name: sparking-feature-matching
+    restart: unless-stopped
+    environment:
+      - MILVUS_ENDPOINT=http://milvus-db:19530
+      - COLLECTION_NAME=${MILVUS_COLLECTION:-sparking_vehicles}
+      - MQTT_BROKER=mqtt
+      - MQTT_PORT=1883
+      - DLSTREAMER_ENDPOINT=http://dlstreamer-pipeline-server:8080
+      - SPARKING_API_ENDPOINT=http://app:3000
+      - DETECTION_API_KEY=${DETECTION_API_KEY}
+      - FEATURE_MODEL_DIM=${FEATURE_MODEL_DIM:-1000}
+    volumes:
+      - vehicle_images:/usr/src/app/static
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      milvus-db:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+    networks:
+      - sparking-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
 volumes:
   postgres_data:
   redis_data:
   mosquitto_data:
   mosquitto_log:
+  grafana_data:
+  milvus_data:
+  vehicle_images:
 
 networks:
   sparking-network:

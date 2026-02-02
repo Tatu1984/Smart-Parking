@@ -1,0 +1,23 @@
+apiVersion: 1
+
+datasources:
+  - name: MQTT
+    type: grafana-mqtt-datasource
+    access: proxy
+    isDefault: false
+    jsonData:
+      uri: tcp://mqtt:1883
+      topics:
+        - sparking/detection/#
+        - sparking/slot/#
+        - object_detection_#
+    editable: true
+
+  - name: SParking API
+    type: prometheus
+    access: proxy
+    url: http://app:3000/api/metrics
+    isDefault: true
+    jsonData:
+      httpMethod: GET
+    editable: true

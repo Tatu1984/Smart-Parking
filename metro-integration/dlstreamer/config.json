@@ -1,0 +1,239 @@
+{
+  "pipelines": {
+    "sparking_vehicle_detection": {
+      "description": "Vehicle detection pipeline for SParking using YOLOv11s",
+      "version": "1.0",
+      "parameters": {
+        "detection-device": {
+          "type": "string",
+          "default": "CPU",
+          "description": "Inference device (CPU, GPU, AUTO)"
+        },
+        "detection-model": {
+          "type": "string",
+          "default": "/home/pipeline-server/models/yolov11s/yolov11s.xml",
+          "description": "Path to YOLO detection model"
+        },
+        "confidence-threshold": {
+          "type": "float",
+          "default": 0.5,
+          "description": "Minimum confidence for detections"
+        },
+        "inference-interval": {
+          "type": "integer",
+          "default": 1,
+          "description": "Run inference every N frames"
+        },
+        "mqtt-topic": {
+          "type": "string",
+          "description": "MQTT topic for publishing detections"
+        }
+      },
+      "template": [
+        "urisourcebin uri={source[uri]} ! decodebin ! videoconvert ! video/x-raw,format=BGR",
+        "! gvadetect model={parameters[detection-model]} device={parameters[detection-device]} threshold={parameters[confidence-threshold]} inference-interval={parameters[inference-interval]}",
+        "! gvametaconvert add-tensor-data=true",
+        "! gvapython module=/home/pipeline-server/extensions/vehicle_filter.py class=VehicleFilter",
+        "! gvametapublish method=mqtt address={env[MQTT_HOST]}:{env[MQTT_PORT]} topic={parameters[mqtt-topic]}",
+        "! gvafpscounter ! fakesink"
+      ]
+    },
+    "sparking_vehicle_detection_webrtc": {
+      "description": "Vehicle detection with WebRTC streaming output",
+      "version": "1.0",
+      "parameters": {
+        "detection-device": {
+          "type": "string",
+          "default": "CPU"
+        },
+        "detection-model": {
+          "type": "string",
+          "default": "/home/pipeline-server/models/yolov11s/yolov11s.xml"
+        },
+        "confidence-threshold": {
+          "type": "float",
+          "default": 0.5
+        },
+        "inference-interval": {
+          "type": "integer",
+          "default": 2
+        },
+        "mqtt-topic": {
+          "type": "string"
+        },
+        "webrtc-peer-id": {
+          "type": "string",
+          "description": "WebRTC peer connection ID"
+        }
+      },
+      "template": [
+        "urisourcebin uri={source[uri]} ! decodebin ! tee name=t",
+        "t. ! queue ! videoconvert ! video/x-raw,format=BGR",
+        "! gvadetect model={parameters[detection-model]} device={parameters[detection-device]} threshold={parameters[confidence-threshold]} inference-interval={parameters[inference-interval]}",
+        "! gvawatermark",
+        "! gvametaconvert add-tensor-data=true",
+        "! gvapython module=/home/pipeline-server/extensions/vehicle_filter.py class=VehicleFilter",
+        "! gvametapublish method=mqtt address={env[MQTT_HOST]}:{env[MQTT_PORT]} topic={parameters[mqtt-topic]}",
+        "! videoconvert ! x264enc tune=zerolatency bitrate=2000 speed-preset=superfast",
+        "! rtph264pay ! webrtcsink signaller::address={env[SIGNALLING_SERVER]} signaller::peer-id={parameters[webrtc-peer-id]}"
+      ]
+    },
+    "sparking_vehicle_attributes": {
+      "description": "Vehicle detection with attribute recognition (color, type)",
+      "version": "1.0",
+      "parameters": {
+        "detection-device": {
+          "type": "string",
+          "default": "CPU"
+        },
+        "detection-model": {
+          "type": "string",
+          "default": "/home/pipeline-server/models/yolov11s/yolov11s.xml"
+        },
+        "attributes-model": {
+          "type": "string",
+          "default": "/home/pipeline-server/models/vehicle-attributes/vehicle-attributes-recognition-barrier-0042.xml"
+        },
+        "confidence-threshold": {
+          "type": "float",
+          "default": 0.5
+        },
+        "inference-interval": {
+          "type": "integer",
+          "default": 1
+        },
+        "mqtt-topic": {
+          "type": "string"
+        }
+      },
+      "template": [
+        "urisourcebin uri={source[uri]} ! decodebin ! videoconvert ! video/x-raw,format=BGR",
+        "! gvadetect model={parameters[detection-model]} device={parameters[detection-device]} threshold={parameters[confidence-threshold]} inference-interval={parameters[inference-interval]}",
+        "! queue",
+        "! gvaclassify model={parameters[attributes-model]} device={parameters[detection-device]} object-class=vehicle",
+        "! gvametaconvert add-tensor-data=true",
+        "! gvapython module=/home/pipeline-server/extensions/vehicle_filter.py class=VehicleFilter",
+        "! gvametapublish method=mqtt address={env[MQTT_HOST]}:{env[MQTT_PORT]} topic={parameters[mqtt-topic]}",
+        "! gvafpscounter ! fakesink"
+      ]
+    },
+    "sparking_license_plate": {
+      "description": "License plate detection and recognition pipeline",
+      "version": "1.0",
+      "parameters": {
+        "detection-device": {
+          "type": "string",
+          "default": "CPU"
+        },
+        "vehicle-model": {
+          "type": "string",
+          "default": "/home/pipeline-server/models/yolov11s/yolov11s.xml"
+        },
+        "lp-detect-model": {
+          "type": "string",
+          "default": "/home/pipeline-server/models/license-plate/vehicle-license-plate-detection-barrier-0106.xml"
+        },
+        "lp-recognize-model": {
+          "type": "string",
+          "default": "/home/pipeline-server/models/license-plate/license-plate-recognition-barrier-0001.xml"
+        },
+        "confidence-threshold": {
+          "type": "float",
+          "default": 0.5
+        },
+        "mqtt-topic": {
+          "type": "string"
+        }
+      },
+      "template": [
+        "urisourcebin uri={source[uri]} ! decodebin ! videoconvert ! video/x-raw,format=BGR",
+        "! gvadetect model={parameters[vehicle-model]} device={parameters[detection-device]} threshold={parameters[confidence-threshold]}",
+        "! queue",
+        "! gvadetect model={parameters[lp-detect-model]} device={parameters[detection-device]} threshold=0.3 object-class=vehicle",
+        "! queue",
+        "! gvaclassify model={parameters[lp-recognize-model]} device={parameters[detection-device]} object-class=license-plate",
+        "! gvametaconvert add-tensor-data=true",
+        "! gvapython module=/home/pipeline-server/extensions/license_plate_extractor.py class=LicensePlateExtractor",
+        "! gvametapublish method=mqtt address={env[MQTT_HOST]}:{env[MQTT_PORT]} topic={parameters[mqtt-topic]}",
+        "! gvafpscounter ! fakesink"
+      ]
+    },
+    "sparking_feature_extraction": {
+      "description": "Vehicle feature extraction for image search",
+      "version": "1.0",
+      "parameters": {
+        "detection-device": {
+          "type": "string",
+          "default": "CPU"
+        },
+        "detection-model": {
+          "type": "string",
+          "default": "/home/pipeline-server/models/yolov11s/yolov11s.xml"
+        },
+        "feature-model": {
+          "type": "string",
+          "default": "/home/pipeline-server/models/vehicle-reid/vehicle-reid-0001.xml"
+        },
+        "confidence-threshold": {
+          "type": "float",
+          "default": 0.6
+        },
+        "mqtt-topic": {
+          "type": "string"
+        }
+      },
+      "template": [
+        "urisourcebin uri={source[uri]} ! decodebin ! videoconvert ! video/x-raw,format=BGR",
+        "! gvadetect model={parameters[detection-model]} device={parameters[detection-device]} threshold={parameters[confidence-threshold]}",
+        "! queue",
+        "! gvaclassify model={parameters[feature-model]} device={parameters[detection-device]} object-class=vehicle reclassify-interval=5",
+        "! gvametaconvert add-tensor-data=true",
+        "! gvapython module=/home/pipeline-server/extensions/feature_publisher.py class=FeaturePublisher",
+        "! gvametapublish method=mqtt address={env[MQTT_HOST]}:{env[MQTT_PORT]} topic={parameters[mqtt-topic]}",
+        "! gvafpscounter ! fakesink"
+      ]
+    }
+  },
+  "extensions": {
+    "vehicle_filter": {
+      "description": "Filters detections to only include vehicles",
+      "path": "/home/pipeline-server/extensions/vehicle_filter.py"
+    },
+    "license_plate_extractor": {
+      "description": "Extracts license plate text from recognition results",
+      "path": "/home/pipeline-server/extensions/license_plate_extractor.py"
+    },
+    "feature_publisher": {
+      "description": "Publishes vehicle features for image search",
+      "path": "/home/pipeline-server/extensions/feature_publisher.py"
+    }
+  },
+  "models": {
+    "yolov11s": {
+      "description": "YOLOv11 Small for vehicle detection",
+      "path": "/home/pipeline-server/models/yolov11s",
+      "precision": ["FP32", "FP16", "INT8"],
+      "labels": ["car", "motorcycle", "bus", "truck", "bicycle"]
+    },
+    "vehicle-attributes": {
+      "description": "Vehicle attributes recognition (color, type)",
+      "path": "/home/pipeline-server/models/vehicle-attributes",
+      "model_id": "vehicle-attributes-recognition-barrier-0042"
+    },
+    "license-plate-detection": {
+      "description": "License plate detection",
+      "path": "/home/pipeline-server/models/license-plate",
+      "model_id": "vehicle-license-plate-detection-barrier-0106"
+    },
+    "license-plate-recognition": {
+      "description": "License plate text recognition",
+      "path": "/home/pipeline-server/models/license-plate",
+      "model_id": "license-plate-recognition-barrier-0001"
+    },
+    "vehicle-reid": {
+      "description": "Vehicle re-identification for feature extraction",
+      "path": "/home/pipeline-server/models/vehicle-reid",
+      "model_id": "vehicle-reid-0001"
+    }
+  }
+}
