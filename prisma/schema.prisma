@@ -382,6 +382,7 @@ model Camera {
   zone       Zone?      @relation(fields: [zoneId], references: [id])
   slots      Slot[]
   detectionEvents DetectionEvent[]
+  featureIndices  VehicleFeatureIndex[]
 
   @@index([parkingLotId, status])
   @@map("cameras")
@@ -530,6 +531,7 @@ model Token {
   occupancies   SlotOccupancy[]
   transactions  Transaction[]
   gateEvents    GateEvent[]
+  featureIndices VehicleFeatureIndex[]
 
   @@index([parkingLotId, status])
   @@index([parkingLotId, entryTime])
@@ -583,6 +585,7 @@ model Vehicle {
 
   tokens       Token[]
   occupancies  SlotOccupancy[]
+  featureIndices VehicleFeatureIndex[]
 
   @@map("vehicles")
 }
@@ -738,6 +741,51 @@ enum DetectionEventType {
   SLOT_VACATED
   LICENSE_PLATE_READ
   ANOMALY_DETECTED
+}
+
+// ============================================
+// VEHICLE FEATURE INDEX (For Image Search)
+// ============================================
+
+model VehicleFeatureIndex {
+  id           String    @id @default(cuid())
+  vehicleId    String?
+  tokenId      String?
+  cameraId     String
+
+  // Image Storage
+  imageUrl     String
+  thumbnailUrl String?
+
+  // Milvus Vector DB Reference
+  milvusId     String    @unique
+
+  // Detection Context
+  detectedAt   DateTime  @default(now())
+  confidence   Float
+
+  // Vehicle Attributes (extracted by AI)
+  vehicleType  String?
+  vehicleColor String?
+  licensePlate String?
+
+  // Bounding box for the detected vehicle
+  bbox         Json?     // {x, y, width, height}
+
+  // Additional metadata
+  metadata     Json?     // Pipeline info, model version, etc.
+
+  // Relations
+  camera       Camera    @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+  vehicle      Vehicle?  @relation(fields: [vehicleId], references: [id])
+  token        Token?    @relation(fields: [tokenId], references: [id])
+
+  @@index([cameraId, detectedAt])
+  @@index([vehicleId])
+  @@index([tokenId])
+  @@index([detectedAt])
+  @@index([licensePlate])
+  @@map("vehicle_feature_indices")
 }
 
 // ============================================
