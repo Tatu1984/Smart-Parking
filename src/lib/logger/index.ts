@@ -109,7 +109,7 @@ class Logger {
       entry.error = {
         name: error.name,
         message: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        stack: error.stack,
       }
     }
 

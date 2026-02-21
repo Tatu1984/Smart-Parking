@@ -164,8 +164,8 @@ export async function findOrCreateMicrosoftUser(verifiedUser: VerifiedMicrosoftU
     throw new Error('User not found and auto-creation is disabled')
   }
 
-  // Get default role from env or use ADMIN
-  const defaultRole = (process.env.AZURE_AD_DEFAULT_ROLE as UserRole) || UserRole.ADMIN
+  // Get default role from env or use VIEWER (principle of least privilege)
+  const defaultRole = (process.env.AZURE_AD_DEFAULT_ROLE as UserRole) || UserRole.VIEWER
 
   // Get organization - use env variable or first available
   let organizationId = process.env.AZURE_AD_DEFAULT_ORGANIZATION_ID

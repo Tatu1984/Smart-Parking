@@ -51,6 +51,12 @@ export async function GET(
       return errorResponse('Parking lot not found', 404)
     }
 
+    // Org isolation
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && parkingLot.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
+    }
+
     // Calculate slot statistics
     const slotStats = await prisma.slot.groupBy({
       by: ['status', 'isOccupied'],
@@ -122,6 +128,14 @@ export async function PATCH(
     }
 
     const { id } = await params
+
+    const existing = await prisma.parkingLot.findUnique({ where: { id }, select: { organizationId: true } })
+    if (!existing) return errorResponse('Parking lot not found', 404)
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && existing.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
+    }
+
     const body = await request.json()
     const data = updateParkingLotSchema.parse(body)
 
@@ -159,6 +173,13 @@ export async function DELETE(
     }
 
     const { id } = await params
+
+    const existing = await prisma.parkingLot.findUnique({ where: { id }, select: { organizationId: true } })
+    if (!existing) return errorResponse('Parking lot not found', 404)
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && existing.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
+    }
 
     await prisma.parkingLot.delete({
       where: { id },

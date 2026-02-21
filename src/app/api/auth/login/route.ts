@@ -5,8 +5,9 @@ import { loginSchema } from '@/lib/validators'
 import bcrypt from 'bcryptjs'
 import { signToken } from '@/lib/auth/jwt'
 import { cookies } from 'next/headers'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
-export async function POST(request: NextRequest) {
+export const POST = withRateLimit(async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { email, password } = loginSchema.parse(body)
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
         token,
         expiresAt,
         userAgent: request.headers.get('user-agent') || undefined,
-        ipAddress: request.headers.get('x-forwarded-for') || undefined,
+        ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0].trim() || undefined,
       },
     })
 
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
     cookieStore.set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'strict',
       expires: expiresAt,
       path: '/',
     })
@@ -121,4 +122,4 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return handleApiError(error)
   }
-}
+})

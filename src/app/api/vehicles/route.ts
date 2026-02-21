@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
-import { successResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
+import { successResponse, errorResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 import { z } from 'zod'
 
 const createVehicleSchema = z.object({
@@ -21,6 +22,9 @@ const createVehicleSchema = z.object({
 // GET /api/vehicles - List all vehicles
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
     const { searchParams } = new URL(request.url)
     const { page, limit, search } = parseQueryParams(searchParams)
     const isBlacklisted = searchParams.get('isBlacklisted')
@@ -64,6 +68,12 @@ export async function GET(request: NextRequest) {
 // POST /api/vehicles - Create a new vehicle
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+    if (!['ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(user.role)) {
+      return errorResponse('Forbidden', 403)
+    }
+
     const body = await request.json()
     const data = createVehicleSchema.parse(body)
 

@@ -1,11 +1,15 @@
 import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
-import { successResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
+import { successResponse, errorResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 import { createSlotSchema, bulkCreateSlotsSchema } from '@/lib/validators'
 
 // GET /api/slots - List all slots
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
     const { searchParams } = new URL(request.url)
     const { page, limit, search } = parseQueryParams(searchParams)
     const zoneId = searchParams.get('zoneId')
@@ -13,7 +17,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status')
     const isOccupied = searchParams.get('isOccupied')
 
-    const where = {
+    const where: Record<string, any> = {
       ...(zoneId && { zoneId }),
       ...(parkingLotId && { zone: { parkingLotId } }),
       ...(status && { status: status as any }),
@@ -21,6 +25,11 @@ export async function GET(request: NextRequest) {
       ...(search && {
         slotNumber: { contains: search, mode: 'insensitive' as const },
       }),
+    }
+
+    // Org isolation: non-SUPER_ADMIN only see their org's data
+    if (user.role !== 'SUPER_ADMIN') {
+      where.zone = { ...where.zone, parkingLot: { organizationId: user.organizationId } }
     }
 
     const [slots, total] = await Promise.all([
@@ -58,6 +67,12 @@ export async function GET(request: NextRequest) {
 // POST /api/slots - Create a single slot or bulk create
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+    if (!['ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(user.role)) {
+      return errorResponse('Forbidden', 403)
+    }
+
     const body = await request.json()
 
     // Check if bulk creation

@@ -100,7 +100,17 @@ export function parseQueryParams(searchParams: URLSearchParams) {
   const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')))
   const search = searchParams.get('search') || undefined
   const sortBy = searchParams.get('sortBy') || undefined
-  const sortOrder = (searchParams.get('sortOrder') || 'desc') as 'asc' | 'desc'
+  const rawSortOrder = searchParams.get('sortOrder') || 'desc'
+  const sortOrder: 'asc' | 'desc' = rawSortOrder === 'asc' ? 'asc' : 'desc'
 
   return { page, limit, search, sortBy, sortOrder }
+}
+
+/**
+ * Validate that a sortBy field is in the list of allowed fields.
+ * Returns the field if valid, undefined otherwise.
+ */
+export function validateSortBy(field: string | undefined, allowedFields: string[]): string | undefined {
+  if (!field) return undefined
+  return allowedFields.includes(field) ? field : undefined
 }

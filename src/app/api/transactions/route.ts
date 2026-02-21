@@ -1,10 +1,14 @@
 import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
-import { paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
+import { paginatedResponse, handleApiError, parseQueryParams, errorResponse } from '@/lib/utils/api'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 
 // GET /api/transactions - List all transactions
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
     const { searchParams } = new URL(request.url)
     const { page, limit, search, sortBy, sortOrder } = parseQueryParams(searchParams)
     const parkingLotId = searchParams.get('parkingLotId')
@@ -13,7 +17,7 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom')
     const dateTo = searchParams.get('dateTo')
 
-    const where = {
+    const where: Record<string, any> = {
       ...(parkingLotId && { parkingLotId }),
       ...(paymentStatus && { paymentStatus: paymentStatus as any }),
       ...(paymentMethod && { paymentMethod: paymentMethod as any }),
@@ -30,6 +34,11 @@ export async function GET(request: NextRequest) {
           { token: { licensePlate: { contains: search, mode: 'insensitive' as const } } },
         ],
       }),
+    }
+
+    // Org isolation: non-SUPER_ADMIN only see their org's data
+    if (user.role !== 'SUPER_ADMIN') {
+      where.parkingLot = { organizationId: user.organizationId }
     }
 
     const [transactions, total, aggregates] = await Promise.all([

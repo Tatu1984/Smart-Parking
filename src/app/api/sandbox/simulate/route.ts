@@ -12,6 +12,10 @@ import { logger } from '@/lib/logger'
 
 // POST /api/sandbox/simulate - Simulate parking events
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_SANDBOX !== 'true') {
+    return NextResponse.json({ error: 'Sandbox is disabled in production' }, { status: 403 })
+  }
+
   if (!isSandboxMode()) {
     return NextResponse.json(
       { error: 'Sandbox mode is not enabled' },
@@ -432,6 +436,10 @@ function calculateParkingFee(durationMinutes: number, vehicleType: string): numb
 
 // GET /api/sandbox/simulate - Get available simulation types
 export async function GET() {
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_SANDBOX !== 'true') {
+    return NextResponse.json({ error: 'Sandbox is disabled in production' }, { status: 403 })
+  }
+
   return NextResponse.json({
     success: true,
     sandbox: true,

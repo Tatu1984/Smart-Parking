@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyPaymentSignature, getPayment } from '@/lib/payments/razorpay'
 import { sendNotification } from '@/lib/notifications'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 import { logger } from '@/lib/logger'
 
 // POST /api/payments/verify - Verify Razorpay payment
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const body = await request.json()
     const {
       razorpay_order_id,

@@ -24,23 +24,48 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
+      // Azure Blob Storage
+      { protocol: 'https', hostname: '*.blob.core.windows.net' },
+      // AWS S3
+      { protocol: 'https', hostname: '*.s3.amazonaws.com' },
+      { protocol: 'https', hostname: '*.s3.*.amazonaws.com' },
+      // Cloudinary
+      { protocol: 'https', hostname: 'res.cloudinary.com' },
+      // Google (user avatars)
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
+      // GitHub (avatars)
+      { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
+      // Gravatar
+      { protocol: 'https', hostname: '*.gravatar.com' },
     ],
   },
   async headers() {
-    const allowedOrigins = getAllowedOrigins()
-    // For CORS with credentials, we need to return the specific origin, not wildcard
-    // This is handled dynamically in middleware for production
-    // For static config, we set reasonable defaults
     const corsOrigin = process.env.NODE_ENV === 'production'
       ? (process.env.NEXT_PUBLIC_APP_URL || 'https://sparking.io')
       : 'http://localhost:3000'
 
     return [
       {
+        // Security headers for all routes
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
+        ],
+      },
+      {
+        // Mobile API: allow any origin (Bearer token auth, no cookies)
+        source: '/api/mobile/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT,OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+        ],
+      },
+      {
+        // Web API: specific origin with credentials
         source: '/api/:path*',
         headers: [
           { key: 'Access-Control-Allow-Credentials', value: 'true' },

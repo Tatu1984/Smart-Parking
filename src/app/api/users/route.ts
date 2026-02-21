@@ -1,19 +1,23 @@
 import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
-import { successResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
+import { successResponse, paginatedResponse, handleApiError, parseQueryParams, errorResponse } from '@/lib/utils/api'
 import { createUserSchema } from '@/lib/validators'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 import bcrypt from 'bcryptjs'
 
 // GET /api/users - List all users
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
     const { searchParams } = new URL(request.url)
     const { page, limit, search } = parseQueryParams(searchParams)
     const role = searchParams.get('role')
     const status = searchParams.get('status')
     const organizationId = searchParams.get('organizationId')
 
-    const where = {
+    const where: Record<string, any> = {
       ...(role && { role: role as any }),
       ...(status && { status: status as any }),
       ...(organizationId && { organizationId }),
@@ -23,6 +27,11 @@ export async function GET(request: NextRequest) {
           { email: { contains: search, mode: 'insensitive' as const } },
         ],
       }),
+    }
+
+    // Org isolation: non-SUPER_ADMIN only see their org's users
+    if (user.role !== 'SUPER_ADMIN') {
+      where.organizationId = user.organizationId
     }
 
     const [users, total] = await Promise.all([
@@ -83,6 +92,13 @@ export async function GET(request: NextRequest) {
 // POST /api/users - Create a new user
 export async function POST(request: NextRequest) {
   try {
+    const authUser = await getAuthUser(request)
+    if (!authUser) return errorResponse('Unauthorized', 401)
+
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(authUser.role)) {
+      return errorResponse('Forbidden', 403)
+    }
+
     const body = await request.json()
     const data = createUserSchema.parse(body)
 

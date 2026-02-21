@@ -2,13 +2,21 @@ import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
 import { successResponse, errorResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
 import { createParkingLotSchema } from '@/lib/validators'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 
 // GET /api/parking-lots - List all parking lots
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
     const { searchParams } = new URL(request.url)
     const { page, limit, search, sortBy, sortOrder } = parseQueryParams(searchParams)
-    const organizationId = searchParams.get('organizationId')
+
+    // Non-SUPER_ADMIN users can only see their org's parking lots
+    const organizationId = user.role === 'SUPER_ADMIN'
+      ? searchParams.get('organizationId') || undefined
+      : user.organizationId
 
     const where = {
       ...(organizationId && { organizationId }),
@@ -103,25 +111,21 @@ export async function GET(request: NextRequest) {
 // POST /api/parking-lots - Create a new parking lot
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      return errorResponse('Forbidden', 403)
+    }
+
     const body = await request.json()
     const data = createParkingLotSchema.parse(body)
-
-    // For now, use a default organization (in production, get from auth)
-    let organization = await prisma.organization.findFirst()
-    if (!organization) {
-      organization = await prisma.organization.create({
-        data: {
-          name: 'Default Organization',
-          slug: 'default',
-        },
-      })
-    }
 
     const parkingLot = await prisma.parkingLot.create({
       data: {
         ...data,
         operatingHours: data.operatingHours as object | undefined,
-        organizationId: organization.id,
+        organizationId: user.organizationId,
       },
       include: {
         organization: true,

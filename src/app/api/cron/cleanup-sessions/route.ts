@@ -17,18 +17,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const context = { correlationId: `cron-${Date.now()}` }
 
   try {
-    // Verify cron secret in production
-    if (process.env.NODE_ENV === 'production') {
+    // Verify cron secret when configured
+    if (CRON_SECRET) {
       const authHeader = request.headers.get('authorization')
       const providedSecret = authHeader?.replace('Bearer ', '')
-
-      if (!CRON_SECRET) {
-        logger.error('CRON_SECRET not configured', undefined, context)
-        return NextResponse.json(
-          { error: 'Cron not configured' },
-          { status: 500 }
-        )
-      }
 
       if (providedSecret !== CRON_SECRET) {
         logger.warn('Invalid cron secret', context)

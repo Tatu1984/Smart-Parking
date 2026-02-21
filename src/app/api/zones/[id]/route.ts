@@ -21,7 +21,7 @@ export async function GET(
       where: { id },
       include: {
         parkingLot: {
-          select: { id: true, name: true, slug: true },
+          select: { id: true, name: true, slug: true, organizationId: true },
         },
         slots: {
           orderBy: { slotNumber: 'asc' },
@@ -44,6 +44,12 @@ export async function GET(
 
     if (!zone) {
       return errorResponse('Zone not found', 404)
+    }
+
+    // Org isolation
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && zone.parkingLot.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
     }
 
     // Calculate stats
@@ -87,6 +93,15 @@ export async function PATCH(
     }
 
     const { id } = await params
+
+    // Org isolation check
+    const existing = await prisma.zone.findUnique({ where: { id }, select: { parkingLot: { select: { organizationId: true } } } })
+    if (!existing) return errorResponse('Zone not found', 404)
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && existing.parkingLot.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
+    }
+
     const body = await request.json()
     const data = updateZoneSchema.parse(body)
 
@@ -126,11 +141,17 @@ export async function DELETE(
 
     const zone = await prisma.zone.findUnique({
       where: { id },
-      select: { parkingLotId: true },
+      select: { parkingLotId: true, parkingLot: { select: { organizationId: true } } },
     })
 
     if (!zone) {
       return errorResponse('Zone not found', 404)
+    }
+
+    // Org isolation
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && zone.parkingLot.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
     }
 
     await prisma.zone.delete({

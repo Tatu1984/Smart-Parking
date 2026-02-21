@@ -1,17 +1,23 @@
 import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
-import { successResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
+import { successResponse, errorResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
 import { createZoneSchema } from '@/lib/validators'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 
 // GET /api/zones - List all zones
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
     const { searchParams } = new URL(request.url)
     const { page, limit, search } = parseQueryParams(searchParams)
     const parkingLotId = searchParams.get('parkingLotId')
 
     const where = {
       ...(parkingLotId && { parkingLotId }),
+      // Org isolation: non-SUPER_ADMIN only see their org's zones
+      ...(user.role !== 'SUPER_ADMIN' && { parkingLot: { organizationId: user.organizationId } }),
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' as const } },
@@ -74,6 +80,12 @@ export async function GET(request: NextRequest) {
 // POST /api/zones - Create a new zone
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+    if (!['ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(user.role)) {
+      return errorResponse('Forbidden', 403)
+    }
+
     const body = await request.json()
     const data = createZoneSchema.parse(body)
 

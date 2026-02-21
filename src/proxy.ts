@@ -58,14 +58,30 @@ function checkEdgeRateLimit(identifier: string): { limited: boolean; remaining: 
 // Protected routes that require authentication
 const PROTECTED_ROUTES = ['/dashboard']
 const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/api/auth/login', '/api/auth/register']
-const PUBLIC_API_ROUTES = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/payments/webhook', '/api/docs']
+const PUBLIC_API_ROUTES = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/auth/microsoft', '/api/auth/logout', '/api/payments/webhook', '/api/docs', '/api/mobile/auth/']
 
 // Development-only fallback secret (must match jwt.ts)
 const DEV_SECRET = 'dev-only-secret-key-min-32-chars-long!'
 
-async function verifyAuth(request: NextRequest): Promise<{ authenticated: boolean; userId?: string }> {
+interface AuthResult {
+  authenticated: boolean
+  userId?: string
+  email?: string
+  role?: string
+  organizationId?: string
+}
+
+async function verifyAuth(request: NextRequest): Promise<AuthResult> {
   try {
-    const token = request.cookies.get('auth-token')?.value
+    // Try Bearer token first (mobile/API), then cookie (web)
+    let token: string | undefined
+    const authHeader = request.headers.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.slice(7)
+    }
+    if (!token) {
+      token = request.cookies.get('auth-token')?.value
+    }
 
     if (!token) {
       return { authenticated: false }
@@ -89,7 +105,13 @@ async function verifyAuth(request: NextRequest): Promise<{ authenticated: boolea
       return { authenticated: false }
     }
 
-    return { authenticated: true, userId: payload.userId as string }
+    return {
+      authenticated: true,
+      userId: payload.userId as string,
+      email: payload.email as string | undefined,
+      role: payload.role as string | undefined,
+      organizationId: payload.organizationId as string | undefined,
+    }
   } catch (error) {
     console.error('Auth verification error:', error)
     return { authenticated: false }
@@ -142,16 +164,48 @@ export async function proxy(request: NextRequest) {
   const isApiRoute = pathname.startsWith('/api/')
   const isCsrfExempt = CSRF_EXEMPT_ROUTES.some(route => pathname.startsWith(route))
 
+  // Cron routes: validate CRON_SECRET
+  const isCronRoute = pathname.startsWith('/api/cron/')
+  if (isCronRoute) {
+    const cronSecret = process.env.CRON_SECRET
+    if (cronSecret) {
+      const authHeader = request.headers.get('authorization')
+      const provided = authHeader?.replace('Bearer ', '')
+      if (provided !== cronSecret) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+    // Skip normal auth for cron routes
+    const response = NextResponse.next()
+    response.headers.set('X-Correlation-ID', correlationId)
+    return response
+  }
+
+  // Check parking-lot status route (public kiosk endpoint)
+  const isParkingLotStatus = /^\/api\/parking-lots\/[^/]+\/status$/.test(pathname)
+
   // Verify authentication for protected routes
   let userId: string | undefined
-  if (isProtectedRoute || (isApiRoute && !isPublicApiRoute)) {
-    const authResult = await verifyAuth(request)
+  let authResult: AuthResult | undefined
+  if (isProtectedRoute || (isApiRoute && !isPublicApiRoute && !isParkingLotStatus)) {
+    authResult = await verifyAuth(request)
     userId = authResult.userId
 
     if (isProtectedRoute && !authResult.authenticated) {
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('from', pathname)
       return NextResponse.redirect(loginUrl)
+    }
+
+    // Return 401 for unauthenticated API requests
+    if (isApiRoute && !authResult.authenticated) {
+      return new NextResponse(
+        JSON.stringify({ error: 'Authentication required', correlationId }),
+        { status: 401, headers: { 'Content-Type': 'application/json', 'X-Correlation-ID': correlationId } }
+      )
     }
   }
 
@@ -220,7 +274,17 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  const response = NextResponse.next()
+  // Forward decoded user info via request headers for route handlers
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-correlation-id', correlationId)
+  if (authResult?.authenticated) {
+    if (authResult.userId) requestHeaders.set('x-user-id', authResult.userId)
+    if (authResult.email) requestHeaders.set('x-user-email', authResult.email)
+    if (authResult.role) requestHeaders.set('x-user-role', authResult.role)
+    if (authResult.organizationId) requestHeaders.set('x-user-org-id', authResult.organizationId)
+  }
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } })
 
   // Add correlation ID to all responses
   response.headers.set('X-Correlation-ID', correlationId)

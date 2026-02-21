@@ -25,6 +25,14 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
       return null
     }
 
+    // Verify session exists and is not expired (catches revoked sessions)
+    const session = await prisma.session.findUnique({
+      where: { token },
+    })
+    if (!session || session.expiresAt < new Date()) {
+      return null
+    }
+
     const user = await prisma.user.findUnique({
       where: { id: payload.userId as string },
       select: {

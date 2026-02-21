@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
 import { logger } from '@/lib/logger'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 
 // Store metrics in memory (in production, use Redis or a metrics service)
 interface MetricsData {
@@ -36,6 +37,14 @@ export async function GET(request: NextRequest) {
   const format = searchParams.get('format') || 'json'
 
   try {
+    const user = await getAuthUser(request)
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     // Get parking metrics
     const [
       totalSlots,

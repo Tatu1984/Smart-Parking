@@ -23,7 +23,7 @@ export async function GET(
       where: { id },
       include: {
         parkingLot: {
-          select: { id: true, name: true, slug: true },
+          select: { id: true, name: true, slug: true, organizationId: true },
         },
         zone: {
           select: { id: true, name: true, code: true, level: true },
@@ -47,6 +47,11 @@ export async function GET(
 
     if (!camera) {
       return errorResponse('Camera not found', 404)
+    }
+
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && camera.parkingLot.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
     }
 
     // Handle credentials based on user role
@@ -87,6 +92,14 @@ export async function PATCH(
     }
 
     const { id } = await params
+
+    const cam = await prisma.camera.findUnique({ where: { id }, select: { parkingLot: { select: { organizationId: true } } } })
+    if (!cam) return errorResponse('Camera not found', 404)
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && cam.parkingLot.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
+    }
+
     const body = await request.json()
 
     // Handle status update separately (for heartbeat updates)
@@ -166,11 +179,16 @@ export async function DELETE(
     // Check if camera exists
     const camera = await prisma.camera.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, parkingLot: { select: { organizationId: true } } },
     })
 
     if (!camera) {
       return errorResponse('Camera not found', 404)
+    }
+
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && camera.parkingLot.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
     }
 
     // Use transaction to ensure consistency

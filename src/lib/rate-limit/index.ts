@@ -27,7 +27,10 @@ const DEFAULT_CONFIG: RateLimitConfig = {
 // Route-specific limits
 const ROUTE_LIMITS: Record<string, RateLimitConfig> = {
   '/api/auth/login': { windowMs: 60000, maxRequests: 5 }, // 5 per minute
+  '/api/auth/microsoft': { windowMs: 60000, maxRequests: 5 }, // 5 per minute
   '/api/auth/register': { windowMs: 60000, maxRequests: 3 }, // 3 per minute
+  '/api/mobile/auth/login': { windowMs: 60000, maxRequests: 5 }, // 5 per minute
+  '/api/mobile/auth/register': { windowMs: 60000, maxRequests: 3 }, // 3 per minute
   '/api/payments': { windowMs: 60000, maxRequests: 20 }, // 20 per minute
   '/api/realtime/detection': { windowMs: 1000, maxRequests: 100 }, // 100 per second (for AI pipeline)
 }
@@ -145,16 +148,22 @@ export class SlidingWindowRateLimiter {
   private maxRequests: number
   private requests: Map<string, number[]> = new Map()
 
+  private lastCleanup: number = Date.now()
+
   constructor(config: RateLimitConfig = DEFAULT_CONFIG) {
     this.windowMs = config.windowMs
     this.maxRequests = config.maxRequests
-
-    // Cleanup old entries every minute
-    setInterval(() => this.cleanup(), 60000)
   }
 
   async check(identifier: string): Promise<RateLimitResult> {
     const now = Date.now()
+
+    // Lazy cleanup: run at most once per minute
+    if (now - this.lastCleanup > 60000) {
+      this.cleanup()
+      this.lastCleanup = now
+    }
+
     const windowStart = now - this.windowMs
 
     // Get existing timestamps

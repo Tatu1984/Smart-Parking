@@ -11,13 +11,12 @@ const IV_LENGTH = 16
 const AUTH_TAG_LENGTH = 16
 const SALT_LENGTH = 32
 
-// Get encryption key from environment or generate one for development
-function getEncryptionKey(): Buffer {
+// Derive a 32-byte key from the encryption key and a salt
+function deriveKey(salt: Buffer): Buffer {
   const key = process.env.ENCRYPTION_KEY
 
   if (key) {
-    // If key is provided, derive a 32-byte key from it
-    return crypto.scryptSync(key, 'sparking-salt', 32)
+    return crypto.scryptSync(key, salt, 32)
   }
 
   if (process.env.NODE_ENV === 'production') {
@@ -26,17 +25,18 @@ function getEncryptionKey(): Buffer {
 
   // Development fallback - NOT SECURE FOR PRODUCTION
   logger.warn('WARNING: Using development encryption key. Set ENCRYPTION_KEY in production!')
-  return crypto.scryptSync('dev-encryption-key-not-for-production', 'sparking-salt', 32)
+  return crypto.scryptSync('dev-encryption-key-not-for-production', salt, 32)
 }
 
 /**
  * Encrypt a string value
- * Returns base64 encoded string: iv:authTag:encryptedData
+ * Returns base64 encoded string: salt:iv:authTag:encryptedData
  */
 export function encrypt(plaintext: string): string {
   if (!plaintext) return plaintext
 
-  const key = getEncryptionKey()
+  const salt = crypto.randomBytes(SALT_LENGTH)
+  const key = deriveKey(salt)
   const iv = crypto.randomBytes(IV_LENGTH)
 
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv)
@@ -46,13 +46,14 @@ export function encrypt(plaintext: string): string {
 
   const authTag = cipher.getAuthTag()
 
-  // Combine iv, authTag, and encrypted data
-  return `${iv.toString('base64')}:${authTag.toString('base64')}:${encrypted}`
+  // Format: salt:iv:authTag:encryptedData
+  return `${salt.toString('base64')}:${iv.toString('base64')}:${authTag.toString('base64')}:${encrypted}`
 }
 
 /**
  * Decrypt an encrypted string
- * Expects base64 encoded string: iv:authTag:encryptedData
+ * Supports both new 4-part format (salt:iv:authTag:data) and
+ * legacy 3-part format (iv:authTag:data) for backward compatibility.
  */
 export function decrypt(encryptedData: string): string {
   if (!encryptedData) return encryptedData
@@ -64,12 +65,29 @@ export function decrypt(encryptedData: string): string {
   }
 
   const parts = encryptedData.split(':')
-  if (parts.length !== 3) {
+
+  let salt: Buffer
+  let ivBase64: string
+  let authTagBase64: string
+  let encrypted: string
+
+  if (parts.length === 4) {
+    // New format: salt:iv:authTag:data
+    salt = Buffer.from(parts[0], 'base64')
+    ivBase64 = parts[1]
+    authTagBase64 = parts[2]
+    encrypted = parts[3]
+  } else if (parts.length === 3) {
+    // Legacy format: iv:authTag:data (uses static salt)
+    salt = Buffer.from('sparking-salt')
+    ivBase64 = parts[0]
+    authTagBase64 = parts[1]
+    encrypted = parts[2]
+  } else {
     throw new Error('Invalid encrypted data format')
   }
 
-  const [ivBase64, authTagBase64, encrypted] = parts
-  const key = getEncryptionKey()
+  const key = deriveKey(salt)
   const iv = Buffer.from(ivBase64, 'base64')
   const authTag = Buffer.from(authTagBase64, 'base64')
 
@@ -88,7 +106,7 @@ export function decrypt(encryptedData: string): string {
 export function isEncrypted(value: string): boolean {
   if (!value) return false
   const parts = value.split(':')
-  return parts.length === 3 && parts.every(p => p.length > 0)
+  return (parts.length === 3 || parts.length === 4) && parts.every(p => p.length > 0)
 }
 
 /**

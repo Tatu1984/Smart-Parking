@@ -1,26 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import prisma from '@/lib/db'
-import { successResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
+import { successResponse, paginatedResponse, errorResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
 import { createCameraSchema } from '@/lib/validators'
 import { getCurrentUser } from '@/lib/auth/session'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 import { encrypt } from '@/lib/crypto/encryption'
 
 // GET /api/cameras - List all cameras
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
     const { searchParams } = new URL(request.url)
     const { page, limit, search } = parseQueryParams(searchParams)
     const parkingLotId = searchParams.get('parkingLotId')
     const zoneId = searchParams.get('zoneId')
     const status = searchParams.get('status')
 
-    const where = {
+    const where: Record<string, any> = {
       ...(parkingLotId && { parkingLotId }),
       ...(zoneId && { zoneId }),
       ...(status && { status: status as any }),
       ...(search && {
         name: { contains: search, mode: 'insensitive' as const },
       }),
+    }
+
+    // Org isolation: non-SUPER_ADMIN only see their org's data
+    if (user.role !== 'SUPER_ADMIN') {
+      where.parkingLot = { organizationId: user.organizationId }
     }
 
     const [cameras, total] = await Promise.all([

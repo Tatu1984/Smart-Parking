@@ -3,11 +3,15 @@ import { prisma } from '@/lib/db'
 import { createOrder, getPublicKey } from '@/lib/payments/razorpay'
 import { calculateParkingFee } from '@/lib/payments'
 import { getSession } from '@/lib/auth/session'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 import { logger } from '@/lib/logger'
 
 // POST /api/payments - Create a payment order
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const body = await request.json()
     const { tokenId, amount, currency = 'INR' } = body
 

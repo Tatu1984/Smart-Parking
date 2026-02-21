@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
 import { Prisma } from '@prisma/client'
-import { successResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
+import { successResponse, errorResponse, paginatedResponse, handleApiError, parseQueryParams } from '@/lib/utils/api'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 import { createTokenSchema, slotAllocationSchema } from '@/lib/validators'
 import { v4 as uuidv4 } from 'uuid'
 import QRCode from 'qrcode'
@@ -9,12 +10,15 @@ import QRCode from 'qrcode'
 // GET /api/tokens - List all tokens
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
     const { searchParams } = new URL(request.url)
     const { page, limit, search } = parseQueryParams(searchParams)
     const parkingLotId = searchParams.get('parkingLotId')
     const status = searchParams.get('status')
 
-    const where = {
+    const where: Record<string, any> = {
       ...(parkingLotId && { parkingLotId }),
       ...(status && { status: status as any }),
       ...(search && {
@@ -23,6 +27,11 @@ export async function GET(request: NextRequest) {
           { licensePlate: { contains: search, mode: 'insensitive' as const } },
         ],
       }),
+    }
+
+    // Org isolation: non-SUPER_ADMIN only see their org's data
+    if (user.role !== 'SUPER_ADMIN') {
+      where.parkingLot = { organizationId: user.organizationId }
     }
 
     const [tokens, total] = await Promise.all([
@@ -77,6 +86,12 @@ export async function GET(request: NextRequest) {
 // POST /api/tokens - Create a new token (entry)
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+    if (!['ADMIN', 'SUPER_ADMIN', 'OPERATOR'].includes(user.role)) {
+      return errorResponse('Forbidden', 403)
+    }
+
     const body = await request.json()
     const data = createTokenSchema.parse(body)
 

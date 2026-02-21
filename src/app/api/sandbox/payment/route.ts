@@ -25,6 +25,10 @@ interface PaymentRequest {
 
 // POST /api/sandbox/payment - Simulate payment
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_SANDBOX !== 'true') {
+    return NextResponse.json({ error: 'Sandbox is disabled in production' }, { status: 403 })
+  }
+
   if (!isSandboxMode()) {
     return NextResponse.json(
       { error: 'Sandbox mode is not enabled' },
@@ -191,6 +195,10 @@ export async function POST(request: NextRequest) {
 
 // GET /api/sandbox/payment - Get sandbox payment instructions
 export async function GET() {
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_SANDBOX !== 'true') {
+    return NextResponse.json({ error: 'Sandbox is disabled in production' }, { status: 403 })
+  }
+
   return NextResponse.json({
     success: true,
     sandbox: true,

@@ -1,17 +1,29 @@
 import { SidebarNav } from '@/components/dashboard/sidebar-nav'
 import { Header } from '@/components/dashboard/header'
+import { getCurrentUser } from '@/lib/auth/session'
+import prisma from '@/lib/db'
+import { redirect } from 'next/navigation'
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // In production, fetch parking lots from API based on user
-  const parkingLots = [
-    { id: 'lot-1', name: 'Airport Terminal 1' },
-    { id: 'lot-2', name: 'City Mall Parking' },
-    { id: 'lot-3', name: 'Central Plaza' },
-  ]
+  const user = await getCurrentUser()
+  if (!user) {
+    redirect('/login')
+  }
+
+  // Fetch parking lots from DB based on user's org
+  const parkingLots = await prisma.parkingLot.findMany({
+    where: {
+      organization: {
+        users: { some: { id: user.id } },
+      },
+    },
+    select: { id: true, name: true },
+    orderBy: { name: 'asc' },
+  })
 
   return (
     <div className="flex h-screen overflow-hidden">

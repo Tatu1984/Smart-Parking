@@ -23,7 +23,7 @@ export async function GET(
         zone: {
           include: {
             parkingLot: {
-              select: { id: true, name: true, slug: true },
+              select: { id: true, name: true, slug: true, organizationId: true },
             },
           },
         },
@@ -56,6 +56,11 @@ export async function GET(
       return errorResponse('Slot not found', 404)
     }
 
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && slot.zone.parkingLot.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
+    }
+
     return successResponse(slot)
   } catch (error) {
     return handleApiError(error)
@@ -79,6 +84,14 @@ export async function PATCH(
     }
 
     const { id } = await params
+
+    const existing = await prisma.slot.findUnique({ where: { id }, select: { zone: { select: { parkingLot: { select: { organizationId: true } } } } } })
+    if (!existing) return errorResponse('Slot not found', 404)
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && existing.zone.parkingLot.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
+    }
+
     const body = await request.json()
     const data = updateSlotSchema.parse(body)
 
@@ -123,11 +136,16 @@ export async function DELETE(
 
     const slot = await prisma.slot.findUnique({
       where: { id },
-      select: { zone: { select: { parkingLotId: true } } },
+      select: { zone: { select: { parkingLotId: true, parkingLot: { select: { organizationId: true } } } } },
     })
 
     if (!slot) {
       return errorResponse('Slot not found', 404)
+    }
+
+    const userOrgId = request.headers.get('x-user-org-id')
+    if (user.role !== 'SUPER_ADMIN' && userOrgId && slot.zone.parkingLot.organizationId !== userOrgId) {
+      return errorResponse('Forbidden', 403)
     }
 
     // Use transaction to ensure consistency

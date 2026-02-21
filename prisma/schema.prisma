@@ -7,6 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ============================================
@@ -77,6 +78,7 @@ model User {
   sessions       Session[]
   auditLogs      AuditLog[]
   assignedLots   ParkingLotAssignment[]
+  vehicles       Vehicle[]
 
   @@unique([authProvider, providerUserId])
   @@map("users")
@@ -88,6 +90,7 @@ enum UserRole {
   OPERATOR
   AUDITOR
   VIEWER
+  CUSTOMER
 }
 
 enum UserStatus {
@@ -97,16 +100,19 @@ enum UserStatus {
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  token     String   @unique
-  expiresAt DateTime
-  userAgent String?
-  ipAddress String?
-  createdAt DateTime @default(now())
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  refreshToken String?  @unique
+  platform     String?  // 'web' | 'mobile'
+  expiresAt    DateTime
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("sessions")
 }
 
@@ -558,6 +564,8 @@ enum TokenStatus {
 model Vehicle {
   id           String       @id @default(cuid())
   licensePlate String       @unique
+  userId       String?
+  isDefault    Boolean      @default(false)
 
   // Vehicle Details
   vehicleType  VehicleType  @default(CAR)
@@ -583,6 +591,7 @@ model Vehicle {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
+  user         User?        @relation(fields: [userId], references: [id])
   tokens       Token[]
   occupancies  SlotOccupancy[]
   featureIndices VehicleFeatureIndex[]
@@ -677,6 +686,7 @@ model Transaction {
   @@index([parkingLotId, createdAt])
   @@index([parkingLotId, paymentStatus])
   @@index([tokenId])
+  @@index([paymentRef])
   @@map("transactions")
 }
 

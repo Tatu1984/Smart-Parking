@@ -9,6 +9,11 @@ import { getSandboxConfig, updateSandboxConfig, isSandboxMode, SANDBOX_CARDS, SA
 
 // GET /api/sandbox - Get sandbox configuration
 export async function GET(request: NextRequest) {
+  // Block sandbox in production unless explicitly enabled
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_SANDBOX !== 'true') {
+    return NextResponse.json({ error: 'Sandbox is disabled in production' }, { status: 403 })
+  }
+
   const user = await getCurrentUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -36,6 +41,10 @@ export async function GET(request: NextRequest) {
 
 // PATCH /api/sandbox - Update sandbox configuration
 export async function PATCH(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production' && process.env.ENABLE_SANDBOX !== 'true') {
+    return NextResponse.json({ error: 'Sandbox is disabled in production' }, { status: 403 })
+  }
+
   const user = await getCurrentUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -103,15 +103,12 @@ async function handlePaymentCaptured(paymentEntity: {
   contact?: string
 }) {
   try {
-    // Find payment by razorpay order ID stored in metadata
-    const payments = await prisma.payment.findMany({
-      where: { status: 'PENDING' }
-    })
-
-    // Find payment with matching razorpay order ID in metadata
-    const payment = payments.find(p => {
-      const metadata = p.metadata as Record<string, unknown> | null
-      return metadata?.razorpayOrderId === paymentEntity.order_id
+    // Find payment by razorpay order ID in metadata (using Prisma JSON filter)
+    const payment = await prisma.payment.findFirst({
+      where: {
+        status: 'PENDING',
+        metadata: { path: ['razorpayOrderId'], equals: paymentEntity.order_id },
+      },
     })
 
     if (!payment) {
@@ -148,6 +145,7 @@ async function handlePaymentCaptured(paymentEntity: {
     logger.info(`Payment captured: ${paymentEntity.id}`)
   } catch (error) {
     logger.error('Error handling payment captured:', error instanceof Error ? error : undefined)
+    throw error // Re-throw so webhook returns 500 and Razorpay retries
   }
 }
 
@@ -158,14 +156,11 @@ async function handlePaymentFailed(paymentEntity: {
   error_description?: string
 }) {
   try {
-    // Find payment by razorpay order ID stored in metadata
-    const payments = await prisma.payment.findMany({
-      where: { status: 'PENDING' }
-    })
-
-    const payment = payments.find(p => {
-      const metadata = p.metadata as Record<string, unknown> | null
-      return metadata?.razorpayOrderId === paymentEntity.order_id
+    const payment = await prisma.payment.findFirst({
+      where: {
+        status: 'PENDING',
+        metadata: { path: ['razorpayOrderId'], equals: paymentEntity.order_id },
+      },
     })
 
     if (!payment) return
@@ -214,14 +209,11 @@ async function handleRefundCreated(refundEntity: {
   status: string
 }) {
   try {
-    // Find payment by razorpay payment ID stored in metadata
-    const payments = await prisma.payment.findMany({
-      where: { status: 'COMPLETED' }
-    })
-
-    const payment = payments.find(p => {
-      const metadata = p.metadata as Record<string, unknown> | null
-      return metadata?.razorpayPaymentId === refundEntity.payment_id
+    const payment = await prisma.payment.findFirst({
+      where: {
+        status: 'COMPLETED',
+        metadata: { path: ['razorpayPaymentId'], equals: refundEntity.payment_id },
+      },
     })
 
     if (!payment) return
@@ -250,14 +242,11 @@ async function handleOrderPaid(
   paymentEntity: { id: string }
 ) {
   try {
-    // Find payment by razorpay order ID stored in metadata
-    const payments = await prisma.payment.findMany({
-      where: { status: { in: ['PENDING', 'AWAITING_PAYMENT', 'PROCESSING'] } }
-    })
-
-    const payment = payments.find(p => {
-      const metadata = p.metadata as Record<string, unknown> | null
-      return metadata?.razorpayOrderId === orderEntity.id
+    const payment = await prisma.payment.findFirst({
+      where: {
+        status: { in: ['PENDING', 'AWAITING_PAYMENT', 'PROCESSING'] },
+        metadata: { path: ['razorpayOrderId'], equals: orderEntity.id },
+      },
     })
 
     if (!payment) return

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api'
 import { completeTokenSchema } from '@/lib/validators'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 
 // GET /api/tokens/[id] - Get a single token
 export async function GET(
@@ -9,6 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
     const { id } = await params
 
     const token = await prisma.token.findUnique({
@@ -74,6 +78,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
     const { id } = await params
     const body = await request.json()
 
@@ -198,6 +204,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
     const { id } = await params
 
     const token = await prisma.token.findUnique({

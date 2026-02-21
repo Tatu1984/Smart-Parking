@@ -13,7 +13,9 @@ import { MicrosoftLoginButton } from '@/components/auth/microsoft-login-button'
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('from') || '/dashboard'
+  const rawRedirect = searchParams.get('from') || '/dashboard'
+  // Prevent open redirect: only allow relative paths, block protocol-relative URLs
+  const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.includes('://') ? rawRedirect : '/dashboard'
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -67,17 +69,17 @@ function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome back</CardTitle>
-        <CardDescription>
+    <Card className="w-full max-w-md border-border/50 shadow-xl shadow-black/5 dark:shadow-black/20">
+      <CardHeader className="text-center pb-4">
+        <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
+        <CardDescription className="text-base">
           Sign in to your account to access the dashboard
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
@@ -94,6 +96,7 @@ function LoginForm() {
               required
               autoComplete="email"
               disabled={isLoading}
+              className="h-10"
             />
           </div>
 
@@ -109,12 +112,12 @@ function LoginForm() {
                 required
                 autoComplete="current-password"
                 disabled={isLoading}
-                className="pr-10"
+                className="h-10 pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 tabIndex={-1}
               >
                 {showPassword ? (
@@ -126,7 +129,7 @@ function LoginForm() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full h-10 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 hover:brightness-110 border-0" disabled={isLoading}>
             {isLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -137,7 +140,7 @@ function LoginForm() {
             )}
           </Button>
 
-          {/* Microsoft Login - Enable after running: npx prisma migrate deploy */}
+          {/* Microsoft Login */}
           {process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID && (
             <>
               <div className="relative my-4">
@@ -155,7 +158,7 @@ function LoginForm() {
       </CardContent>
       <CardFooter className="flex flex-col gap-4">
         {/* Demo Credentials */}
-        <div className="w-full rounded-lg border bg-muted/50 p-3">
+        <div className="w-full rounded-xl border border-border/50 bg-muted/30 p-3">
           <div className="mb-2 text-xs font-medium text-muted-foreground">Demo Credentials</div>
           <div className="flex items-center justify-between">
             <div className="text-xs text-muted-foreground">
@@ -167,6 +170,7 @@ function LoginForm() {
               variant="outline"
               size="sm"
               onClick={fillDemoCredentials}
+              className="rounded-lg"
             >
               Use Demo
             </Button>
@@ -176,7 +180,7 @@ function LoginForm() {
         <div className="text-center text-sm text-muted-foreground">
           <Link
             href="/forgot-password"
-            className="hover:text-foreground hover:underline"
+            className="hover:text-foreground hover:underline transition-colors"
           >
             Forgot your password?
           </Link>
@@ -185,7 +189,7 @@ function LoginForm() {
           Don&apos;t have an account?{' '}
           <Link
             href="/register"
-            className="font-medium text-foreground hover:underline"
+            className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
           >
             Sign up
           </Link>
@@ -197,7 +201,7 @@ function LoginForm() {
 
 function LoginFormSkeleton() {
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md border-border/50 shadow-xl">
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Welcome back</CardTitle>
         <CardDescription>
@@ -208,13 +212,13 @@ function LoginFormSkeleton() {
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="h-4 w-12 rounded bg-muted animate-pulse" />
-            <div className="h-9 w-full rounded-md bg-muted animate-pulse" />
+            <div className="h-10 w-full rounded-md bg-muted animate-pulse" />
           </div>
           <div className="space-y-2">
             <div className="h-4 w-16 rounded bg-muted animate-pulse" />
-            <div className="h-9 w-full rounded-md bg-muted animate-pulse" />
+            <div className="h-10 w-full rounded-md bg-muted animate-pulse" />
           </div>
-          <div className="h-9 w-full rounded-md bg-muted animate-pulse" />
+          <div className="h-10 w-full rounded-md bg-muted animate-pulse" />
         </div>
       </CardContent>
     </Card>
@@ -223,21 +227,26 @@ function LoginFormSkeleton() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/25">
               <ParkingSquare className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold">Sparking</span>
+            <span className="text-xl font-bold tracking-tight">Sparking</span>
           </Link>
         </div>
       </header>
 
       {/* Login Form */}
-      <main className="flex flex-1 items-center justify-center p-4">
+      <main className="relative flex flex-1 items-center justify-center p-4">
+        {/* Background decoration */}
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-40 right-0 h-[500px] w-[500px] rounded-full bg-blue-500/5 blur-3xl" />
+          <div className="absolute -bottom-40 left-0 h-[400px] w-[400px] rounded-full bg-cyan-500/5 blur-3xl" />
+        </div>
         <Suspense fallback={<LoginFormSkeleton />}>
           <LoginForm />
         </Suspense>
@@ -246,7 +255,7 @@ export default function LoginPage() {
       {/* Footer */}
       <footer className="border-t py-6">
         <div className="container text-center text-sm text-muted-foreground">
-          &copy; 2024 Infinititech Partners. All rights reserved.
+          &copy; {new Date().getFullYear()} Infinititech Partners. All rights reserved.
         </div>
       </footer>
     </div>

@@ -1,10 +1,14 @@
 import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
-import { successResponse, handleApiError } from '@/lib/utils/api'
+import { successResponse, handleApiError, errorResponse } from '@/lib/utils/api'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 
 // GET /api/analytics - Get analytics data
 export async function GET(request: NextRequest) {
   try {
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
+
     const { searchParams } = new URL(request.url)
     const parkingLotId = searchParams.get('parkingLotId')
     const period = searchParams.get('period') || '7d' // 7d, 30d, 90d, 1y

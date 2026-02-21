@@ -81,7 +81,7 @@ def create_data_flow_diagram():
     # External Entities (Row 1)
     draw_box(0.5, 9.5, 2, 1.2, 'Vehicle\nOwner/Driver', colors['external'], bold=True)
     draw_box(3.5, 9.5, 2, 1.2, 'Kiosk\nTerminal', colors['external'], bold=True)
-    draw_box(6.5, 9.5, 2, 1.2, 'Mobile App\n(Future)', colors['external'], bold=True)
+    draw_box(6.5, 9.5, 2, 1.2, 'Mobile App\n(Expo/React Native)', colors['external'], bold=True)
     draw_box(9.5, 9.5, 2, 1.2, 'Parking\nOperator', colors['external'], bold=True)
     draw_box(12.5, 9.5, 2.5, 1.2, 'System\nAdministrator', colors['external'], bold=True)
 
@@ -362,7 +362,7 @@ def create_sow_document(data_flow_path, architecture_path):
     # Version info
     version_para = doc.add_paragraph()
     version_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    version_run = version_para.add_run('Version 1.0\nJanuary 2026')
+    version_run = version_para.add_run('Version 2.0\nFebruary 2026')
     version_run.font.size = Pt(12)
     version_run.font.color.rgb = RGBColor(117, 117, 117)
 
@@ -379,14 +379,14 @@ def create_sow_document(data_flow_path, architecture_path):
     toc_items = [
         ('1.', 'Executive Summary', '3'),
         ('2.', 'Feature List', '4'),
-        ('3.', 'Technology Stack', '8'),
-        ('4.', 'Data Flow Diagram', '11'),
-        ('5.', 'Software Architecture', '12'),
-        ('6.', 'Plan of Action (Phase-wise Development)', '13'),
-        ('7.', 'Required Team Setup', '16'),
-        ('8.', 'Project Timeline', '18'),
-        ('9.', 'API Documentation', '20'),
-        ('10.', 'Database Schema', '25'),
+        ('3.', 'Technology Stack', '9'),
+        ('4.', 'Data Flow Diagram', '13'),
+        ('5.', 'Software Architecture', '14'),
+        ('6.', 'Plan of Action (Phase-wise Development)', '16'),
+        ('7.', 'Required Team Setup', '19'),
+        ('8.', 'Project Timeline', '21'),
+        ('9.', 'API Documentation (89+ Endpoints)', '23'),
+        ('10.', 'Database Schema', '29'),
     ]
 
     # Create a properly formatted TOC table with column widths
@@ -452,11 +452,14 @@ Target Markets:
 • Residential Complexes
 
 Key Differentiators:
-1. AI-Powered Detection: Utilizes Intel OpenVINO and YOLOv8 for real-time vehicle and license plate detection with 95%+ accuracy
-2. Scalable Architecture: Microservices-based design supporting multiple venues with thousands of parking slots
-3. Integrated Wallet System: PayPal-like digital wallet with P2P transfers, KYC verification, and multi-gateway support
-4. Real-time Operations: Socket.IO and MQTT-based real-time updates for instant occupancy changes
-5. Hardware Agnostic: Compatible with existing CCTV infrastructure through RTSP/ONVIF protocols
+1. AI-Powered Detection: Utilizes Intel OpenVINO and YOLOv8/v10 for real-time vehicle and license plate detection with 95%+ accuracy
+2. Intel Hardware Acceleration: Native support for Intel GPU and Intel NPU with optimized inference pipelines achieving <100ms latency
+3. Scalable Architecture: Microservices-based design supporting multiple venues with thousands of parking slots
+4. Integrated Wallet System: PayPal-like digital wallet with P2P transfers, KYC verification, and multi-gateway support
+5. Real-time Operations: Socket.IO and MQTT-based real-time updates for instant occupancy changes
+6. Hardware Agnostic: Compatible with existing CCTV infrastructure through RTSP/ONVIF protocols
+7. Mobile App: Native mobile application built with Expo/React Native for customer self-service parking, vehicle management, and mobile payments
+8. Microsoft SSO: Enterprise-grade Single Sign-On via Microsoft Azure AD/MSAL for seamless corporate integration
 """
 
     for para in exec_summary.strip().split('\n\n'):
@@ -493,8 +496,11 @@ Key Differentiators:
         ('License Plate Recognition', 'Automatic Number Plate Recognition (ANPR) supporting multiple plate formats and regions'),
         ('Occupancy Detection', 'AI-based slot occupancy detection through bounding box matching with configurable confidence thresholds'),
         ('Multi-Camera Support', 'Parallel processing of multiple camera feeds with Intel OpenVINO acceleration'),
-        ('Edge Processing', 'On-premise AI inference for reduced latency and enhanced privacy'),
+        ('Intel OpenVINO Integration', 'Deep integration with Intel OpenVINO 2024.0+ for optimized inference on Intel CPUs, GPUs, and NPUs'),
+        ('Intel GPU/NPU Acceleration', 'Hardware-accelerated inference with FP16 precision on Intel GPU and INT8 on Intel NPU for maximum throughput'),
+        ('Edge Processing', 'On-premise AI inference for reduced latency (<100ms target) and enhanced privacy'),
         ('Detection Events', 'Comprehensive logging of all detection events with timestamps, confidence scores, and associated metadata'),
+        ('Adaptive Frame Processing', 'Intelligent frame skipping and batch processing optimized for Intel hardware to maintain target FPS'),
     ]
 
     for title, desc in ai_features:
@@ -555,11 +561,47 @@ Key Differentiators:
         p.add_run(f'{title}: ').bold = True
         p.add_run(desc)
 
-    # 2.6 User Management
-    doc.add_heading('2.6 User Management & Access Control', level=2)
+    # 2.6 Mobile Application
+    doc.add_heading('2.6 Mobile Application', level=2)
+
+    mobile_features = [
+        ('Customer Self-Service', 'Native mobile app (Expo/React Native) for customers to manage parking sessions, vehicles, and payments'),
+        ('Vehicle Management', 'Add, edit, and delete vehicles with license plate, make, model, color, and type'),
+        ('Session Management', 'View active and past parking sessions, create new sessions, and mark exits'),
+        ('Mobile Wallet', 'View wallet balance, deposit funds, and track transaction history from the mobile app'),
+        ('Mobile Payments', 'Process parking payments directly from the mobile app with wallet or gateway integration'),
+        ('QR Code Validation', 'Scan and validate parking QR codes for entry/exit'),
+        ('Push Notifications', 'Receive real-time notifications for parking events, payment confirmations, and session alerts'),
+        ('Parking Lot Discovery', 'Browse available parking lots with real-time availability, zones, and slot details'),
+        ('User Profile', 'Manage profile information, phone number, and notification preferences'),
+    ]
+
+    for title, desc in mobile_features:
+        p = doc.add_paragraph(style='List Bullet')
+        p.add_run(f'{title}: ').bold = True
+        p.add_run(desc)
+
+    # 2.7 Authentication & SSO
+    doc.add_heading('2.7 Authentication & Single Sign-On', level=2)
+
+    auth_features = [
+        ('Email/Password Login', 'Traditional email and password authentication with bcrypt hashing'),
+        ('Microsoft SSO', 'Enterprise Single Sign-On via Microsoft Azure AD using MSAL (Microsoft Authentication Library)'),
+        ('JWT Sessions', 'Stateless JWT tokens with database-backed session validation for immediate revocation'),
+        ('Token Refresh', 'Mobile app token refresh mechanism for seamless session continuity'),
+        ('Rate-Limited Auth', 'Login and registration endpoints protected with rate limiting (5/min login, 3/min register)'),
+    ]
+
+    for title, desc in auth_features:
+        p = doc.add_paragraph(style='List Bullet')
+        p.add_run(f'{title}: ').bold = True
+        p.add_run(desc)
+
+    # 2.8 User Management
+    doc.add_heading('2.8 User Management & Access Control', level=2)
 
     user_features = [
-        ('Role-Based Access', 'Five user roles: Super Admin, Admin, Operator, Auditor, Viewer'),
+        ('Role-Based Access', 'Six user roles: Super Admin, Admin, Operator, Auditor, Viewer, Customer'),
         ('Multi-Session Support', 'Configurable concurrent session limits per user'),
         ('Parking Lot Assignments', 'Operators can be assigned to specific facilities'),
         ('Audit Logging', 'Comprehensive tracking of all user actions with before/after values'),
@@ -571,8 +613,8 @@ Key Differentiators:
         p.add_run(f'{title}: ').bold = True
         p.add_run(desc)
 
-    # 2.7 Notifications & Alerts
-    doc.add_heading('2.7 Notifications & Alerts', level=2)
+    # 2.9 Notifications & Alerts
+    doc.add_heading('2.9 Notifications & Alerts', level=2)
 
     notification_features = [
         ('Multi-Channel Delivery', 'In-app notifications, Email (SMTP/Resend/SendGrid), SMS (Twilio/MSG91)'),
@@ -587,8 +629,8 @@ Key Differentiators:
         p.add_run(f'{title}: ').bold = True
         p.add_run(desc)
 
-    # 2.8 Hardware Integration
-    doc.add_heading('2.8 Hardware Integration', level=2)
+    # 2.10 Hardware Integration
+    doc.add_heading('2.10 Hardware Integration', level=2)
 
     hardware_features = [
         ('Camera Support', 'RTSP and ONVIF protocol support with PTZ and IR capabilities'),
@@ -690,8 +732,10 @@ Key Differentiators:
 
     ai_data = [
         ('Language', 'Python', '3.9+'),
-        ('Inference Engine', 'Intel OpenVINO', '2024.0.0+'),
-        ('Object Detection', 'Ultralytics YOLOv8', '8.0.0+'),
+        ('Inference Engine', 'Intel OpenVINO', '2024.0.0+ (Core runtime)'),
+        ('OpenVINO Dev Tools', 'openvino-dev', 'Model optimization & conversion'),
+        ('Hardware Support', 'Intel GPU/NPU', 'FP16/INT8 acceleration'),
+        ('Object Detection', 'Ultralytics YOLOv8', '8.0.0+ (OpenVINO export)'),
         ('Computer Vision', 'OpenCV', '4.8.0+'),
         ('Video Processing', 'PyAV', '10.0.0'),
         ('Messaging', 'paho-mqtt', '1.6.1'),
@@ -706,8 +750,39 @@ Key Differentiators:
         row.cells[1].text = tech
         row.cells[2].text = version
 
+    # Mobile App
+    doc.add_heading('3.4 Mobile Application', level=2)
+
+    mobile_tech_table = doc.add_table(rows=1, cols=3)
+    mobile_tech_table.style = 'Table Grid'
+
+    header_cells = mobile_tech_table.rows[0].cells
+    for i, header in enumerate(headers):
+        header_cells[i].text = header
+        header_cells[i].paragraphs[0].runs[0].bold = True
+        set_cell_shading(header_cells[i], '00838f')
+        header_cells[i].paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+
+    mobile_tech_data = [
+        ('Framework', 'Expo', 'SDK 54'),
+        ('UI Library', 'React Native', '0.81'),
+        ('Navigation', 'Expo Router', 'v6 (file-based routing)'),
+        ('Styling', 'NativeWind', 'v4 (Tailwind CSS for RN)'),
+        ('State Management', 'Zustand', '5.x'),
+        ('HTTP Client', 'Axios / Fetch', 'Bearer token auth'),
+        ('QR Scanner', 'expo-camera', 'QR code scanning'),
+        ('Secure Storage', 'expo-secure-store', 'Token persistence'),
+        ('Language', 'TypeScript', '5.x'),
+    ]
+
+    for category, tech, version in mobile_tech_data:
+        row = mobile_tech_table.add_row()
+        row.cells[0].text = category
+        row.cells[1].text = tech
+        row.cells[2].text = version
+
     # DevOps
-    doc.add_heading('3.4 DevOps & Infrastructure', level=2)
+    doc.add_heading('3.5 DevOps & Infrastructure', level=2)
 
     devops_table = doc.add_table(rows=1, cols=3)
     devops_table.style = 'Table Grid'
@@ -735,7 +810,7 @@ Key Differentiators:
         row.cells[2].text = version
 
     # External Services
-    doc.add_heading('3.5 External Services & Integrations', level=2)
+    doc.add_heading('3.6 External Services & Integrations', level=2)
 
     services_table = doc.add_table(rows=1, cols=3)
     services_table.style = 'Table Grid'
@@ -754,6 +829,7 @@ Key Differentiators:
         ('SMS - India', 'MSG91', 'OTP, Notifications'),
         ('SMS - Global', 'Twilio', 'SMS worldwide'),
         ('Storage', 'Local / AWS S3', 'File storage'),
+        ('SSO', 'Microsoft Azure AD / MSAL', 'Enterprise Single Sign-On'),
     ]
 
     for category, tech, version in services_data:
@@ -823,6 +899,58 @@ Key Differentiators:
         p.add_run(f'{title}: ').bold = True
         p.add_run(desc)
 
+    # Intel Integration Section
+    doc.add_heading('5.2 Intel OpenVINO Integration', level=2)
+
+    intel_intro = """
+The AI pipeline leverages Intel OpenVINO™ toolkit for optimized deep learning inference, providing significant performance benefits across Intel hardware platforms. This integration enables real-time vehicle detection and license plate recognition with sub-100ms latency.
+"""
+    p = doc.add_paragraph(intel_intro.strip())
+    p.paragraph_format.space_after = Pt(12)
+
+    doc.add_heading('Hardware Acceleration Configurations', level=3)
+
+    intel_configs = [
+        ('Intel GPU (Integrated/Discrete)', 'FP16 precision, 2 inference streams, 4 threads, batch size 4 - optimal for desktop/server deployments'),
+        ('Intel NPU (Neural Processing Unit)', 'INT8 precision, single stream, batch size 1 - optimized for edge devices with dedicated AI accelerators'),
+        ('Intel CPU (Optimized)', 'FP32 precision, 4 inference threads, batch size 1 - fallback for systems without GPU/NPU'),
+        ('NVIDIA GPU (CUDA)', 'FP16 precision, 4 streams, batch size 8 - supported for mixed hardware environments'),
+    ]
+
+    for config, desc in intel_configs:
+        p = doc.add_paragraph(style='List Bullet')
+        p.add_run(f'{config}: ').bold = True
+        p.add_run(desc)
+
+    doc.add_heading('Intel OpenVINO Features Used', level=3)
+
+    openvino_features = [
+        ('Model Optimization', 'Automatic model conversion from YOLO/PyTorch to OpenVINO IR format with quantization support'),
+        ('Async Inference', 'Non-blocking inference API for parallel frame processing and improved throughput'),
+        ('Auto Device Selection', 'Automatic detection and selection of optimal hardware (GPU > NPU > CPU)'),
+        ('Model Caching', 'Compiled model caching for faster startup and reduced initialization time'),
+        ('Dynamic Batching', 'Adaptive batch processing based on system load and latency requirements'),
+    ]
+
+    for feature, desc in openvino_features:
+        p = doc.add_paragraph(style='List Bullet')
+        p.add_run(f'{feature}: ').bold = True
+        p.add_run(desc)
+
+    doc.add_heading('Pre-trained Intel Models', level=3)
+
+    intel_models = [
+        ('vehicle-attributes-recognition-barrier-0039', 'Vehicle color and type classification (Intel Model Zoo)'),
+        ('vehicle-license-plate-detection-barrier-0106', 'License plate detection optimized for barrier cameras'),
+        ('license-plate-recognition-barrier-0007', 'OCR for license plate text recognition'),
+        ('yolov10s-int8', 'INT8 quantized YOLOv10 for efficient vehicle detection'),
+    ]
+
+    for model, desc in intel_models:
+        p = doc.add_paragraph(style='List Bullet')
+        p.add_run(f'{model}: ').bold = True
+        p.add_run(desc)
+
     doc.add_page_break()
 
     # ========== 6. PLAN OF ACTION ==========
@@ -875,13 +1003,17 @@ Key Differentiators:
     p.add_run('Duration: 5 Weeks').bold = True
 
     phase3_tasks = [
-        'OpenVINO environment setup and configuration',
-        'YOLOv8 model integration for vehicle detection',
-        'License plate detection and recognition models',
+        'Intel OpenVINO 2024.0+ environment setup and configuration',
+        'Intel GPU/NPU hardware detection and auto-configuration',
+        'YOLOv8 model integration with OpenVINO export and optimization',
+        'Intel Model Zoo integration (vehicle-attributes, license plate models)',
+        'License plate detection and OCR recognition pipeline',
         'Camera management with RTSP/ONVIF support',
-        'Real-time video stream processing',
+        'Real-time video stream processing with frame skipping optimization',
+        'Async inference queue for parallel processing',
         'Detection event pipeline with MQTT',
         'Occupancy detection with confidence scoring',
+        'Latency profiling and optimization (<100ms target)',
         'AI-to-backend communication via secure API',
     ]
 
@@ -993,6 +1125,30 @@ Key Differentiators:
     for task in phase8_tasks:
         doc.add_paragraph(task, style='List Bullet')
 
+    # Phase 9
+    doc.add_heading('Phase 9: Mobile Application', level=2)
+    p = doc.add_paragraph()
+    p.add_run('Duration: 4 Weeks').bold = True
+
+    phase9_tasks = [
+        'Expo/React Native project setup with SDK 54',
+        'Mobile authentication (login, register, token refresh)',
+        'Vehicle management (CRUD operations)',
+        'Parking lot discovery with real-time availability',
+        'Session management (create, view, exit)',
+        'Mobile wallet integration (balance, deposits, transactions)',
+        'QR code scanning for entry/exit validation',
+        'Push notification integration',
+        'Dark theme UI with NativeWind',
+        'Mobile-specific API endpoints (/api/mobile/*)',
+        'Cross-platform testing (iOS and Android)',
+    ]
+
+    p = doc.add_paragraph()
+    p.add_run('Deliverables:').bold = True
+    for task in phase9_tasks:
+        doc.add_paragraph(task, style='List Bullet')
+
     doc.add_page_break()
 
     # ========== 7. TEAM SETUP ==========
@@ -1016,7 +1172,8 @@ Key Differentiators:
         ('Tech Lead / Architect', '1', '7+ years', 'Architecture design, technical decisions, code reviews'),
         ('Senior Full-Stack Developer', '2', '4+ years', 'Frontend/backend development, API design, database'),
         ('Full-Stack Developer', '2', '2+ years', 'Feature development, bug fixes, testing'),
-        ('AI/ML Engineer', '1', '3+ years', 'OpenVINO integration, model optimization, detection pipeline'),
+        ('Mobile Developer', '1', '3+ years', 'React Native/Expo mobile app development, iOS/Android'),
+        ('AI/ML Engineer', '1', '3+ years', 'Intel OpenVINO integration, GPU/NPU optimization, detection pipeline'),
         ('DevOps Engineer', '1', '3+ years', 'Infrastructure, CI/CD, Docker, monitoring'),
         ('UI/UX Designer', '1', '3+ years', 'Interface design, user experience, prototyping'),
         ('QA Engineer', '1', '3+ years', 'Test planning, automation, quality assurance'),
@@ -1045,7 +1202,9 @@ Key Differentiators:
     skills_data = [
         ('Frontend', 'React, Next.js, TypeScript, Tailwind CSS', 'React Query, Zustand, Radix UI'),
         ('Backend', 'Node.js, Prisma, PostgreSQL, REST APIs', 'GraphQL, Redis, Socket.IO'),
-        ('AI/ML', 'Python, OpenCV, Deep Learning', 'OpenVINO, YOLO, MQTT'),
+        ('Mobile', 'React Native, Expo, TypeScript', 'NativeWind, Expo Router, Zustand'),
+        ('AI/ML', 'Python, OpenCV, Deep Learning, Intel OpenVINO', 'YOLO, Model optimization, MQTT'),
+        ('Intel AI', 'OpenVINO Runtime, Model conversion', 'Intel GPU/NPU optimization, INT8 quantization'),
         ('DevOps', 'Docker, Linux, CI/CD', 'Kubernetes, AWS, Nginx'),
         ('Database', 'PostgreSQL, SQL optimization', 'Redis, Database design'),
         ('Payment', 'Payment gateway integration', 'Razorpay, Stripe, PCI compliance'),
@@ -1060,7 +1219,7 @@ Key Differentiators:
     doc.add_heading('7.3 Team Structure', level=2)
 
     p = doc.add_paragraph()
-    p.add_run('Total Team Size: 10 members').bold = True
+    p.add_run('Total Team Size: 11 members').bold = True
 
     structure_items = [
         'Sprint-based Agile methodology with 2-week sprints',
@@ -1081,7 +1240,7 @@ Key Differentiators:
     doc.add_heading('8.1 Overall Timeline Summary', level=2)
 
     p = doc.add_paragraph()
-    p.add_run('Total Project Duration: 31 Weeks (~8 Months)').bold = True
+    p.add_run('Total Project Duration: 35 Weeks (~9 Months)').bold = True
     p.paragraph_format.space_after = Pt(12)
 
     timeline_table = doc.add_table(rows=1, cols=4)
@@ -1104,6 +1263,7 @@ Key Differentiators:
         ('Phase 6', 'Analytics & Reporting', '3 weeks', 'Week 24-26'),
         ('Phase 7', 'Public Interfaces & Testing', '3 weeks', 'Week 27-29'),
         ('Phase 8', 'Deployment & Launch', '2 weeks', 'Week 30-31'),
+        ('Phase 9', 'Mobile Application', '4 weeks', 'Week 32-35'),
     ]
 
     for phase, desc, duration, cumulative in timeline_data:
@@ -1124,6 +1284,7 @@ Key Differentiators:
         ('M6: Analytics Dashboard', 'Week 26', 'Full reporting capabilities'),
         ('M7: Beta Release', 'Week 29', 'Feature-complete for testing'),
         ('M8: Production Launch', 'Week 31', 'Go-live with support'),
+        ('M9: Mobile App Release', 'Week 35', 'iOS and Android apps published'),
     ]
 
     milestone_table = doc.add_table(rows=1, cols=3)
@@ -1151,7 +1312,7 @@ Key Differentiators:
     doc.add_heading('9.1 API Overview', level=2)
 
     p = doc.add_paragraph()
-    p.add_run('SPARKING provides a comprehensive RESTful API with 60+ endpoints organized by domain. All endpoints follow consistent patterns and return JSON responses.')
+    p.add_run('SPARKING provides a comprehensive RESTful API with 89+ endpoints organized by domain, including dedicated mobile APIs. All endpoints follow consistent patterns and return JSON responses.')
     p.paragraph_format.space_after = Pt(12)
 
     api_overview = [
@@ -1183,6 +1344,7 @@ Key Differentiators:
     auth_apis = [
         ('POST', '/api/auth/login', 'User login with email/password', 'No'),
         ('POST', '/api/auth/logout', 'Terminate current session', 'Yes'),
+        ('POST', '/api/auth/microsoft', 'Microsoft SSO callback', 'No'),
         ('GET', '/api/auth/me', 'Get current user details', 'Yes'),
     ]
 
@@ -1332,6 +1494,51 @@ Key Differentiators:
 
     for method, endpoint, desc, auth in realtime_apis:
         row = realtime_table.add_row()
+        row.cells[0].text = method
+        row.cells[1].text = endpoint
+        row.cells[2].text = desc
+        row.cells[3].text = auth
+
+    # Mobile APIs
+    doc.add_heading('9.8 Mobile APIs', level=2)
+
+    mobile_table = doc.add_table(rows=1, cols=4)
+    mobile_table.style = 'Table Grid'
+
+    header_cells = mobile_table.rows[0].cells
+    for i, header in enumerate(api_headers):
+        header_cells[i].text = header
+        header_cells[i].paragraphs[0].runs[0].bold = True
+        set_cell_shading(header_cells[i], '00838f')
+        header_cells[i].paragraphs[0].runs[0].font.color.rgb = RGBColor(255, 255, 255)
+
+    mobile_apis = [
+        ('POST', '/api/mobile/auth/login', 'Mobile login', 'No'),
+        ('POST', '/api/mobile/auth/register', 'Mobile registration', 'No'),
+        ('POST', '/api/mobile/auth/logout', 'Mobile logout', 'Bearer'),
+        ('POST', '/api/mobile/auth/refresh', 'Token refresh', 'Bearer'),
+        ('GET', '/api/mobile/vehicles', 'List user vehicles', 'Bearer'),
+        ('POST', '/api/mobile/vehicles', 'Add vehicle', 'Bearer'),
+        ('GET', '/api/mobile/vehicles/{id}', 'Get vehicle', 'Bearer'),
+        ('PATCH', '/api/mobile/vehicles/{id}', 'Update vehicle', 'Bearer'),
+        ('DELETE', '/api/mobile/vehicles/{id}', 'Delete vehicle', 'Bearer'),
+        ('GET', '/api/mobile/parking-lots', 'Available lots', 'Bearer'),
+        ('GET', '/api/mobile/parking-lots/{id}', 'Lot details', 'Bearer'),
+        ('GET', '/api/mobile/sessions', 'Parking sessions', 'Bearer'),
+        ('POST', '/api/mobile/sessions', 'Create session', 'Bearer'),
+        ('GET', '/api/mobile/sessions/active', 'Active session', 'Bearer'),
+        ('GET', '/api/mobile/wallet', 'Wallet balance', 'Bearer'),
+        ('POST', '/api/mobile/wallet/deposit', 'Add funds', 'Bearer'),
+        ('GET', '/api/mobile/wallet/transactions', 'Wallet history', 'Bearer'),
+        ('POST', '/api/mobile/payments/process', 'Process payment', 'Bearer'),
+        ('POST', '/api/mobile/qr/validate', 'Validate QR code', 'Bearer'),
+        ('GET', '/api/mobile/profile', 'User profile', 'Bearer'),
+        ('PATCH', '/api/mobile/profile', 'Update profile', 'Bearer'),
+        ('GET', '/api/mobile/notifications', 'Get notifications', 'Bearer'),
+    ]
+
+    for method, endpoint, desc, auth in mobile_apis:
+        row = mobile_table.add_row()
         row.cells[0].text = method
         row.cells[1].text = endpoint
         row.cells[2].text = desc
@@ -1598,9 +1805,9 @@ Key Differentiators:
     doc.add_heading('Document Information', level=1)
 
     footer_info = [
-        ('Document Version', '1.0'),
+        ('Document Version', '2.0'),
         ('Created Date', 'January 2026'),
-        ('Last Updated', 'January 2026'),
+        ('Last Updated', 'February 2026'),
         ('Prepared By', 'Development Team'),
         ('Confidentiality', 'This document contains proprietary information.'),
     ]

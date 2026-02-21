@@ -5,12 +5,13 @@ import { signToken } from '@/lib/auth/jwt'
 import { verifyMicrosoftToken, findOrCreateMicrosoftUser, UserWithRelations } from '@/lib/auth/microsoft'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
 
 const microsoftLoginSchema = z.object({
   idToken: z.string().min(1, 'ID token is required'),
 })
 
-export async function POST(request: NextRequest) {
+export const POST = withRateLimit(async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { idToken } = microsoftLoginSchema.parse(body)
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
         token,
         expiresAt,
         userAgent: request.headers.get('user-agent') || undefined,
-        ipAddress: request.headers.get('x-forwarded-for') || undefined,
+        ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0].trim() || undefined,
       },
     })
 
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     cookieStore.set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      sameSite: 'strict',
       expires: expiresAt,
       path: '/',
     })
@@ -111,4 +112,4 @@ export async function POST(request: NextRequest) {
     }
     return handleApiError(error)
   }
-}
+})

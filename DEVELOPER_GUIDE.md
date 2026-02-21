@@ -4,8 +4,8 @@
 
 This comprehensive guide helps developers understand, modify, and extend the SParking parking management system.
 
-**Version:** 2.0
-**Last Updated:** January 2026
+**Version:** 2.2
+**Last Updated:** February 2026
 
 ---
 
@@ -27,13 +27,14 @@ This comprehensive guide helps developers understand, modify, and extend the SPa
 14. [Notification System](#14-notification-system)
 15. [Caching & Rate Limiting](#15-caching--rate-limiting)
 16. [Real-time Features](#16-real-time-features)
-17. [Testing](#17-testing)
-18. [Deployment](#18-deployment)
-19. [Common Tasks](#19-common-tasks)
-20. [Error Handling](#20-error-handling)
-21. [Security Best Practices](#21-security-best-practices)
-22. [Troubleshooting](#22-troubleshooting)
-23. [Contributing](#23-contributing)
+17. [Mobile API](#17-mobile-api)
+18. [Testing](#18-testing)
+19. [Deployment](#19-deployment)
+20. [Common Tasks](#20-common-tasks)
+21. [Error Handling](#21-error-handling)
+22. [Security Best Practices](#22-security-best-practices)
+23. [Troubleshooting](#23-troubleshooting)
+24. [Contributing](#24-contributing)
 
 ---
 
@@ -45,7 +46,7 @@ SParking is a comprehensive AI-powered parking management system designed for fa
 
 | Feature | Description |
 |---------|-------------|
-| Vehicle Detection | YOLOv8-based detection with <100ms latency |
+| Vehicle Detection | YOLOv8/v10-based detection with <100ms latency |
 | ANPR | Automatic License Plate Recognition using Intel OpenVINO |
 | Payment Gateway | Stripe/Razorpay integration + digital wallet system |
 | Hardware Control | Gates, LED displays, ticket printers |
@@ -54,32 +55,37 @@ SParking is a comprehensive AI-powered parking management system designed for fa
 | Real-time | WebSocket updates for live monitoring |
 | Offline Support | Offline queue with automatic sync |
 | Multi-currency | INR, USD, EUR, GBP support |
+| Mobile App | Expo/React Native customer app with self-service parking |
+| Microsoft SSO | Enterprise Single Sign-On via Azure AD/MSAL |
+| Vehicle Image Search | AI-powered vehicle search using feature indexing |
 
 ### System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Web Browser                               │
-│                    (Next.js Frontend)                            │
-└─────────────────────────┬───────────────────────────────────────┘
+┌──────────────────────┐     ┌──────────────────────────┐
+│    Web Browser       │     │  Mobile App (Expo)        │
+│  (Next.js Frontend)  │     │  (React Native/iOS/Droid) │
+└──────────┬───────────┘     └────────────┬─────────────┘
+           │                              │
+           └──────────────┬───────────────┘
                           │
-┌─────────────────────────▼───────────────────────────────────────┐
-│                    Next.js API Routes                            │
-│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐      │
-│  │  Auth    │ Parking  │ Payment  │ Hardware │ Analytics │      │
-│  └──────────┴──────────┴──────────┴──────────┴──────────┘      │
-└─────────────────────────┬───────────────────────────────────────┘
+┌─────────────────────────▼───────────────────────────────────┐
+│                  Next.js API Routes                          │
+│  ┌──────┬────────┬────────┬────────┬─────────┬────────┐    │
+│  │ Auth │Parking │Payment │Hardware│Analytics│ Mobile │    │
+│  └──────┴────────┴────────┴────────┴─────────┴────────┘    │
+└─────────────────────────┬───────────────────────────────────┘
                           │
-┌─────────────────────────▼───────────────────────────────────────┐
-│                     PostgreSQL (Prisma)                          │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────▼───────────────────────────────────┐
+│                   PostgreSQL (Prisma)                         │
+└─────────────────────────────────────────────────────────────┘
                           │
-┌─────────────────────────▼───────────────────────────────────────┐
-│                   External Services                              │
-│  ┌──────────┬──────────┬──────────┬──────────┐                  │
-│  │ Stripe   │  Email   │   SMS    │ AI Pipeline                 │
-│  └──────────┴──────────┴──────────┴──────────┘                  │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────▼───────────────────────────────────┐
+│                 External Services                             │
+│  ┌────────┬───────┬──────┬──────────┬──────────────┐        │
+│  │ Stripe │ Email │ SMS  │AI Pipeline│ Microsoft AD │        │
+│  └────────┴───────┴──────┴──────────┴──────────────┘        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -97,7 +103,7 @@ SParking is a comprehensive AI-powered parking management system designed for fa
 | Lucide React | Latest | Icons |
 | Socket.io-client | 4.x | Real-time updates |
 | React Hook Form | 7.x | Form handling |
-| Zod | 3.x | Schema validation |
+| Zod | 4.x | Schema validation |
 
 ### Backend
 | Technology | Version | Purpose |
@@ -134,7 +140,7 @@ SParking is a comprehensive AI-powered parking management system designed for fa
 sparking/
 ├── src/
 │   ├── app/                          # Next.js App Router
-│   │   ├── api/                      # API Routes (50+ endpoints)
+│   │   ├── api/                      # API Routes (89+ endpoints)
 │   │   │   ├── alerts/               # Alert management
 │   │   │   ├── analytics/            # Analytics & predictive
 │   │   │   ├── auth/                 # Authentication
@@ -142,6 +148,11 @@ sparking/
 │   │   │   │   ├── logout/
 │   │   │   │   └── me/
 │   │   │   ├── bank-accounts/        # Bank account management
+│   │   │   ├── auth/                 # Authentication
+│   │   │   │   ├── login/
+│   │   │   │   ├── logout/
+│   │   │   │   ├── microsoft/           # Microsoft SSO
+│   │   │   │   └── me/
 │   │   │   ├── cameras/              # Camera CRUD + streaming
 │   │   │   │   ├── [id]/
 │   │   │   │   │   ├── snapshot/
@@ -150,7 +161,20 @@ sparking/
 │   │   │   ├── find-car/             # Vehicle search
 │   │   │   ├── gates/                # Gate control
 │   │   │   ├── graphql/              # GraphQL-like endpoint
+│   │   │   ├── metro/                # Metro AI pipeline
+│   │   │   │   ├── pipelines/
+│   │   │   │   └── streams/[id]/webrtc/
 │   │   │   ├── metrics/              # System metrics
+│   │   │   ├── mobile/               # Mobile app APIs
+│   │   │   │   ├── auth/             # Login, register, logout, refresh
+│   │   │   │   ├── vehicles/         # Vehicle CRUD
+│   │   │   │   ├── parking-lots/     # Lot discovery
+│   │   │   │   ├── sessions/         # Parking sessions
+│   │   │   │   ├── wallet/           # Wallet operations
+│   │   │   │   ├── payments/         # Payment processing
+│   │   │   │   ├── qr/               # QR code validation
+│   │   │   │   ├── profile/          # User profile
+│   │   │   │   └── notifications/    # Push notifications
 │   │   │   ├── notifications/        # Notification management
 │   │   │   ├── parking-lots/         # Parking lot CRUD
 │   │   │   ├── payments/             # Payment processing
@@ -203,14 +227,25 @@ sparking/
 │   │
 │   ├── components/                   # React components
 │   │   ├── analytics/                # Analytics charts
+│   │   ├── auth/                     # Auth components
+│   │   │   └── microsoft-login-button.tsx
 │   │   ├── camera/                   # Camera stream components
-│   │   │   └── CameraStream.tsx
+│   │   │   ├── CameraStream.tsx
+│   │   │   ├── WebRTCStream.tsx      # WebRTC for Metro
+│   │   │   └── index.ts
+│   │   ├── common/                   # Common components
+│   │   │   ├── ErrorBoundary.tsx
+│   │   │   └── LoadingSpinner.tsx
 │   │   ├── dashboard/                # Dashboard layout
 │   │   │   ├── header.tsx
 │   │   │   └── sidebar-nav.tsx
+│   │   ├── layouts/                  # Layout components
+│   │   │   └── DashboardLayout.tsx
 │   │   ├── parking/                  # Parking-related UI
 │   │   ├── settings/                 # Settings components
 │   │   ├── signage/                  # Digital signage
+│   │   ├── vehicles/                 # Vehicle components
+│   │   │   └── ImageSearch.tsx       # Find vehicle by image
 │   │   └── ui/                       # shadcn/ui components
 │   │       ├── alert-dialog.tsx
 │   │       ├── button.tsx
@@ -224,6 +259,7 @@ sparking/
 │   │       ├── label.tsx
 │   │       ├── select.tsx
 │   │       ├── skeleton.tsx
+│   │       ├── slider.tsx
 │   │       ├── stats-skeleton.tsx
 │   │       ├── switch.tsx
 │   │       ├── table.tsx
@@ -236,9 +272,13 @@ sparking/
 │   │   ├── use-dashboard-data.ts
 │   │   └── ...
 │   │
+│   ├── proxy.ts                      # Proxy-layer JWT auth
+│   │
 │   ├── lib/                          # Utility libraries
 │   │   ├── auth/                     # Authentication
+│   │   │   ├── getAuthUser.ts
 │   │   │   ├── jwt.ts
+│   │   │   ├── org-check.ts
 │   │   │   └── session.ts
 │   │   ├── cache/                    # Caching utilities
 │   │   │   └── index.ts
@@ -251,14 +291,33 @@ sparking/
 │   │   ├── notifications/            # Notification system
 │   │   │   └── index.ts
 │   │   ├── rate-limit/               # Rate limiting
-│   │   │   └── index.ts
+│   │   │   ├── index.ts
+│   │   │   └── with-rate-limit.ts
 │   │   ├── sync/                     # Offline sync
 │   │   │   └── offline-queue.ts
 │   │   ├── utils/                    # Helper utilities
 │   │   │   ├── api.ts
 │   │   │   └── currency.ts
+│   │   ├── validators/               # Zod schemas
+│   │   │   ├── index.ts              # Parking data schemas
+│   │   │   └── mobile.ts             # Mobile app schemas
 │   │   ├── webhooks/                 # Webhook dispatcher
 │   │   │   └── index.ts
+│   │   ├── websocket/                # WebSocket utilities
+│   │   │   ├── client.ts
+│   │   │   ├── server.ts
+│   │   │   ├── types.ts
+│   │   │   ├── events.ts
+│   │   │   └── index.ts
+│   │   ├── payments/                 # Payment processing
+│   │   │   ├── index.ts
+│   │   │   ├── razorpay.ts
+│   │   │   └── stripe.ts
+│   │   ├── analytics/                # Analytics
+│   │   │   └── predictive.ts
+│   │   ├── export/                   # Export utilities
+│   │   │   ├── csv.ts
+│   │   │   └── pdf.ts
 │   │   ├── db.ts                     # Prisma client
 │   │   └── logger.ts                 # Logging utility
 │   │
@@ -387,6 +446,14 @@ MAX_SESSIONS_PER_USER=5
 ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
 # ===========================================
+# OPTIONAL - Microsoft SSO
+# ===========================================
+
+MICROSOFT_CLIENT_ID=your-azure-ad-client-id
+MICROSOFT_CLIENT_SECRET=your-azure-ad-client-secret
+MICROSOFT_TENANT_ID=common
+
+# ===========================================
 # OPTIONAL - Email
 # ===========================================
 
@@ -474,12 +541,15 @@ RATE_LIMIT_MAX_REQUESTS=100
 # OPTIONAL - Security
 # ===========================================
 
-# Encryption key for sensitive data
+# Encryption key for sensitive data (Required in production)
 # Generate with: openssl rand -base64 32
 ENCRYPTION_KEY=your-encryption-key-min-32-chars
 
-# Cron job secret
+# Cron job secret (always validated when set)
 CRON_SECRET=your-cron-secret
+
+# Sandbox mode (disabled in production by default)
+ENABLE_SANDBOX=false
 
 # ===========================================
 # OPTIONAL - Logging
@@ -725,6 +795,7 @@ Authorization: Bearer <token>
 |--------|----------|-------------|
 | POST | `/api/auth/login` | User login |
 | POST | `/api/auth/logout` | User logout |
+| POST | `/api/auth/microsoft` | Microsoft SSO callback |
 | GET | `/api/auth/me` | Get current user |
 
 #### Parking Lots
@@ -886,6 +957,40 @@ Authorization: Bearer <token>
 |--------|----------|-------------|
 | POST | `/api/sandbox/payment` | Test payment |
 | POST | `/api/sandbox/simulate` | Simulate scenarios |
+
+#### Mobile APIs
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/mobile/auth/login` | Mobile login |
+| POST | `/api/mobile/auth/register` | Mobile registration |
+| POST | `/api/mobile/auth/logout` | Mobile logout |
+| POST | `/api/mobile/auth/refresh` | Token refresh |
+| GET | `/api/mobile/vehicles` | List user vehicles |
+| POST | `/api/mobile/vehicles` | Add vehicle |
+| GET | `/api/mobile/vehicles/:id` | Get vehicle details |
+| PATCH | `/api/mobile/vehicles/:id` | Update vehicle |
+| DELETE | `/api/mobile/vehicles/:id` | Delete vehicle |
+| GET | `/api/mobile/parking-lots` | Available parking lots |
+| GET | `/api/mobile/parking-lots/:id` | Lot details with zones |
+| GET | `/api/mobile/sessions` | Active parking sessions |
+| POST | `/api/mobile/sessions` | Create new session |
+| GET | `/api/mobile/sessions/active` | Current active session |
+| GET | `/api/mobile/sessions/:id` | Session details |
+| PATCH | `/api/mobile/sessions/:id` | Update session (mark exit) |
+| GET | `/api/mobile/wallet` | Wallet balance |
+| POST | `/api/mobile/wallet/deposit` | Add funds to wallet |
+| GET | `/api/mobile/wallet/transactions` | Transaction history |
+| POST | `/api/mobile/payments/process` | Process payment |
+| POST | `/api/mobile/qr/validate` | Validate QR code |
+| GET | `/api/mobile/profile` | User profile |
+| PATCH | `/api/mobile/profile` | Update profile |
+| GET | `/api/mobile/notifications` | Get notifications |
+
+#### Metro & Streaming
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/metro/pipelines` | AI pipeline management |
+| POST | `/api/metro/streams/:id/webrtc` | WebRTC stream offer |
 
 ### Standard Response Format
 
@@ -1131,6 +1236,14 @@ export default function MyFeaturePage() {
 
 ## 9. Authentication & Authorization
 
+### Dual-Layer Authentication
+
+SParking uses a dual-layer authentication strategy:
+
+1. **Proxy layer (JWT verification):** All API routes are protected by default via JWT verification in `src/proxy.ts`. Public routes are explicitly allowlisted. Decoded user info (`userId`, `email`, `role`, `organizationId`) is forwarded via `x-user-*` headers.
+
+2. **Route layer (session DB validation):** Every API route handler calls `getAuthUser(request)` for session database validation on top of the proxy JWT check. This ensures revoked sessions are rejected immediately.
+
 ### JWT Token Structure
 
 ```typescript
@@ -1147,18 +1260,14 @@ interface JWTPayload {
 ### Getting Current User
 
 ```typescript
-// In API routes
-import { getCurrentUser } from '@/lib/auth/session'
+// In API routes (recommended - validates session in DB)
+import { getAuthUser } from '@/lib/auth/getAuthUser'
 
 export async function GET(request: NextRequest) {
-  const user = await getCurrentUser()
+  const user = await getAuthUser(request)
+  if (!user) return errorResponse('Unauthorized', 401)
 
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // User is authenticated
-  // user.id, user.email, user.role available
+  // user.id, user.email, user.role, user.organizationId available
 }
 ```
 
@@ -1167,20 +1276,75 @@ export async function GET(request: NextRequest) {
 ```typescript
 // Check role in API route
 if (!['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
-  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  return errorResponse('Forbidden', 403)
 }
 ```
+
+### Organization Isolation
+
+All API routes enforce tenant isolation. Non-SUPER_ADMIN users can only access
+resources belonging to their organization.
+
+```typescript
+import { checkParkingLotAccess, checkZoneAccess } from '@/lib/auth/org-check'
+
+// In [id] routes, verify resource belongs to user's org
+const userOrgId = request.headers.get('x-user-org-id')
+if (user.role !== 'SUPER_ADMIN' && userOrgId && resource.organizationId !== userOrgId) {
+  return errorResponse('Forbidden', 403)
+}
+
+// In list routes, filter by organization
+const where = {
+  ...(user.role !== 'SUPER_ADMIN' && { organizationId: user.organizationId }),
+}
+```
+
+Helper functions from `@/lib/auth/org-check`:
+
+| Function | Purpose |
+|----------|---------|
+| `checkParkingLotAccess` | Verify parking lot belongs to user's org |
+| `checkZoneAccess` | Verify zone belongs to user's org |
+| `checkSlotAccess` | Verify slot belongs to user's org |
+| `checkResourceAccess` | Generic resource org check |
 
 ### User Roles
 
 | Role | Description | Permissions |
 |------|-------------|-------------|
-| SUPER_ADMIN | System administrator | Full access |
+| SUPER_ADMIN | System administrator | Full access, bypasses org isolation |
 | ADMIN | Organization admin | All except system settings |
 | MANAGER | Operations manager | Operations, reports, no users |
 | OPERATOR | Day-to-day operator | Entry/exit, tokens, payments |
 | FINANCE | Finance role | Payments, reports |
 | VIEWER | Read-only | Dashboard view only |
+| CUSTOMER | Mobile app customer | Own vehicles, sessions, wallet |
+
+> **Note:** Microsoft SSO users are assigned the VIEWER role by default (changed from ADMIN in v2.1). CUSTOMER role is used exclusively for mobile app users.
+
+### Microsoft SSO Integration
+
+Microsoft authentication is handled via MSAL (Microsoft Authentication Library):
+
+```typescript
+// src/lib/auth/microsoft.ts - handles token exchange
+// src/lib/auth/msal-config.ts - MSAL configuration (uses dynamic redirect URI)
+
+// The Microsoft login flow:
+// 1. Frontend uses @azure/msal-react to get an auth code
+// 2. Code is sent to POST /api/auth/microsoft
+// 3. Backend exchanges code for Microsoft access token
+// 4. User is created/updated in database
+// 5. JWT session is created and returned
+
+// Environment variables required:
+// MICROSOFT_CLIENT_ID - Azure AD App Registration client ID
+// MICROSOFT_CLIENT_SECRET - Azure AD App Registration secret
+// MICROSOFT_TENANT_ID - Azure AD tenant ID (or 'common')
+```
+
+The redirect URI is dynamically set using `window.location.origin` to support multiple deployment environments without configuration changes.
 
 ---
 
@@ -1575,33 +1739,42 @@ await invalidateCache('parking-lot:*') // Pattern invalidation
 
 ### Rate Limiting
 
+The preferred approach is to use the `withRateLimit` wrapper from `@/lib/rate-limit/with-rate-limit.ts`, which wraps route handlers with automatic rate limiting:
+
+```typescript
+import { withRateLimit } from '@/lib/rate-limit/with-rate-limit'
+
+// Wrap a route handler with rate limiting
+export const POST = withRateLimit(async function POST(request: NextRequest) {
+  // Handler logic - rate limit is checked automatically
+  // Returns 429 with Retry-After header when limited
+})
+```
+
+The underlying `SlidingWindowRateLimiter` uses lazy cleanup instead of `setInterval` to avoid memory leaks in serverless environments.
+
+You can also use the lower-level `rateLimit` function directly:
+
 ```typescript
 import { rateLimit } from '@/lib/rate-limit'
 
-export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for') || 'unknown'
-
-  const { success, remaining, reset } = await rateLimit(ip, {
-    limit: 100,
-    window: 60000 // 1 minute
-  })
-
-  if (!success) {
-    return NextResponse.json(
-      { error: 'Too many requests' },
-      {
-        status: 429,
-        headers: {
-          'X-RateLimit-Remaining': remaining.toString(),
-          'X-RateLimit-Reset': reset.toString()
-        }
-      }
-    )
-  }
-
-  // Process request
-}
+const { success, remaining, reset } = await rateLimit(ip, {
+  limit: 100,
+  window: 60000 // 1 minute
+})
 ```
+
+### Rate Limit Configuration
+
+| Route | Limit |
+|-------|-------|
+| `/api/auth/login` | 5/min |
+| `/api/auth/microsoft` | 5/min |
+| `/api/mobile/auth/login` | 5/min |
+| `/api/mobile/auth/register` | 3/min |
+| `/api/payments` | 20/min |
+| `/api/realtime/detection` | 100/sec |
+| All other routes | 100/min |
 
 ---
 
@@ -1656,7 +1829,122 @@ await dispatchWebhook('vehicle.entry', {
 
 ---
 
-## 17. Testing
+## 17. Mobile API
+
+The mobile application uses a separate set of API endpoints under `/api/mobile/` that are optimized for mobile clients. These endpoints use Bearer token authentication (no cookies) and return mobile-friendly response formats.
+
+### Mobile Authentication
+
+Mobile auth uses separate endpoints from web auth to support token-based flow without cookies:
+
+```typescript
+// Mobile login
+POST /api/mobile/auth/login
+Content-Type: application/json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+// Response includes both access and refresh tokens
+{
+  "success": true,
+  "data": {
+    "token": "eyJ...",
+    "refreshToken": "eyJ...",
+    "user": { "id": "...", "name": "...", "email": "..." }
+  }
+}
+
+// Mobile registration
+POST /api/mobile/auth/register
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "password": "securePassword123",
+  "phone": "+919876543210"
+}
+
+// Token refresh
+POST /api/mobile/auth/refresh
+Authorization: Bearer <refresh-token>
+```
+
+### Mobile Vehicle Management
+
+```typescript
+// List user's vehicles
+GET /api/mobile/vehicles
+Authorization: Bearer <token>
+
+// Add vehicle
+POST /api/mobile/vehicles
+{
+  "licensePlate": "MH01AB1234",
+  "make": "Toyota",
+  "model": "Camry",
+  "color": "White",
+  "vehicleType": "CAR"
+}
+```
+
+### Mobile Parking Sessions
+
+```typescript
+// Get active parking session
+GET /api/mobile/sessions/active
+Authorization: Bearer <token>
+
+// Create new session (entry)
+POST /api/mobile/sessions
+{
+  "parkingLotId": "lot-1",
+  "vehicleId": "vehicle-1",
+  "zoneId": "zone-general"
+}
+
+// Mark session exit
+PATCH /api/mobile/sessions/:id
+{
+  "action": "exit"
+}
+```
+
+### Mobile Wallet
+
+```typescript
+// Get wallet balance
+GET /api/mobile/wallet
+Authorization: Bearer <token>
+
+// Deposit funds
+POST /api/mobile/wallet/deposit
+{
+  "amount": 50000,  // Amount in paise (500 INR)
+  "paymentMethod": "UPI"
+}
+```
+
+### Mobile Validators
+
+Mobile API endpoints use dedicated Zod schemas from `@/lib/validators/mobile`:
+
+```typescript
+import { mobileLoginSchema, mobileRegisterSchema, mobileVehicleSchema } from '@/lib/validators/mobile'
+```
+
+### Mobile API Rate Limits
+
+| Endpoint | Limit |
+|----------|-------|
+| `/api/mobile/auth/login` | 5/min |
+| `/api/mobile/auth/register` | 3/min |
+| `/api/mobile/auth/refresh` | 10/min |
+| All other mobile routes | 100/min |
+
+---
+
+## 18. Testing
 
 ### Running Tests
 
@@ -1733,7 +2021,7 @@ export default defineConfig({
 
 ---
 
-## 18. Deployment
+## 19. Deployment
 
 ### Vercel Deployment
 
@@ -1755,6 +2043,8 @@ Required variables:
 - `DATABASE_URL` - PostgreSQL connection string
 - `JWT_SECRET` - Authentication secret
 - `DETECTION_API_KEY` - AI pipeline key
+- `ENCRYPTION_KEY` - Encryption key (min 32 chars, required in production)
+- `CRON_SECRET` - Cron job authentication secret
 
 ### Database Migrations
 
@@ -1769,12 +2059,15 @@ npx prisma migrate deploy
 // vercel.json
 {
   "functions": {
-    "src/app/api/**/*.ts": {
-      "maxDuration": 30
-    }
-  }
+    "src/app/api/payments/webhook/route.ts": { "maxDuration": 30 },
+    "src/app/api/cron/*/route.ts": { "maxDuration": 60 },
+    "src/app/api/analytics/route.ts": { "maxDuration": 30 }
+  },
+  "crons": [...]
 }
 ```
+
+> **Note:** The build script uses `prisma migrate deploy` (not `prisma db push --accept-data-loss`) for production deployments.
 
 ### Docker Deployment (AI Pipeline)
 
@@ -1800,16 +2093,16 @@ docker run -d --name ai-pipeline sparking-ai-pipeline
 
 ---
 
-## 19. Common Tasks
+## 20. Common Tasks
 
 ### Adding a New API Endpoint
 
 ```typescript
 // src/app/api/my-feature/route.ts
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import prisma from '@/lib/db'
-import { getCurrentUser } from '@/lib/auth/session'
-import { successResponse, handleApiError } from '@/lib/utils/api'
+import { getAuthUser } from '@/lib/auth/getAuthUser'
+import { errorResponse, successResponse, handleApiError } from '@/lib/utils/api'
 import { z } from 'zod'
 
 const createSchema = z.object({
@@ -1819,13 +2112,13 @@ const createSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
 
     const data = await prisma.myModel.findMany({
-      where: { organizationId: user.organizationId },
+      where: {
+        ...(user.role !== 'SUPER_ADMIN' && { organizationId: user.organizationId }),
+      },
       orderBy: { createdAt: 'desc' },
     })
 
@@ -1837,10 +2130,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await getAuthUser(request)
+    if (!user) return errorResponse('Unauthorized', 401)
 
     const body = await request.json()
     const data = createSchema.parse(body)
@@ -1892,7 +2183,7 @@ npx prisma migrate dev --name add_my_model
 
 ---
 
-## 20. Error Handling
+## 21. Error Handling
 
 ### API Error Handling
 
@@ -1962,11 +2253,35 @@ export default function Error({
 
 ---
 
-## 21. Security Best Practices
+## 22. Security Best Practices
+
+### Proxy-Layer JWT Verification
+
+All API routes are protected by default via JWT verification in `src/proxy.ts`. Public routes (login, register, health check, webhooks) are explicitly allowlisted. The proxy decodes the JWT and forwards user info via headers:
+
+- `x-user-id` - User ID
+- `x-user-email` - User email
+- `x-user-role` - User role
+- `x-user-org-id` - Organization ID
+
+### Organization Isolation
+
+All list endpoints filter by `user.organizationId`. All `[id]` routes verify the resource belongs to the user's organization using the `x-user-org-id` header. `SUPER_ADMIN` users bypass org isolation. See [Section 9](#9-authentication--authorization) for implementation details.
+
+### Security Headers
+
+The following security headers are applied via `next.config.ts` and `src/proxy.ts`:
+
+| Header | Value |
+|--------|-------|
+| `X-Frame-Options` | `DENY` |
+| `X-Content-Type-Options` | `nosniff` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | Restrictive policy for camera, microphone, etc. |
 
 ### Input Validation
 
-Always validate input using Zod:
+Always validate input using Zod (v4):
 ```typescript
 const schema = z.object({
   email: z.string().email(),
@@ -1974,6 +2289,8 @@ const schema = z.object({
   licensePlate: z.string().regex(/^[A-Z]{2}\d{2}[A-Z]{2}\d{4}$/),
 })
 ```
+
+Use the `validateSortBy()` helper to validate `sortBy` and `sortOrder` query parameters. `sortOrder` is validated against `['asc', 'desc']`.
 
 ### SQL Injection Prevention
 
@@ -1983,12 +2300,19 @@ Prisma ORM handles parameterized queries automatically. Never use raw SQL with u
 
 React automatically escapes content. Never use `dangerouslySetInnerHTML` with user content.
 
+### Open Redirect Prevention
+
+The login page validates that `redirectTo` starts with `/` and does not contain `://` to prevent open redirect attacks.
+
 ### Authentication
 
 - JWT tokens expire after configured time
-- Refresh tokens for long sessions
-- Rate limit login attempts
+- Dual-layer auth: proxy JWT check + route-level `getAuthUser()` session DB validation
+- Rate limit login attempts (5/min for login, 3/min for registration)
 - Hash passwords with bcrypt
+- Cookie `sameSite` set to `strict` (changed from `lax` in v2.1)
+- IP parsing takes first IP from `x-forwarded-for`
+- Microsoft SSO defaults to VIEWER role (changed from ADMIN in v2.1)
 
 ### Sensitive Data
 
@@ -1999,6 +2323,31 @@ import { encrypt, decrypt } from '@/lib/crypto/encryption'
 const encrypted = encrypt(sensitiveData)
 const decrypted = decrypt(encrypted)
 ```
+
+Encryption uses a random per-encryption salt with the format `salt:iv:authTag:data`. Backward compatibility with the old 3-part format is maintained.
+
+### Production Requirements
+
+The following environment variables are required in production:
+
+| Variable | Purpose |
+|----------|---------|
+| `ENCRYPTION_KEY` | Required for data encryption (min 32 chars). App will refuse to start without it in production. |
+| `CRON_SECRET` | Always validated when set (the `NODE_ENV` conditional was removed in v2.1). |
+
+### Sandbox Guard
+
+The sandbox API (`/api/sandbox/*`) is blocked in production unless `ENABLE_SANDBOX=true` is explicitly set. This prevents accidental use of test payment flows in production.
+
+### Image Domain Allowlist
+
+The `hostname: '**'` wildcard for Next.js image optimization has been replaced with specific CDN domains:
+- Azure Blob Storage
+- AWS S3
+- Cloudinary
+- Google (user content)
+- GitHub (avatars)
+- Gravatar
 
 ### CORS Configuration
 
@@ -2015,9 +2364,15 @@ const corsOrigin = process.env.NODE_ENV === 'production'
 - Use `.env.example` as template
 - Validate required env vars on startup
 
+### Database Indexes
+
+Performance and security-related indexes added in v2.1:
+- `@@index([userId])` on Session model (faster session lookups)
+- `@@index([paymentRef])` on Transaction model (faster payment webhook lookups)
+
 ---
 
-## 22. Troubleshooting
+## 23. Troubleshooting
 
 ### Common Issues
 
@@ -2084,7 +2439,7 @@ LOG_LEVEL=debug npm run dev
 
 ---
 
-## 23. Contributing
+## 24. Contributing
 
 ### Development Workflow
 
@@ -2138,5 +2493,5 @@ For issues and questions:
 
 ---
 
-*Last updated: January 2026*
-*Version: 2.0*
+*Last updated: February 2026*
+*Version: 2.2*
