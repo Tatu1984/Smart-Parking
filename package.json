@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && prisma migrate deploy && next build",
-    "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
@@ -15,7 +14,9 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "npx tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force && npm run db:seed",
-    "demo:setup": "npm run db:push && npm run db:seed"
+    "demo:setup": "npm run db:push && npm run db:seed",
+    "test:e2e": "playwright test",
+    "test:load": "echo 'Install k6 first: brew install k6' && k6 run load-tests/k6/scenarios/auth.js"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.1.0",
@@ -39,6 +40,7 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@sentry/nextjs": "^10.39.0",
     "@tanstack/react-query": "^5.90.12",
     "@types/nodemailer": "^7.0.4",
     "bcryptjs": "^3.0.3",
@@ -67,12 +69,14 @@
     "socket.io-client": "^4.8.3",
     "sonner": "^2.0.7",
     "stripe": "^20.1.0",
+    "swagger-ui-react": "^5.31.2",
     "tailwind-merge": "^3.4.0",
     "uuid": "^13.0.0",
     "zod": "^4.2.1",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -83,6 +87,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/swagger-ui-react": "^5.18.0",
     "@types/uuid": "^10.0.0",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^5.1.2",
