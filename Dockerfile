@@ -9,8 +9,9 @@ WORKDIR /app
 # Copy only package files (prisma generate runs in builder stage, not here)
 COPY package.json package-lock.json* ./
 
-# Skip postinstall (prisma generate) here — it runs explicitly in the builder stage
-RUN npm ci --ignore-scripts 2>&1 || (cat /root/.npm/_logs/*-debug*.log && exit 1)
+# Use npm install (not ci) because tree-sitter optional deps are missing from
+# macOS-generated lockfile. Skip scripts — prisma generate runs in builder stage.
+RUN npm install --ignore-scripts
 
 # Rebuild the source code only when needed
 FROM base AS builder
