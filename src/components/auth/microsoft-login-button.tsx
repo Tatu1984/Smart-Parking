@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { PublicClientApplication, InteractionRequiredAuthError } from '@azure/msal-browser'
 import { Button } from '@/components/ui/button'
@@ -29,21 +29,33 @@ export function MicrosoftLoginButton({ onError }: MicrosoftLoginButtonProps) {
   const redirectTo = searchParams.get('from') || '/dashboard'
 
   const [isLoading, setIsLoading] = useState(false)
+  const [isReady, setIsReady] = useState(false)
+  const msalRef = useRef<PublicClientApplication | null>(null)
+
+  // Initialize MSAL once on mount — singleton pattern
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const msalConfig = getMsalConfig()
+        const instance = new PublicClientApplication(msalConfig)
+        await instance.initialize()
+        await instance.handleRedirectPromise()
+        msalRef.current = instance
+        setIsReady(true)
+      } catch (err) {
+        console.error('MSAL init error:', err)
+      }
+    }
+    init()
+  }, [])
 
   const handleMicrosoftLogin = useCallback(async () => {
+    const msalInstance = msalRef.current
+    if (!msalInstance) return
+
     setIsLoading(true)
 
     try {
-      // Get MSAL config with current origin as redirect URI
-      const msalConfig = getMsalConfig()
-
-      // Initialize MSAL instance
-      const msalInstance = new PublicClientApplication(msalConfig)
-      await msalInstance.initialize()
-
-      // Clear any stale interaction state from previous attempts
-      await msalInstance.handleRedirectPromise()
-
       // Try to acquire token silently first (if user is already logged in)
       const accounts = msalInstance.getAllAccounts()
       let response
@@ -131,7 +143,7 @@ export function MicrosoftLoginButton({ onError }: MicrosoftLoginButtonProps) {
       variant="outline"
       className="w-full"
       onClick={handleMicrosoftLogin}
-      disabled={isLoading}
+      disabled={isLoading || !isReady}
     >
       {isLoading ? (
         <>
