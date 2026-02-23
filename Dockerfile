@@ -6,10 +6,14 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
+# Copy package files and prisma schema (needed by postinstall: prisma generate)
 COPY package.json package-lock.json* ./
-# Skip postinstall scripts during npm ci (prisma generate runs in builder stage)
-RUN npm ci --ignore-scripts
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+
+# Dummy DATABASE_URL so prisma generate succeeds at build time (not used at runtime)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+RUN npm ci
 
 # Rebuild the source code only when needed
 FROM base AS builder
@@ -17,10 +21,13 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Dummy DATABASE_URL for prisma generate and next build (not used at runtime)
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Build the application (run next build directly, migrations run at deploy time)
+# Build the application (migrations run at deploy time, not build time)
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx next build
 

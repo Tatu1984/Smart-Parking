@@ -71,6 +71,20 @@ model User {
   organizationId String
   authProvider   AuthProvider @default(LOCAL)
   providerUserId String?  // Microsoft 'oid' claim
+
+  // Account lockout
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  // Email verification
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+
+  // Two-factor authentication
+  twoFactorSecret     String?
+  twoFactorEnabled    Boolean @default(false)
+  twoFactorBackupCodes String?
+
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -79,6 +93,8 @@ model User {
   auditLogs      AuditLog[]
   assignedLots   ParkingLotAssignment[]
   vehicles       Vehicle[]
+  passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
 
   @@unique([authProvider, providerUserId])
   @@map("users")
@@ -114,6 +130,39 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+}
+
+// ============================================
+// PASSWORD RESET & EMAIL VERIFICATION
+// ============================================
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("email_verification_tokens")
 }
 
 // ============================================
