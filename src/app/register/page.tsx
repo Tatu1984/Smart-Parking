@@ -1,12 +1,13 @@
 'use client'
 
+import { Suspense } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { ParkingSquare, UserPlus, Mail } from 'lucide-react'
+import { ParkingSquare, UserPlus, Mail, Loader2 } from 'lucide-react'
 import { MicrosoftLoginButton } from '@/components/auth/microsoft-login-button'
 
-export default function RegisterPage() {
+function RegisterContent() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
@@ -99,5 +100,21 @@ export default function RegisterPage() {
         </div>
       </footer>
     </div>
+  )
+}
+
+function RegisterSkeleton() {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<RegisterSkeleton />}>
+      <RegisterContent />
+    </Suspense>
   )
 }
