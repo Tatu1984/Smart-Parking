@@ -33,14 +33,13 @@ export function MicrosoftLoginButton({ onError, label = 'Sign in with Microsoft'
   const [isReady, setIsReady] = useState(false)
   const msalRef = useRef<PublicClientApplication | null>(null)
 
-  // Initialize MSAL once on mount — singleton pattern
+  // Initialize MSAL once on mount
   useEffect(() => {
     const init = async () => {
       try {
         const msalConfig = getMsalConfig()
         const instance = new PublicClientApplication(msalConfig)
         await instance.initialize()
-        await instance.handleRedirectPromise()
         msalRef.current = instance
         setIsReady(true)
       } catch (err) {
@@ -57,79 +56,62 @@ export function MicrosoftLoginButton({ onError, label = 'Sign in with Microsoft'
     setIsLoading(true)
 
     try {
-      // Compute login request at call time so window.location.origin is available
       const request = getLoginRequest()
 
-      // Try to acquire token silently first (if user is already logged in)
+      // Try to acquire token silently first (if user already has a cached session)
       const accounts = msalInstance.getAllAccounts()
-      let response
 
       if (accounts.length > 0) {
         try {
-          response = await msalInstance.acquireTokenSilent({
-            ...request,
+          const response = await msalInstance.acquireTokenSilent({
+            scopes: request.scopes,
             account: accounts[0],
           })
+
+          if (response?.idToken) {
+            // Send token to backend for verification and session creation
+            const backendResponse = await fetch('/api/auth/microsoft', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ idToken: response.idToken }),
+            })
+
+            const text = await backendResponse.text()
+            if (!text) throw new Error('Server returned empty response')
+
+            let data
+            try {
+              data = JSON.parse(text)
+            } catch {
+              throw new Error('Invalid response from server')
+            }
+
+            if (!backendResponse.ok) {
+              throw new Error(data.error || 'Login failed')
+            }
+
+            router.push(redirectTo)
+            router.refresh()
+            return
+          }
         } catch (silentError) {
-          if (silentError instanceof InteractionRequiredAuthError) {
-            // Silent token acquisition failed, use popup
-            response = await msalInstance.loginPopup(request)
-          } else {
+          if (!(silentError instanceof InteractionRequiredAuthError)) {
             throw silentError
           }
+          // Silent failed — fall through to redirect
         }
-      } else {
-        // No cached accounts, use popup login
-        response = await msalInstance.loginPopup(request)
       }
 
-      if (!response?.idToken) {
-        throw new Error('No ID token received from Microsoft')
-      }
-
-      // Send token to backend for verification and session creation
-      const backendResponse = await fetch('/api/auth/microsoft', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ idToken: response.idToken }),
-      })
-
-      const text = await backendResponse.text()
-      if (!text) {
-        throw new Error('Server returned empty response')
-      }
-
-      let data
-      try {
-        data = JSON.parse(text)
-      } catch {
-        throw new Error('Invalid response from server')
-      }
-
-      if (!backendResponse.ok) {
-        throw new Error(data.error || 'Login failed')
-      }
-
-      // Redirect to dashboard
-      router.push(redirectTo)
-      router.refresh()
+      // No cached session or silent failed — redirect to Microsoft login.
+      // After auth, Microsoft redirects back to the app root and
+      // MsalRedirectHandler (in root layout) processes the response.
+      await msalInstance.loginRedirect(request)
     } catch (error) {
       console.error('Microsoft login error:', error)
 
-      // Handle specific MSAL errors
       if (error instanceof Error) {
-        if (error.message.includes('user_cancelled')) {
-          // User closed the popup, don't show error
-          return
-        }
         if (error.message.includes('interaction_in_progress')) {
           onError?.('A login is already in progress. Please try again.')
-          return
-        }
-        if (error.message.includes('popup_window_error')) {
-          onError?.('Popup was blocked. Please allow popups for this site.')
           return
         }
         onError?.(error.message)

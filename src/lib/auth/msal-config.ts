@@ -1,4 +1,4 @@
-import { Configuration, LogLevel, PopupRequest } from '@azure/msal-browser'
+import { Configuration, LogLevel, RedirectRequest } from '@azure/msal-browser'
 
 // Azure AD Configuration
 const AZURE_CONFIG = {
@@ -53,8 +53,8 @@ export function getMsalConfig(): Configuration {
 // Scopes for OpenID Connect login
 // Must be computed at runtime so `window` is available (not during SSR).
 // Uses the app root as redirectUri (already registered in Azure AD).
-// MSAL monitors the popup URL and closes it automatically after auth.
-export function getLoginRequest(): PopupRequest {
+// After auth, Microsoft redirects back here and MsalRedirectHandler processes the response.
+export function getLoginRequest(): RedirectRequest {
   return {
     scopes: ['openid', 'profile', 'email'],
     prompt: 'select_account',
