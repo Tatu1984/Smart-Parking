@@ -14,6 +14,7 @@ function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const rawRedirect = searchParams.get('from') || '/dashboard'
+  const verified = searchParams.get('verified')
   // Prevent open redirect: only allow relative paths, block protocol-relative URLs
   const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.includes('://') ? rawRedirect : '/dashboard'
 
@@ -22,6 +23,11 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // 2FA state
+  const [requires2FA, setRequires2FA] = useState(false)
+  const [tempToken, setTempToken] = useState('')
+  const [twoFactorCode, setTwoFactorCode] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -54,6 +60,40 @@ function LoginForm() {
         throw new Error(data.error || 'Login failed')
       }
 
+      // Check if 2FA is required
+      if (data.data?.requiresTwoFactor) {
+        setTempToken(data.data.tempToken)
+        setRequires2FA(true)
+        return
+      }
+
+      router.push(redirectTo)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handle2FASubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      const response = await fetch('/api/auth/2fa/challenge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempToken, code: twoFactorCode }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Verification failed')
+      }
+
       router.push(redirectTo)
       router.refresh()
     } catch (err) {
@@ -68,6 +108,57 @@ function LoginForm() {
     setPassword('demo123')
   }
 
+  if (requires2FA) {
+    return (
+      <Card className="w-full max-w-md border-border/50 shadow-xl shadow-black/5 dark:shadow-black/20">
+        <CardHeader className="text-center pb-4">
+          <CardTitle className="text-2xl font-bold">Two-Factor Authentication</CardTitle>
+          <CardDescription className="text-base">
+            Enter the 6-digit code from your authenticator app, or use a backup code.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handle2FASubmit} className="space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="totp-code">Verification Code</Label>
+              <Input
+                id="totp-code"
+                type="text"
+                inputMode="numeric"
+                placeholder="000000 or backup code"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value)}
+                required
+                autoFocus
+                disabled={isLoading}
+                className="h-10 text-center text-lg tracking-widest"
+              />
+            </div>
+            <Button type="submit" className="w-full h-10 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                'Verify'
+              )}
+            </Button>
+            <Button type="button" variant="ghost" className="w-full" onClick={() => { setRequires2FA(false); setTwoFactorCode(''); setError(null) }}>
+              Back to login
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <Card className="w-full max-w-md border-border/50 shadow-xl shadow-black/5 dark:shadow-black/20">
       <CardHeader className="text-center pb-4">
@@ -78,6 +169,11 @@ function LoginForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {verified && (
+            <div className="flex items-center gap-2 rounded-lg border border-green-500/50 bg-green-500/10 p-3 text-sm text-green-700 dark:text-green-400">
+              <span>Email verified successfully! You can now sign in.</span>
+            </div>
+          )}
           {error && (
             <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -141,19 +237,15 @@ function LoginForm() {
           </Button>
 
           {/* Microsoft Login */}
-          {process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID && (
-            <>
-              <div className="relative my-4">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">or</span>
-                </div>
-              </div>
-              <MicrosoftLoginButton onError={setError} />
-            </>
-          )}
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+          <MicrosoftLoginButton onError={setError} />
         </form>
       </CardContent>
       <CardFooter className="flex flex-col gap-4">

@@ -6,8 +6,10 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
+# Copy package files AND prisma schema (needed by postinstall: prisma generate)
 COPY package.json package-lock.json* ./
+COPY prisma ./prisma
+COPY prisma.config.ts ./
 RUN npm ci
 
 # Rebuild the source code only when needed
@@ -19,16 +21,16 @@ COPY . .
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Build the application
-ENV NEXT_TELEMETRY_DISABLED 1
-RUN npm run build
+# Build the application (run next build directly, migrations run at deploy time)
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npx next build
 
 # Production image, copy all the files and run next
 FROM base AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -47,7 +49,7 @@ USER nextjs
 
 EXPOSE 3000
 
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]

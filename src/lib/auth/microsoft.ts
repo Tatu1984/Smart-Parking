@@ -57,7 +57,7 @@ export interface VerifiedMicrosoftUser {
  * Verify a Microsoft ID token and extract user claims
  */
 export async function verifyMicrosoftToken(idToken: string): Promise<VerifiedMicrosoftUser> {
-  const clientId = process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID
+  const clientId = process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || '614f42e8-a144-4221-b2c6-d63c8da935ea'
 
   if (!clientId) {
     throw new Error('NEXT_PUBLIC_AZURE_AD_CLIENT_ID is not configured')
@@ -194,6 +194,8 @@ export async function findOrCreateMicrosoftUser(verifiedUser: VerifiedMicrosoftU
       authProvider: AuthProvider.MICROSOFT,
       providerUserId: verifiedUser.oid,
       organizationId,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
     include: userInclude,
   }) as UserWithRelations
