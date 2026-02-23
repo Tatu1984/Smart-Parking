@@ -53,6 +53,9 @@ export function getMsalConfig(): Configuration {
 // Scopes for OpenID Connect login
 export const loginRequest: PopupRequest = {
   scopes: ['openid', 'profile', 'email'],
+  redirectUri: typeof window !== 'undefined'
+    ? `${window.location.origin}/auth-redirect.html`
+    : undefined,
 }
 
 // Check if Microsoft auth is configured
