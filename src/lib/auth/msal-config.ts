@@ -51,11 +51,17 @@ export function getMsalConfig(): Configuration {
 }
 
 // Scopes for OpenID Connect login
-export const loginRequest: PopupRequest = {
-  scopes: ['openid', 'profile', 'email'],
-  redirectUri: typeof window !== 'undefined'
-    ? `${window.location.origin}/auth-redirect.html`
-    : undefined,
+// Must be computed at runtime so `window` is available (not during SSR).
+// Uses the app root as redirectUri (already registered in Azure AD).
+// MSAL monitors the popup URL and closes it automatically after auth.
+export function getLoginRequest(): PopupRequest {
+  return {
+    scopes: ['openid', 'profile', 'email'],
+    prompt: 'select_account',
+    redirectUri: typeof window !== 'undefined'
+      ? window.location.origin
+      : undefined,
+  }
 }
 
 // Check if Microsoft auth is configured

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { ParkingSquare, UserPlus, Mail } from 'lucide-react'
+import { MicrosoftLoginButton } from '@/components/auth/microsoft-login-button'
 
 export default function RegisterPage() {
   return (
@@ -58,6 +59,17 @@ export default function RegisterPage() {
             </div>
 
             <div className="flex flex-col gap-3">
+              <MicrosoftLoginButton label="Sign up with Microsoft" />
+
+              <div className="relative my-1">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+
               <Button variant="outline" className="w-full h-10 gap-2 rounded-xl" asChild>
                 <a href="mailto:sales@sparking.io">
                   <Mail className="h-4 w-4" />

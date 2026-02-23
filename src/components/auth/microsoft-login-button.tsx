@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { PublicClientApplication, InteractionRequiredAuthError } from '@azure/msal-browser'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
-import { getMsalConfig, loginRequest } from '@/lib/auth/msal-config'
+import { getMsalConfig, getLoginRequest } from '@/lib/auth/msal-config'
 
 // Microsoft logo SVG component
 function MicrosoftLogo({ className }: { className?: string }) {
@@ -21,9 +21,10 @@ function MicrosoftLogo({ className }: { className?: string }) {
 
 interface MicrosoftLoginButtonProps {
   onError?: (error: string) => void
+  label?: string
 }
 
-export function MicrosoftLoginButton({ onError }: MicrosoftLoginButtonProps) {
+export function MicrosoftLoginButton({ onError, label = 'Sign in with Microsoft' }: MicrosoftLoginButtonProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('from') || '/dashboard'
@@ -56,6 +57,9 @@ export function MicrosoftLoginButton({ onError }: MicrosoftLoginButtonProps) {
     setIsLoading(true)
 
     try {
+      // Compute login request at call time so window.location.origin is available
+      const request = getLoginRequest()
+
       // Try to acquire token silently first (if user is already logged in)
       const accounts = msalInstance.getAllAccounts()
       let response
@@ -63,20 +67,20 @@ export function MicrosoftLoginButton({ onError }: MicrosoftLoginButtonProps) {
       if (accounts.length > 0) {
         try {
           response = await msalInstance.acquireTokenSilent({
-            ...loginRequest,
+            ...request,
             account: accounts[0],
           })
         } catch (silentError) {
           if (silentError instanceof InteractionRequiredAuthError) {
             // Silent token acquisition failed, use popup
-            response = await msalInstance.loginPopup(loginRequest)
+            response = await msalInstance.loginPopup(request)
           } else {
             throw silentError
           }
         }
       } else {
         // No cached accounts, use popup login
-        response = await msalInstance.loginPopup(loginRequest)
+        response = await msalInstance.loginPopup(request)
       }
 
       if (!response?.idToken) {
@@ -153,7 +157,7 @@ export function MicrosoftLoginButton({ onError }: MicrosoftLoginButtonProps) {
       ) : (
         <>
           <MicrosoftLogo className="h-4 w-4" />
-          Sign in with Microsoft
+          {label}
         </>
       )}
     </Button>
