@@ -10,7 +10,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 
 # Skip postinstall (prisma generate) here — it runs explicitly in the builder stage
-RUN npm ci --ignore-scripts
+RUN npm ci --ignore-scripts 2>&1 || (cat /root/.npm/_logs/*-debug*.log && exit 1)
 
 # Rebuild the source code only when needed
 FROM base AS builder
