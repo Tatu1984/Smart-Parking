@@ -41,6 +41,9 @@ export function MicrosoftLoginButton({ onError }: MicrosoftLoginButtonProps) {
       const msalInstance = new PublicClientApplication(msalConfig)
       await msalInstance.initialize()
 
+      // Clear any stale interaction state from previous attempts
+      await msalInstance.handleRedirectPromise()
+
       // Try to acquire token silently first (if user is already logged in)
       const accounts = msalInstance.getAllAccounts()
       let response
@@ -103,6 +106,10 @@ export function MicrosoftLoginButton({ onError }: MicrosoftLoginButtonProps) {
       if (error instanceof Error) {
         if (error.message.includes('user_cancelled')) {
           // User closed the popup, don't show error
+          return
+        }
+        if (error.message.includes('interaction_in_progress')) {
+          onError?.('A login is already in progress. Please try again.')
           return
         }
         if (error.message.includes('popup_window_error')) {
