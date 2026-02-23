@@ -6,14 +6,11 @@ FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files and prisma schema (needed by postinstall: prisma generate)
+# Copy only package files (prisma generate runs in builder stage, not here)
 COPY package.json package-lock.json* ./
-COPY prisma ./prisma
-COPY prisma.config.ts ./
 
-# Dummy DATABASE_URL so prisma generate succeeds at build time (not used at runtime)
-ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
-RUN npm ci
+# Skip postinstall (prisma generate) here — it runs explicitly in the builder stage
+RUN npm ci --ignore-scripts
 
 # Rebuild the source code only when needed
 FROM base AS builder
