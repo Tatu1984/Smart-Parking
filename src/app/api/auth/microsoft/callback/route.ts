@@ -55,18 +55,26 @@ export async function GET(request: NextRequest) {
     const clientId = process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || '614f42e8-a144-4221-b2c6-d63c8da935ea'
     const tenantId = process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || '88714d9d-6787-42a3-929c-4242bac15119'
 
+    const tokenParams: Record<string, string> = {
+      client_id: clientId,
+      code,
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+      code_verifier: codeVerifier,
+    }
+
+    // Web-type redirect URIs require a client_secret for confidential clients
+    const clientSecret = process.env.AZURE_AD_CLIENT_SECRET
+    if (clientSecret) {
+      tokenParams.client_secret = clientSecret
+    }
+
     const tokenResponse = await fetch(
       `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: clientId,
-          code,
-          redirect_uri: redirectUri,
-          grant_type: 'authorization_code',
-          code_verifier: codeVerifier,
-        }),
+        body: new URLSearchParams(tokenParams),
       }
     )
 
