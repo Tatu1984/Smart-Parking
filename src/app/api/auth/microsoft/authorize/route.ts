@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 
 /**
@@ -6,14 +6,13 @@ import crypto from 'crypto'
  * Generates PKCE, stores verifier in a cookie, and redirects to Microsoft.
  * This avoids all client-side MSAL popup/redirect issues.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const clientId = process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || '614f42e8-a144-4221-b2c6-d63c8da935ea'
   const tenantId = process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || '88714d9d-6787-42a3-929c-4242bac15119'
 
-  // Determine the app's base URL for the callback
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-    || process.env.WEBSITE_HOSTNAME && `https://${process.env.WEBSITE_HOSTNAME}`
-    || 'http://localhost:3000'
+  // Derive the app's base URL from the incoming request so it always
+  // matches the URL the user is actually on (works for any environment).
+  const baseUrl = request.nextUrl.origin
 
   // PKCE: generate code_verifier and code_challenge
   const codeVerifier = crypto.randomBytes(32).toString('base64url')
@@ -26,7 +25,7 @@ export async function GET() {
   const state = crypto.randomBytes(16).toString('hex')
 
   // Use the root URL as redirect_uri — it's already registered in Azure AD.
-  // Middleware will catch /?code= and rewrite to the callback API route.
+  // The proxy catches /?code=&state= and rewrites to the callback API route.
   const redirectUri = baseUrl
 
   const params = new URLSearchParams({
@@ -48,7 +47,7 @@ export async function GET() {
   // Store PKCE verifier and state in HTTP-only cookies
   const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: request.nextUrl.protocol === 'https:',
     sameSite: 'lax' as const,
     maxAge: 600, // 10 minutes
     path: '/',
