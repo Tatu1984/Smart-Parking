@@ -3,6 +3,7 @@ import prisma from '@/lib/db'
 import { signToken } from '@/lib/auth/jwt'
 import { verifyMicrosoftToken, findOrCreateMicrosoftUser, UserWithRelations } from '@/lib/auth/microsoft'
 import { cookies } from 'next/headers'
+import { getPublicBaseUrl } from '@/lib/auth/get-base-url'
 
 /**
  * Server-side OAuth2 callback endpoint.
@@ -11,13 +12,7 @@ import { cookies } from 'next/headers'
  * to the dashboard.
  */
 export async function GET(request: NextRequest) {
-  // Derive the public-facing base URL from forwarded headers (Azure App Service
-  // terminates TLS and forwards internally to 0.0.0.0:3000).
-  const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host')
-  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
-  const baseUrl = forwardedHost
-    ? `${forwardedProto}://${forwardedHost}`
-    : request.nextUrl.origin
+  const baseUrl = getPublicBaseUrl(request)
 
   try {
     const code = request.nextUrl.searchParams.get('code')
@@ -84,7 +79,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Verify the id_token and find/create user (reuses existing logic)
+    // Verify the id_token and find/create user
     const verifiedUser = await verifyMicrosoftToken(tokenData.id_token)
     const user = await findOrCreateMicrosoftUser(verifiedUser)
 
@@ -92,7 +87,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL('/login?error=account_inactive', baseUrl))
     }
 
-    // Session management (same as existing POST route)
+    // Session management
     const maxSessions = parseInt(process.env.MAX_SESSIONS_PER_USER || '5')
     const activeSessions = await prisma.session.count({
       where: { userId: user.id, expiresAt: { gt: new Date() } },

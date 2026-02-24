@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { getPublicBaseUrl } from '@/lib/auth/get-base-url'
 
 /**
  * Server-side OAuth2 authorize endpoint.
  * Generates PKCE, stores verifier in a cookie, and redirects to Microsoft.
- * This avoids all client-side MSAL popup/redirect issues.
  */
 export async function GET(request: NextRequest) {
   const clientId = process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || '614f42e8-a144-4221-b2c6-d63c8da935ea'
   const tenantId = process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || '88714d9d-6787-42a3-929c-4242bac15119'
-
-  // Derive the public-facing base URL. On Azure App Service the internal
-  // origin is 0.0.0.0:3000, so we must read the forwarded host/proto headers.
-  const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host')
-  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
-  const baseUrl = forwardedHost
-    ? `${forwardedProto}://${forwardedHost}`
-    : request.nextUrl.origin
+  const baseUrl = getPublicBaseUrl(request)
 
   // PKCE: generate code_verifier and code_challenge
   const codeVerifier = crypto.randomBytes(32).toString('base64url')
@@ -28,8 +21,8 @@ export async function GET(request: NextRequest) {
   // State to prevent CSRF
   const state = crypto.randomBytes(16).toString('hex')
 
-  // Use the root URL as redirect_uri — it's already registered in Azure AD.
-  // The proxy catches /?code=&state= and rewrites to the callback API route.
+  // Use the root URL as redirect_uri — registered in Azure AD.
+  // The proxy/page.tsx catches /?code=&state= and forwards to the callback route.
   const redirectUri = baseUrl
 
   const params = new URLSearchParams({
@@ -51,7 +44,7 @@ export async function GET(request: NextRequest) {
   // Store PKCE verifier and state in HTTP-only cookies
   const cookieOptions = {
     httpOnly: true,
-    secure: forwardedProto === 'https',
+    secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
     maxAge: 600, // 10 minutes
     path: '/',

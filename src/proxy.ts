@@ -132,14 +132,9 @@ export async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl
   const method = request.method
 
-  // Microsoft OAuth2 callback: when Microsoft redirects to /?code=&state=,
-  // redirect (not rewrite) to the callback API route so cookies set by
-  // the callback are properly persisted by the browser.
-  if (pathname === '/' && searchParams.has('code') && searchParams.has('state')) {
-    const callbackUrl = new URL('/api/auth/microsoft/callback', request.url)
-    callbackUrl.search = request.nextUrl.search
-    return NextResponse.redirect(callbackUrl)
-  }
+  // Microsoft OAuth2 callback is handled by page.tsx (root page) which
+  // detects ?code=&state= params and does a relative redirect() to the
+  // callback API route — no absolute URL construction needed.
 
   // Handle CORS preflight requests
   if (method === 'OPTIONS') {
