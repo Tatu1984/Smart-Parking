@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,7 +13,23 @@ import {
   ChevronRight,
 } from 'lucide-react'
 
-export default function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = await searchParams
+
+  // Microsoft OAuth callback: if Microsoft redirects here with code & state,
+  // forward to the callback API route to complete the login flow.
+  if (params.code && params.state) {
+    const callbackParams = new URLSearchParams({
+      code: String(params.code),
+      state: String(params.state),
+    })
+    redirect(`/api/auth/microsoft/callback?${callbackParams.toString()}`)
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}

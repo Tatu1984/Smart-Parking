@@ -38,6 +38,11 @@ export async function GET(request: NextRequest) {
     const redirectUri = cookieStore.get('msal_redirect_uri')?.value
 
     if (!savedState || !codeVerifier || !redirectUri) {
+      console.error('Microsoft callback: Missing OAuth cookies', {
+        hasSavedState: !!savedState,
+        hasCodeVerifier: !!codeVerifier,
+        hasRedirectUri: !!redirectUri,
+      })
       return NextResponse.redirect(new URL('/login?error=session_expired', baseUrl))
     }
 
@@ -124,7 +129,7 @@ export async function GET(request: NextRequest) {
     redirectResponse.cookies.set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       expires: expiresAt,
       path: '/',
     })

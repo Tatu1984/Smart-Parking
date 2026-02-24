@@ -133,11 +133,12 @@ export async function proxy(request: NextRequest) {
   const method = request.method
 
   // Microsoft OAuth2 callback: when Microsoft redirects to /?code=&state=,
-  // rewrite to the server-side callback API route to exchange the code.
+  // redirect (not rewrite) to the callback API route so cookies set by
+  // the callback are properly persisted by the browser.
   if (pathname === '/' && searchParams.has('code') && searchParams.has('state')) {
     const callbackUrl = new URL('/api/auth/microsoft/callback', request.url)
     callbackUrl.search = request.nextUrl.search
-    return NextResponse.rewrite(callbackUrl)
+    return NextResponse.redirect(callbackUrl)
   }
 
   // Handle CORS preflight requests

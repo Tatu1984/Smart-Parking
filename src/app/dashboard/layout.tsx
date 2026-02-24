@@ -11,7 +11,7 @@ export default async function DashboardLayout({
 }) {
   const user = await getCurrentUser()
   if (!user) {
-    redirect('/login')
+    redirect('/login?error=no_session')
   }
 
   // Fetch parking lots from DB based on user's org

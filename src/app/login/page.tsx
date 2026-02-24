@@ -18,11 +18,13 @@ function LoginForm() {
   // Prevent open redirect: only allow relative paths, block protocol-relative URLs
   const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.includes('://') ? rawRedirect : '/dashboard'
 
+  const urlError = searchParams.get('error')
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(urlError)
 
   // 2FA state
   const [requires2FA, setRequires2FA] = useState(false)
