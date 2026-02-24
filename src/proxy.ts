@@ -58,7 +58,7 @@ function checkEdgeRateLimit(identifier: string): { limited: boolean; remaining: 
 // Protected routes that require authentication
 const PROTECTED_ROUTES = ['/dashboard']
 const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/api/auth/login', '/api/auth/register']
-const PUBLIC_API_ROUTES = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/auth/microsoft', '/api/auth/logout', '/api/payments/webhook', '/api/docs', '/api/mobile/auth/']
+const PUBLIC_API_ROUTES = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/auth/microsoft', '/api/auth/logout', '/api/payments/webhook', '/api/docs', '/api/mobile/auth/', '/api/auth/microsoft/authorize', '/api/auth/microsoft/callback']
 
 // Development-only fallback secret (must match jwt.ts)
 const DEV_SECRET = 'dev-only-secret-key-min-32-chars-long!'
@@ -129,8 +129,16 @@ const CSRF_EXEMPT_ROUTES = [
 ]
 
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname, searchParams } = request.nextUrl
   const method = request.method
+
+  // Microsoft OAuth2 callback: when Microsoft redirects to /?code=&state=,
+  // rewrite to the server-side callback API route to exchange the code.
+  if (pathname === '/' && searchParams.has('code') && searchParams.has('state')) {
+    const callbackUrl = new URL('/api/auth/microsoft/callback', request.url)
+    callbackUrl.search = request.nextUrl.search
+    return NextResponse.rewrite(callbackUrl)
+  }
 
   // Handle CORS preflight requests
   if (method === 'OPTIONS') {
