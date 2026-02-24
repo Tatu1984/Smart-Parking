@@ -722,9 +722,11 @@ The app sends push notifications for:
 - Try logging out and back in
 
 **Q: Microsoft SSO is not working**
-- Verify Microsoft Client ID, Secret, and Tenant ID are configured
-- Check that the redirect URI matches your deployment URL
-- Ensure the Azure AD app registration has the correct permissions
+- Verify `NEXT_PUBLIC_AZURE_AD_CLIENT_ID`, `AZURE_AD_CLIENT_SECRET`, and `NEXT_PUBLIC_AZURE_AD_TENANT_ID` are configured
+- Ensure the redirect URI is registered as **"Web"** type (NOT "SPA") in Azure AD
+- Check that your app's root URL is added as a redirect URI in Azure AD (e.g. `https://myapp.azurewebsites.net`)
+- On Azure App Service, verify `WEBSITE_HOSTNAME` or `NEXT_PUBLIC_APP_URL` is set correctly
+- If you see "interaction_in_progress" errors, clear browser cache or try incognito mode
 
 ### Getting Help
 
@@ -756,7 +758,8 @@ The app sends push notifications for:
 | **ONVIF** | Open Network Video Interface Forum (camera standard) |
 | **KYC** | Know Your Customer (identity verification for wallets) |
 | **P2P** | Peer-to-Peer (wallet transfers between users) |
-| **MSAL** | Microsoft Authentication Library |
+| **OAuth2** | Open Authorization 2.0 (protocol used for Microsoft login) |
+| **PKCE** | Proof Key for Code Exchange (security extension for OAuth2) |
 | **SSO** | Single Sign-On |
 
 ---

@@ -56,7 +56,7 @@ SParking is a comprehensive AI-powered parking management system designed for fa
 | Offline Support | Offline queue with automatic sync |
 | Multi-currency | INR, USD, EUR, GBP support |
 | Mobile App | Expo/React Native customer app with self-service parking |
-| Microsoft SSO | Enterprise Single Sign-On via Azure AD/MSAL |
+| Microsoft SSO | Enterprise Single Sign-On via Azure AD (server-side OAuth2 + PKCE) |
 | Vehicle Image Search | AI-powered vehicle search using feature indexing |
 
 ### System Architecture
@@ -446,12 +446,14 @@ MAX_SESSIONS_PER_USER=5
 ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
 # ===========================================
-# OPTIONAL - Microsoft SSO
+# OPTIONAL - Microsoft SSO (Server-side OAuth2 + PKCE)
 # ===========================================
+# Azure AD app must have redirect URI registered as "Web" type (NOT "SPA")
+# Redirect URI = your app's root URL (e.g. https://myapp.azurewebsites.net)
 
-MICROSOFT_CLIENT_ID=your-azure-ad-client-id
-MICROSOFT_CLIENT_SECRET=your-azure-ad-client-secret
-MICROSOFT_TENANT_ID=common
+NEXT_PUBLIC_AZURE_AD_CLIENT_ID=your-azure-ad-client-id
+NEXT_PUBLIC_AZURE_AD_TENANT_ID=common
+AZURE_AD_CLIENT_SECRET=your-azure-ad-client-secret
 
 # ===========================================
 # OPTIONAL - Email
@@ -795,7 +797,9 @@ Authorization: Bearer <token>
 |--------|----------|-------------|
 | POST | `/api/auth/login` | User login |
 | POST | `/api/auth/logout` | User logout |
-| POST | `/api/auth/microsoft` | Microsoft SSO callback |
+| GET | `/api/auth/microsoft/authorize` | Initiate Microsoft OAuth2 + PKCE flow |
+| GET | `/api/auth/microsoft/callback` | Microsoft OAuth2 callback (exchanges code for token) |
+| POST | `/api/auth/microsoft` | Microsoft SSO (legacy id_token exchange) |
 | GET | `/api/auth/me` | Get current user |
 
 #### Parking Lots
@@ -1325,26 +1329,60 @@ Helper functions from `@/lib/auth/org-check`:
 
 ### Microsoft SSO Integration
 
-Microsoft authentication is handled via MSAL (Microsoft Authentication Library):
+Microsoft authentication uses a **server-side OAuth2 + PKCE flow** — no client-side MSAL packages are needed.
 
-```typescript
-// src/lib/auth/microsoft.ts - handles token exchange
-// src/lib/auth/msal-config.ts - MSAL configuration (uses dynamic redirect URI)
+#### How It Works
 
-// The Microsoft login flow:
-// 1. Frontend uses @azure/msal-react to get an auth code
-// 2. Code is sent to POST /api/auth/microsoft
-// 3. Backend exchanges code for Microsoft access token
-// 4. User is created/updated in database
-// 5. JWT session is created and returned
-
-// Environment variables required:
-// MICROSOFT_CLIENT_ID - Azure AD App Registration client ID
-// MICROSOFT_CLIENT_SECRET - Azure AD App Registration secret
-// MICROSOFT_TENANT_ID - Azure AD tenant ID (or 'common')
+```
+1. User clicks "Sign in with Microsoft" on the login page
+2. Server (GET /api/auth/microsoft/authorize) generates PKCE codes,
+   stores them in HTTP-only cookies, and redirects to Microsoft
+3. User authenticates at Microsoft and selects their account
+4. Microsoft redirects back to the app root URL with ?code=&state=
+5. Root page (page.tsx) detects the params and redirects to the callback
+6. Server (GET /api/auth/microsoft/callback) exchanges the authorization
+   code for tokens using PKCE + client_secret
+7. Server verifies the id_token, creates/updates the user, creates a
+   session, sets the auth-token cookie, and redirects to /dashboard
 ```
 
-The redirect URI is dynamically set using `window.location.origin` to support multiple deployment environments without configuration changes.
+#### Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/components/auth/microsoft-login-button.tsx` | Simple `<a>` link to the authorize endpoint |
+| `src/app/api/auth/microsoft/authorize/route.ts` | Generates PKCE, redirects to Microsoft |
+| `src/app/api/auth/microsoft/callback/route.ts` | Exchanges code for tokens, creates session |
+| `src/lib/auth/microsoft.ts` | Token verification, user lookup/creation |
+| `src/lib/auth/get-base-url.ts` | Resolves public URL on Azure App Service |
+| `src/app/page.tsx` | Detects OAuth callback params, redirects to callback route |
+
+#### Azure AD App Registration Setup
+
+1. Go to **Azure Portal** > **App registrations** > register a new app
+2. Under **Authentication** > **Add platform** > choose **"Web"** (NOT "SPA")
+3. Add your app's root URL as a redirect URI (e.g. `https://myapp.azurewebsites.net`)
+4. Under **Certificates & secrets** > **New client secret** > copy the value
+5. Set these environment variables:
+
+```env
+NEXT_PUBLIC_AZURE_AD_CLIENT_ID=your-client-id
+NEXT_PUBLIC_AZURE_AD_TENANT_ID=your-tenant-id   # or 'common' for multi-tenant
+AZURE_AD_CLIENT_SECRET=your-client-secret-value
+AZURE_AD_AUTO_CREATE_USERS=true                  # auto-create on first login
+AZURE_AD_DEFAULT_ROLE=VIEWER                     # default role for new users
+```
+
+> **Important:** The redirect URI MUST be registered as **"Web"** type in Azure AD, not "SPA". SPA tokens cannot be redeemed server-side.
+
+#### Azure App Service URL Resolution
+
+On Azure App Service, the Next.js container binds to `0.0.0.0:3000` internally. `request.nextUrl.origin` returns `https://0.0.0.0:3000` which is unusable for OAuth redirect URIs. The `getPublicBaseUrl()` utility resolves the real public URL using (in priority order):
+
+1. `WEBSITE_HOSTNAME` — auto-set by Azure App Service
+2. `NEXT_PUBLIC_APP_URL` — explicit app URL from configuration
+3. `x-forwarded-host` / `x-forwarded-proto` headers
+4. `request.nextUrl.origin` — fallback (only correct on localhost)
 
 ---
 
@@ -1769,7 +1807,8 @@ const { success, remaining, reset } = await rateLimit(ip, {
 | Route | Limit |
 |-------|-------|
 | `/api/auth/login` | 5/min |
-| `/api/auth/microsoft` | 5/min |
+| `/api/auth/microsoft/authorize` | 5/min |
+| `/api/auth/microsoft/callback` | 5/min |
 | `/api/mobile/auth/login` | 5/min |
 | `/api/mobile/auth/register` | 3/min |
 | `/api/payments` | 20/min |
@@ -2310,9 +2349,10 @@ The login page validates that `redirectTo` starts with `/` and does not contain 
 - Dual-layer auth: proxy JWT check + route-level `getAuthUser()` session DB validation
 - Rate limit login attempts (5/min for login, 3/min for registration)
 - Hash passwords with bcrypt
-- Cookie `sameSite` set to `strict` (changed from `lax` in v2.1)
+- Cookie `sameSite` set to `strict` for same-origin auth, `lax` for Microsoft OAuth callback (cross-site redirect)
 - IP parsing takes first IP from `x-forwarded-for`
-- Microsoft SSO defaults to VIEWER role (changed from ADMIN in v2.1)
+- Microsoft SSO uses server-side OAuth2 + PKCE (no client-side MSAL). Defaults to VIEWER role.
+- Azure AD client secret stored server-side only (`AZURE_AD_CLIENT_SECRET`), never exposed to browser
 
 ### Sensitive Data
 
