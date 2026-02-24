@@ -11,7 +11,13 @@ import { cookies } from 'next/headers'
  * to the dashboard.
  */
 export async function GET(request: NextRequest) {
-  const baseUrl = request.nextUrl.origin
+  // Derive the public-facing base URL from forwarded headers (Azure App Service
+  // terminates TLS and forwards internally to 0.0.0.0:3000).
+  const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host')
+  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
+  const baseUrl = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}`
+    : request.nextUrl.origin
 
   try {
     const code = request.nextUrl.searchParams.get('code')

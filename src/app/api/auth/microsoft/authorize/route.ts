@@ -10,9 +10,13 @@ export async function GET(request: NextRequest) {
   const clientId = process.env.NEXT_PUBLIC_AZURE_AD_CLIENT_ID || '614f42e8-a144-4221-b2c6-d63c8da935ea'
   const tenantId = process.env.NEXT_PUBLIC_AZURE_AD_TENANT_ID || '88714d9d-6787-42a3-929c-4242bac15119'
 
-  // Derive the app's base URL from the incoming request so it always
-  // matches the URL the user is actually on (works for any environment).
-  const baseUrl = request.nextUrl.origin
+  // Derive the public-facing base URL. On Azure App Service the internal
+  // origin is 0.0.0.0:3000, so we must read the forwarded host/proto headers.
+  const forwardedHost = request.headers.get('x-forwarded-host') || request.headers.get('host')
+  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https'
+  const baseUrl = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}`
+    : request.nextUrl.origin
 
   // PKCE: generate code_verifier and code_challenge
   const codeVerifier = crypto.randomBytes(32).toString('base64url')
@@ -47,7 +51,7 @@ export async function GET(request: NextRequest) {
   // Store PKCE verifier and state in HTTP-only cookies
   const cookieOptions = {
     httpOnly: true,
-    secure: request.nextUrl.protocol === 'https:',
+    secure: forwardedProto === 'https',
     sameSite: 'lax' as const,
     maxAge: 600, // 10 minutes
     path: '/',
