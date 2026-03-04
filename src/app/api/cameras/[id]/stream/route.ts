@@ -3,6 +3,7 @@ import { spawn, ChildProcess } from 'child_process'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/auth'
 import { logger } from '@/lib/logger'
+import { decrypt } from '@/lib/crypto/encryption'
 
 // Store active FFmpeg processes
 const activeStreams = new Map<string, ChildProcess>()
@@ -39,13 +40,24 @@ export async function GET(
       return NextResponse.json({ error: 'No RTSP URL configured' }, { status: 400 })
     }
 
-    // Build RTSP URL with credentials if provided
+    // The RTSP URL may already contain credentials (e.g., rtsp://user:pass@host)
+    // Only inject stored credentials if the URL doesn't already have them
     let rtspUrl = camera.rtspUrl
     if (camera.username && camera.password) {
-      const url = new URL(camera.rtspUrl)
-      url.username = camera.username
-      url.password = camera.password
-      rtspUrl = url.toString()
+      try {
+        const decryptedUser = decrypt(camera.username)
+        const decryptedPass = decrypt(camera.password)
+        // Only inject if URL doesn't already contain credentials
+        if (!camera.rtspUrl.includes('@') || camera.rtspUrl.indexOf('@') > camera.rtspUrl.indexOf('//') + 2) {
+          const urlObj = new URL(camera.rtspUrl)
+          urlObj.username = decryptedUser
+          urlObj.password = decryptedPass
+          rtspUrl = urlObj.toString()
+        }
+      } catch {
+        // If decryption fails, use URL as-is (may already contain creds)
+        logger.warn(`Failed to decrypt credentials for camera ${id}, using URL as-is`)
+      }
     }
 
     // Create a ReadableStream for MJPEG output

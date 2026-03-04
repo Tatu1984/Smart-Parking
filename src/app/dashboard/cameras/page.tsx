@@ -51,6 +51,7 @@ import {
   Play,
   X,
   Maximize2,
+  Signal,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -267,6 +268,27 @@ export default function CamerasPage() {
       toast.error('Failed to update camera')
     } finally {
       setUpdating(false)
+    }
+  }
+
+  const handleProbeCamera = async (cameraId: string) => {
+    toast.info('Testing connection...')
+    try {
+      const res = await fetch(`/api/cameras/${cameraId}/probe`, { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        const info = data.data
+        if (info.status === 'ONLINE') {
+          toast.success(`Camera is ONLINE${info.resolution ? ` (${info.resolution}, ${info.fps}fps, ${info.codec})` : ''}`)
+        } else {
+          toast.error(`Camera is OFFLINE: ${info.message}`)
+        }
+        fetchCameras()
+      } else {
+        toast.error(data.error || 'Probe failed')
+      }
+    } catch {
+      toast.error('Failed to test connection')
     }
   }
 
@@ -584,12 +606,14 @@ export default function CamerasPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        {camera.status === 'ONLINE' && (
-                          <DropdownMenuItem onClick={() => setStreamingCamera(camera)}>
-                            <Play className="mr-2 h-4 w-4" />
-                            View Live Stream
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem onClick={() => handleProbeCamera(camera.id)}>
+                          <Signal className="mr-2 h-4 w-4" />
+                          Test Connection
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setStreamingCamera(camera)}>
+                          <Play className="mr-2 h-4 w-4" />
+                          View Live Stream
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setSelectedCamera(camera)}>
                           <Eye className="mr-2 h-4 w-4" />
                           View Details

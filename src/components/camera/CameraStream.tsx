@@ -51,13 +51,8 @@ export function CameraStream({
   const streamUrl = `/api/cameras/${cameraId}/stream`
   const snapshotUrl = `/api/cameras/${cameraId}/snapshot`
 
-  // Start stream
+  // Start stream — allow even if status is OFFLINE (user might want to test)
   const startStream = useCallback(() => {
-    if (status !== 'ONLINE') {
-      setStreamState('offline')
-      return
-    }
-
     setStreamState('loading')
     setErrorMessage('')
 
@@ -65,7 +60,7 @@ export function CameraStream({
       // Add cache-busting parameter
       imgRef.current.src = `${streamUrl}?t=${Date.now()}`
     }
-  }, [streamUrl, status])
+  }, [streamUrl])
 
   // Stop stream
   const stopStream = useCallback(() => {
@@ -121,22 +116,14 @@ export function CameraStream({
 
   // Auto-play on mount if enabled
   useEffect(() => {
-    if (autoPlay && status === 'ONLINE') {
+    if (autoPlay) {
       startStream()
     }
 
     return () => {
       stopStream()
     }
-  }, [autoPlay, status, startStream, stopStream])
-
-  // Update state when status changes
-  useEffect(() => {
-    if (status !== 'ONLINE') {
-      setStreamState('offline')
-      stopStream()
-    }
-  }, [status, stopStream])
+  }, [autoPlay, startStream, stopStream])
 
   const getStatusBadge = () => {
     switch (status) {
@@ -193,21 +180,10 @@ export function CameraStream({
             <div className="text-center">
               <Camera className="w-16 h-16 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-400 mb-4">Stream not started</p>
-              <Button onClick={startStream} disabled={status !== 'ONLINE'}>
+              <Button onClick={startStream} disabled={false}>
                 <Play className="w-4 h-4 mr-2" />
                 Start Stream
               </Button>
-            </div>
-          )}
-
-          {/* Offline State */}
-          {streamState === 'offline' && (
-            <div className="text-center">
-              <VolumeX className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-400">Camera is offline</p>
-              <p className="text-gray-500 text-sm mt-2">
-                Check camera connection and try again
-              </p>
             </div>
           )}
 
@@ -253,7 +229,7 @@ export function CameraStream({
                     size="sm"
                     variant="ghost"
                     onClick={startStream}
-                    disabled={status !== 'ONLINE'}
+                    disabled={false}
                   >
                     <Play className="w-4 h-4 text-white" />
                   </Button>
@@ -263,7 +239,7 @@ export function CameraStream({
                   size="sm"
                   variant="ghost"
                   onClick={captureSnapshot}
-                  disabled={status !== 'ONLINE'}
+                  disabled={false}
                 >
                   <Camera className="w-4 h-4 text-white" />
                 </Button>
@@ -275,7 +251,7 @@ export function CameraStream({
                     setRetryCount(0)
                     startStream()
                   }}
-                  disabled={status !== 'ONLINE'}
+                  disabled={false}
                 >
                   <RefreshCw className="w-4 h-4 text-white" />
                 </Button>

@@ -3,6 +3,7 @@ import { spawn } from 'child_process'
 import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/auth'
 import { logger } from '@/lib/logger'
+import { decrypt } from '@/lib/crypto/encryption'
 
 /**
  * Camera Snapshot API
@@ -36,13 +37,21 @@ export async function GET(
       return NextResponse.json({ error: 'No RTSP URL configured' }, { status: 400 })
     }
 
-    // Build RTSP URL with credentials if provided
+    // The RTSP URL may already contain credentials
     let rtspUrl = camera.rtspUrl
     if (camera.username && camera.password) {
-      const url = new URL(camera.rtspUrl)
-      url.username = camera.username
-      url.password = camera.password
-      rtspUrl = url.toString()
+      try {
+        const decryptedUser = decrypt(camera.username)
+        const decryptedPass = decrypt(camera.password)
+        if (!camera.rtspUrl.includes('@') || camera.rtspUrl.indexOf('@') > camera.rtspUrl.indexOf('//') + 2) {
+          const urlObj = new URL(camera.rtspUrl)
+          urlObj.username = decryptedUser
+          urlObj.password = decryptedPass
+          rtspUrl = urlObj.toString()
+        }
+      } catch {
+        logger.warn(`Failed to decrypt credentials for camera ${id}, using URL as-is`)
+      }
     }
 
     // Capture single frame using FFmpeg
