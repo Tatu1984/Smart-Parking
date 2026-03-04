@@ -107,6 +107,10 @@ export default function CamerasPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [updating, setUpdating] = useState(false)
+  const [parkingLots, setParkingLots] = useState<{ id: string; name: string }[]>([])
+  const [zones, setZones] = useState<{ id: string; name: string; code: string }[]>([])
+  const [selectedParkingLotId, setSelectedParkingLotId] = useState<string>('')
+  const [selectedZoneId, setSelectedZoneId] = useState<string>('')
 
   const fetchCameras = async () => {
     setLoading(true)
@@ -127,6 +131,43 @@ export default function CamerasPage() {
       setLoading(false)
     }
   }
+
+  // Fetch parking lots for the create form
+  const fetchParkingLots = async () => {
+    try {
+      const res = await fetch('/api/parking-lots')
+      const data = await res.json()
+      if (data.success && data.data) {
+        setParkingLots(data.data.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })))
+        if (data.data.length === 1) {
+          setSelectedParkingLotId(data.data[0].id)
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Fetch zones for selected parking lot
+  const fetchZones = async (parkingLotId: string) => {
+    try {
+      const res = await fetch(`/api/zones?parkingLotId=${parkingLotId}`)
+      const data = await res.json()
+      if (data.success && data.data) {
+        setZones(data.data.map((z: { id: string; name: string; code: string }) => ({ id: z.id, name: z.name, code: z.code })))
+      }
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    fetchParkingLots()
+  }, [])
+
+  useEffect(() => {
+    if (selectedParkingLotId) {
+      fetchZones(selectedParkingLotId)
+    } else {
+      setZones([])
+    }
+  }, [selectedParkingLotId])
 
   useEffect(() => {
     fetchCameras()
@@ -149,8 +190,8 @@ export default function CamerasPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          parkingLotId: formData.get('parkingLotId'),
-          zoneId: formData.get('zoneId') || undefined,
+          parkingLotId: selectedParkingLotId,
+          zoneId: selectedZoneId || undefined,
           name: formData.get('name'),
           rtspUrl: formData.get('rtspUrl'),
           onvifUrl: formData.get('onvifUrl') || undefined,
@@ -297,12 +338,30 @@ export default function CamerasPage() {
               <form onSubmit={handleCreateCamera}>
                 <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
                   <div className="grid gap-2">
-                    <Label htmlFor="parkingLotId">Parking Lot ID *</Label>
-                    <Input id="parkingLotId" name="parkingLotId" placeholder="Enter parking lot ID" required />
+                    <Label>Parking Lot *</Label>
+                    <Select value={selectedParkingLotId} onValueChange={setSelectedParkingLotId} required>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select parking lot" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {parkingLots.map((lot) => (
+                          <SelectItem key={lot.id} value={lot.id}>{lot.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="zoneId">Zone ID (Optional)</Label>
-                    <Input id="zoneId" name="zoneId" placeholder="Enter zone ID" />
+                    <Label>Zone (Optional)</Label>
+                    <Select value={selectedZoneId} onValueChange={setSelectedZoneId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select zone" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {zones.map((zone) => (
+                          <SelectItem key={zone.id} value={zone.id}>{zone.name} ({zone.code})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="name">Camera Name *</Label>
@@ -570,6 +629,9 @@ export default function CamerasPage() {
       {/* Live Stream Dialog */}
       <Dialog open={!!streamingCamera} onOpenChange={() => setStreamingCamera(null)}>
         <DialogContent className="max-w-4xl p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{streamingCamera?.name || 'Camera'} - Live Stream</DialogTitle>
+          </DialogHeader>
           <div className="relative">
             <Button
               variant="ghost"
