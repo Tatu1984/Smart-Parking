@@ -199,23 +199,27 @@ export function useDashboardData(parkingLotId?: string) {
 
       // Fetch occupancy data from analytics API
       try {
-        const analyticsRes = await fetch('/api/analytics?type=hourly&days=1')
-        const analyticsData = await analyticsRes.json()
-        if (analyticsData.success && analyticsData.data?.hourly) {
-          const hourlyData: OccupancyDataPoint[] = analyticsData.data.hourly.map((h: { hour: number; occupancyRate: number }) => ({
-            time: `${String(h.hour).padStart(2, '0')}:00`,
-            occupancy: Math.round(h.occupancyRate * 100),
-          }))
-          setOccupancyData(hourlyData)
+        if (parkingLotId) {
+          const analyticsRes = await fetch(`/api/analytics?type=occupancy&period=24h&parkingLotId=${parkingLotId}`)
+          const analyticsData = await analyticsRes.json()
+          if (analyticsData.success && analyticsData.data?.data) {
+            const hourlyData: OccupancyDataPoint[] = analyticsData.data.data.map((h: { timestamp?: string; hour?: number; date?: Date; entries: number; exits: number; occupancyRate?: number }) => ({
+              time: h.timestamp ? h.timestamp.split('-').pop()?.padStart(2, '0') + ':00' : `${String(h.hour ?? 0).padStart(2, '0')}:00`,
+              occupancy: h.occupancyRate ? Math.round(h.occupancyRate) : Math.max(0, h.entries - h.exits),
+            }))
+            setOccupancyData(hourlyData)
+          } else {
+            // Generate current hour estimate based on zones
+            const currentHour = new Date().getHours()
+            const baseOccupancy = statsData.occupancyRate
+            const hourlyEstimate: OccupancyDataPoint[] = Array.from({ length: 24 }, (_, i) => ({
+              time: `${String(i).padStart(2, '0')}:00`,
+              occupancy: i <= currentHour ? Math.round(baseOccupancy * (0.3 + (i / 24) * 0.7)) : 0,
+            }))
+            setOccupancyData(hourlyEstimate)
+          }
         } else {
-          // Generate current hour estimate based on zones
-          const currentHour = new Date().getHours()
-          const baseOccupancy = statsData.occupancyRate
-          const hourlyEstimate: OccupancyDataPoint[] = Array.from({ length: 24 }, (_, i) => ({
-            time: `${String(i).padStart(2, '0')}:00`,
-            occupancy: i <= currentHour ? Math.round(baseOccupancy * (0.5 + Math.random() * 0.5)) : 0,
-          }))
-          setOccupancyData(hourlyEstimate)
+          setOccupancyData([])
         }
       } catch {
         // Set empty occupancy data on error
