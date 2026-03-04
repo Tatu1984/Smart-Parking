@@ -53,7 +53,16 @@ export async function GET(request: NextRequest) {
       prisma.camera.count({ where }),
     ])
 
-    return paginatedResponse(cameras, page, limit, total)
+    // Map DB field names to UI-expected names and mask credentials
+    const mapped = cameras.map(({ lastPingAt, fps, username, password, ...cam }) => ({
+      ...cam,
+      lastSeenAt: lastPingAt,
+      frameRate: fps,
+      username: username ? '***' : null,
+      password: password ? '***' : null,
+    }))
+
+    return paginatedResponse(mapped, page, limit, total)
   } catch (error) {
     return handleApiError(error)
   }

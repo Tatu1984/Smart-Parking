@@ -142,6 +142,7 @@ export const createCameraSchema = z.object({
   coverageSlots: z.number().int().positive().default(10),
   hasIR: z.boolean().default(false),
   hasPTZ: z.boolean().default(false),
+  isActive: z.boolean().default(true),
 })
 
 export const updateCameraSchema = createCameraSchema.partial().omit({ parkingLotId: true })

@@ -57,7 +57,12 @@ export async function GET(
     // Handle credentials based on user role
     const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(user.role)
 
-    const response = { ...camera } as Record<string, unknown>
+    const { lastPingAt, fps, ...rest } = camera as Record<string, unknown> & typeof camera
+    const response: Record<string, unknown> = {
+      ...rest,
+      lastSeenAt: lastPingAt,
+      frameRate: fps,
+    }
     if (isAdmin) {
       // Decrypt credentials for admins
       response.username = camera.username ? decrypt(camera.username) : null
@@ -102,7 +107,7 @@ export async function PATCH(
 
     const body = await request.json()
 
-    // Handle status update separately (for heartbeat updates)
+    // Handle status-only update (for heartbeat updates)
     if (body.status && Object.keys(body).length === 1) {
       const camera = await prisma.camera.update({
         where: { id },
@@ -112,6 +117,26 @@ export async function PATCH(
         },
       })
       return successResponse(camera, 'Camera status updated')
+    }
+
+    // Handle isActive-only toggle
+    if ('isActive' in body && Object.keys(body).length === 1) {
+      const camera = await prisma.camera.update({
+        where: { id },
+        data: { isActive: !!body.isActive },
+        include: {
+          parkingLot: { select: { id: true, name: true } },
+          zone: { select: { id: true, name: true, code: true } },
+        },
+      })
+      const { lastPingAt: lp2, fps: f2, ...toggleRest } = camera as Record<string, unknown> & typeof camera
+      return successResponse({
+        ...toggleRest,
+        lastSeenAt: lp2,
+        frameRate: f2,
+        username: camera.username ? '***' : null,
+        password: camera.password ? '***' : null,
+      }, `Camera ${body.isActive ? 'activated' : 'deactivated'}`)
     }
 
     // Only admins can update credentials
@@ -145,9 +170,12 @@ export async function PATCH(
       },
     })
 
-    // Mask credentials in response
+    // Map field names and mask credentials in response
+    const { lastPingAt: lp, fps: f, ...camRest } = camera as Record<string, unknown> & typeof camera
     const response = {
-      ...camera,
+      ...camRest,
+      lastSeenAt: lp,
+      frameRate: f,
       username: camera.username ? '***' : null,
       password: camera.password ? '***' : null,
     }

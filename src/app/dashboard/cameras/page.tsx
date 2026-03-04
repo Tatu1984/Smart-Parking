@@ -111,6 +111,11 @@ export default function CamerasPage() {
   const [zones, setZones] = useState<{ id: string; name: string; code: string }[]>([])
   const [selectedParkingLotId, setSelectedParkingLotId] = useState<string>('')
   const [selectedZoneId, setSelectedZoneId] = useState<string>('')
+  // Controlled state for Switch components (FormData unreliable with Radix switches)
+  const [createHasIR, setCreateHasIR] = useState(false)
+  const [createHasPTZ, setCreateHasPTZ] = useState(false)
+  const [editHasIR, setEditHasIR] = useState(false)
+  const [editHasPTZ, setEditHasPTZ] = useState(false)
 
   const fetchCameras = async () => {
     setLoading(true)
@@ -203,8 +208,8 @@ export default function CamerasPage() {
           password: formData.get('password') || undefined,
           positionDescription: formData.get('positionDescription') || undefined,
           coverageSlots: parseInt(formData.get('coverageSlots') as string) || 10,
-          hasIR: formData.get('hasIR') === 'on',
-          hasPTZ: formData.get('hasPTZ') === 'on',
+          hasIR: createHasIR,
+          hasPTZ: createHasPTZ,
         }),
       })
       const data = await res.json()
@@ -212,6 +217,8 @@ export default function CamerasPage() {
         toast.success('Camera added successfully')
         setIsCreateOpen(false)
         setSelectedZoneId('')
+        setCreateHasIR(false)
+        setCreateHasPTZ(false)
         fetchCameras()
       } else {
         console.error('Camera create error:', data)
@@ -244,8 +251,8 @@ export default function CamerasPage() {
           password: formData.get('password') || undefined,
           positionDescription: formData.get('positionDescription') || undefined,
           coverageSlots: parseInt(formData.get('coverageSlots') as string) || 10,
-          hasIR: formData.get('hasIR') === 'on',
-          hasPTZ: formData.get('hasPTZ') === 'on',
+          hasIR: editHasIR,
+          hasPTZ: editHasPTZ,
         }),
       })
       const data = await res.json()
@@ -402,11 +409,11 @@ export default function CamerasPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <Label htmlFor="hasIR">Infrared (Night Vision)</Label>
-                    <Switch id="hasIR" name="hasIR" />
+                    <Switch id="hasIR" checked={createHasIR} onCheckedChange={setCreateHasIR} />
                   </div>
                   <div className="flex items-center justify-between">
                     <Label htmlFor="hasPTZ">Pan-Tilt-Zoom (PTZ)</Label>
-                    <Switch id="hasPTZ" name="hasPTZ" />
+                    <Switch id="hasPTZ" checked={createHasPTZ} onCheckedChange={setCreateHasPTZ} />
                   </div>
                 </div>
                 <DialogFooter>
@@ -587,7 +594,11 @@ export default function CamerasPage() {
                           <Eye className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setEditingCamera(camera)}>
+                        <DropdownMenuItem onClick={() => {
+                          setEditingCamera(camera)
+                          setEditHasIR(camera.hasIR)
+                          setEditHasPTZ(camera.hasPTZ)
+                        }}>
                           <Settings className="mr-2 h-4 w-4" />
                           Configure
                         </DropdownMenuItem>
@@ -812,16 +823,16 @@ export default function CamerasPage() {
                   <Label htmlFor="edit-hasIR">Infrared (Night Vision)</Label>
                   <Switch
                     id="edit-hasIR"
-                    name="hasIR"
-                    defaultChecked={editingCamera.hasIR}
+                    checked={editHasIR}
+                    onCheckedChange={setEditHasIR}
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <Label htmlFor="edit-hasPTZ">Pan-Tilt-Zoom (PTZ)</Label>
                   <Switch
                     id="edit-hasPTZ"
-                    name="hasPTZ"
-                    defaultChecked={editingCamera.hasPTZ}
+                    checked={editHasPTZ}
+                    onCheckedChange={setEditHasPTZ}
                   />
                 </div>
               </div>
