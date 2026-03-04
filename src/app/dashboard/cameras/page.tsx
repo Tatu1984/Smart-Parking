@@ -182,6 +182,10 @@ export default function CamerasPage() {
 
   const handleCreateCamera = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!selectedParkingLotId) {
+      toast.error('Please select a parking lot')
+      return
+    }
     setCreating(true)
     const formData = new FormData(e.currentTarget)
 
@@ -191,7 +195,7 @@ export default function CamerasPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           parkingLotId: selectedParkingLotId,
-          zoneId: selectedZoneId || undefined,
+          zoneId: selectedZoneId && selectedZoneId.length > 0 ? selectedZoneId : undefined,
           name: formData.get('name'),
           rtspUrl: formData.get('rtspUrl'),
           onvifUrl: formData.get('onvifUrl') || undefined,
@@ -207,11 +211,14 @@ export default function CamerasPage() {
       if (data.success) {
         toast.success('Camera added successfully')
         setIsCreateOpen(false)
+        setSelectedZoneId('')
         fetchCameras()
       } else {
+        console.error('Camera create error:', data)
         toast.error(data.error || 'Failed to add camera')
       }
     } catch (error) {
+      console.error('Camera create exception:', error)
       toast.error('Failed to add camera')
     } finally {
       setCreating(false)

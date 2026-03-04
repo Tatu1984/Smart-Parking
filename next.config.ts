@@ -53,6 +53,20 @@ const nextConfig: NextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https://*.blob.core.windows.net https://*.s3.amazonaws.com https://res.cloudinary.com https://*.tile.openstreetmap.org https://avatars.githubusercontent.com https://*.gravatar.com",
+              "font-src 'self'",
+              "connect-src 'self' https://login.microsoftonline.com https://*.sentry.io wss: ws:",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
         ],
       },
       {

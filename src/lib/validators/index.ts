@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 // Common validators
-export const idSchema = z.string().cuid()
+export const idSchema = z.string().min(1)
 
 // Organization schemas
 export const createOrganizationSchema = z.object({
@@ -22,7 +22,7 @@ export const createUserSchema = z.object({
   name: z.string().min(2).max(100),
   phone: z.string().optional(),
   role: z.enum(['SUPER_ADMIN', 'ADMIN', 'OPERATOR', 'AUDITOR', 'VIEWER']).default('OPERATOR'),
-  organizationId: z.string().cuid(),
+  organizationId: z.string().min(1),
 })
 
 // Password validation with complexity requirements
@@ -80,7 +80,7 @@ export const updateParkingLotSchema = createParkingLotSchema.partial()
 
 // Zone schemas
 export const createZoneSchema = z.object({
-  parkingLotId: z.string().cuid(),
+  parkingLotId: z.string().min(1),
   name: z.string().min(1).max(100),
   code: z.string().min(1).max(10).regex(/^[A-Z0-9-]+$/i),
   level: z.number().int().default(0),
@@ -94,7 +94,7 @@ export const updateZoneSchema = createZoneSchema.partial().omit({ parkingLotId: 
 
 // Slot schemas
 export const createSlotSchema = z.object({
-  zoneId: z.string().cuid(),
+  zoneId: z.string().min(1),
   slotNumber: z.string().min(1).max(20),
   positionX: z.number().default(0),
   positionY: z.number().default(0),
@@ -107,7 +107,7 @@ export const createSlotSchema = z.object({
     width: z.number().min(0).max(1),
     height: z.number().min(0).max(1),
   }).optional(),
-  cameraId: z.string().cuid().optional(),
+  cameraId: z.string().min(1).optional(),
   slotType: z.enum(['STANDARD', 'COMPACT', 'LARGE', 'HANDICAPPED', 'EV_CHARGING', 'MOTORCYCLE', 'VIP', 'RESERVED']).default('STANDARD'),
   vehicleType: z.enum(['CAR', 'SUV', 'MOTORCYCLE', 'BUS', 'TRUCK', 'VAN', 'BICYCLE', 'ANY']).default('CAR'),
   hasEvCharger: z.boolean().default(false),
@@ -121,7 +121,7 @@ export const updateSlotSchema = createSlotSchema.partial().omit({ zoneId: true }
 })
 
 export const bulkCreateSlotsSchema = z.object({
-  zoneId: z.string().cuid(),
+  zoneId: z.string().min(1),
   prefix: z.string().min(1).max(10),
   startNumber: z.number().int().positive(),
   count: z.number().int().positive().max(200),
@@ -131,8 +131,8 @@ export const bulkCreateSlotsSchema = z.object({
 
 // Camera schemas
 export const createCameraSchema = z.object({
-  parkingLotId: z.string().cuid(),
-  zoneId: z.string().cuid().optional(),
+  parkingLotId: z.string().min(1),
+  zoneId: z.string().min(1).optional(),
   name: z.string().min(1).max(100),
   rtspUrl: z.string().min(1, 'RTSP URL is required'),
   onvifUrl: z.string().min(1).optional(),
@@ -148,7 +148,7 @@ export const updateCameraSchema = createCameraSchema.partial().omit({ parkingLot
 
 // Token schemas
 export const createTokenSchema = z.object({
-  parkingLotId: z.string().cuid(),
+  parkingLotId: z.string().min(1),
   tokenType: z.enum(['QR_CODE', 'RFID', 'BARCODE', 'ANPR', 'MANUAL']).default('QR_CODE'),
   licensePlate: z.string().optional(),
   vehicleType: z.enum(['CAR', 'SUV', 'MOTORCYCLE', 'BUS', 'TRUCK', 'VAN', 'BICYCLE', 'ANY']).optional(),
@@ -156,14 +156,14 @@ export const createTokenSchema = z.object({
 })
 
 export const completeTokenSchema = z.object({
-  tokenId: z.string().cuid(),
+  tokenId: z.string().min(1),
   paymentMethod: z.enum(['CASH', 'CARD', 'UPI', 'WALLET', 'POSTPAID', 'FREE']).optional(),
   paymentRef: z.string().optional(),
 })
 
 // Pricing Rule schemas
 export const createPricingRuleSchema = z.object({
-  parkingLotId: z.string().cuid(),
+  parkingLotId: z.string().min(1),
   name: z.string().min(1).max(100),
   zoneTypes: z.array(z.enum(['GENERAL', 'VIP', 'EV_CHARGING', 'DISABLED', 'STAFF', 'VISITOR', 'SHORT_TERM', 'LONG_TERM', 'TWO_WHEELER', 'VALET', 'RESERVED'])),
   vehicleTypes: z.array(z.enum(['CAR', 'SUV', 'MOTORCYCLE', 'BUS', 'TRUCK', 'VAN', 'BICYCLE', 'ANY'])),
@@ -188,7 +188,7 @@ export const createPricingRuleSchema = z.object({
 
 // Gate schemas
 export const createGateSchema = z.object({
-  parkingLotId: z.string().cuid(),
+  parkingLotId: z.string().min(1),
   name: z.string().min(1).max(100),
   gateType: z.enum(['ENTRY', 'EXIT', 'BIDIRECTIONAL']),
   controllerType: z.string().optional(),
@@ -197,7 +197,7 @@ export const createGateSchema = z.object({
 
 // Allocation request schema
 export const slotAllocationSchema = z.object({
-  parkingLotId: z.string().cuid(),
+  parkingLotId: z.string().min(1),
   vehicleType: z.enum(['CAR', 'SUV', 'MOTORCYCLE', 'BUS', 'TRUCK', 'VAN', 'BICYCLE', 'ANY']).optional(),
   preferredZoneType: z.enum(['GENERAL', 'VIP', 'EV_CHARGING', 'DISABLED', 'STAFF', 'VISITOR', 'SHORT_TERM', 'LONG_TERM', 'TWO_WHEELER', 'VALET', 'RESERVED']).optional(),
   isAccessible: z.boolean().optional(),
@@ -206,7 +206,7 @@ export const slotAllocationSchema = z.object({
 
 // AI Detection event schema
 export const detectionEventSchema = z.object({
-  cameraId: z.string().cuid(),
+  cameraId: z.string().min(1),
   eventType: z.enum(['VEHICLE_DETECTED', 'VEHICLE_ENTERED_SLOT', 'VEHICLE_LEFT_SLOT', 'SLOT_OCCUPIED', 'SLOT_VACATED', 'LICENSE_PLATE_READ', 'ANOMALY_DETECTED']),
   objectType: z.string(),
   confidence: z.number().min(0).max(1),

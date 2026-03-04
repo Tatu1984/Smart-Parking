@@ -11,7 +11,7 @@ const updateImageMetadataSchema = z.object({
   vehicleType: z.string().max(50).optional(),
   vehicleColor: z.string().max(50).optional(),
   licensePlate: z.string().max(20).regex(/^[A-Z0-9\s-]*$/i, 'Invalid license plate format').optional(),
-  tokenId: z.string().cuid().optional().nullable(),
+  tokenId: z.string().min(1).optional().nullable(),
 }).strict()
 
 interface RouteParams {
