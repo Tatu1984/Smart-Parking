@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -252,12 +250,11 @@ services:
     image: bluenviron/mediamtx:1.11.3
     container_name: sparking-mediamtx
     restart: unless-stopped
-    environment:
-      # Publisher credentials — must match MEDIAMTX_PUBLISH_USER/PASS in the app.
-      - MTX_PUBLISH_USER=${MEDIAMTX_PUBLISH_USER:-sparking_pub}
-      - MTX_PUBLISH_PASS=${MEDIAMTX_PUBLISH_PASS:-change_me_publisher_secret}
     volumes:
-      # Hardened config (auth split, control API internal-only). See docs/cctv.
+      # Hardened config (auth split, control API internal-only). Publisher
+      # credentials are set literally in this file — MediaMTX does not expand
+      # ${ENV} inside the users list. Keep them in sync with the app's
+      # MEDIAMTX_PUBLISH_USER / MEDIAMTX_PUBLISH_PASS.
       - ./docker/mediamtx/mediamtx.yml:/mediamtx.yml:ro
     ports:
       # RTSP ingest, HLS (browser), WebRTC (browser). The control API :9997 is

@@ -24,11 +24,15 @@ writeTimeout: 10s
 # Authentication — the credential firewall
 ###############################################################################
 authMethod: internal
+# NOTE: MediaMTX does NOT expand ${ENV} placeholders inside this list, so the
+# publisher credentials are set literally here. They MUST match
+# MEDIAMTX_PUBLISH_USER / MEDIAMTX_PUBLISH_PASS in the app environment. Change
+# both together for a new deployment (this file is config, not a secret store —
+# rotate via your config/secret pipeline).
 authInternalUsers:
-  # Publisher (camera / backend / edge side). MUST match MEDIAMTX_PUBLISH_USER /
-  # MEDIAMTX_PUBLISH_PASS in the app environment. Never exposed to browsers.
-  - user: ${MTX_PUBLISH_USER}
-    pass: ${MTX_PUBLISH_PASS}
+  # Publisher (camera / backend / edge side). Never exposed to browsers.
+  - user: sparking_pub
+    pass: change_me_publisher_secret
     ips: []
     permissions:
       - action: publish
