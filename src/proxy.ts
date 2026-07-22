@@ -58,7 +58,7 @@ function checkEdgeRateLimit(identifier: string): { limited: boolean; remaining: 
 // Protected routes that require authentication
 const PROTECTED_ROUTES = ['/dashboard']
 const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/api/auth/login', '/api/auth/register']
-const PUBLIC_API_ROUTES = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/auth/microsoft', '/api/auth/logout', '/api/payments/webhook', '/api/docs', '/api/mobile/auth/', '/api/auth/microsoft/authorize', '/api/auth/microsoft/callback']
+const PUBLIC_API_ROUTES = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/auth/microsoft', '/api/auth/logout', '/api/payments/webhook', '/api/docs', '/api/mobile/auth/', '/api/auth/microsoft/authorize', '/api/auth/microsoft/callback', '/api/realtime/']
 
 // Development-only fallback secret (must match jwt.ts)
 const DEV_SECRET = 'dev-only-secret-key-min-32-chars-long!'
