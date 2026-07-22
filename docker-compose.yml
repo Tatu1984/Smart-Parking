@@ -54,6 +54,18 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      # --- CCTV streaming (see docs/cctv/env.md) ---
+      # Control API is internal-only (service name, never host-published).
+      MEDIAMTX_CONTROL_URL: http://mediamtx:9997
+      # Browser-reachable outputs. In production these are PUBLIC hostnames
+      # fronted by the reverse proxy, NOT the internal service name.
+      MEDIAMTX_HLS_BASE: ${MEDIAMTX_HLS_BASE:-http://localhost:8888}
+      MEDIAMTX_ENDPOINT: ${MEDIAMTX_ENDPOINT:-http://localhost:8889}
+      MEDIAMTX_PUBLISH_USER: ${MEDIAMTX_PUBLISH_USER:-sparking_pub}
+      MEDIAMTX_PUBLISH_PASS: ${MEDIAMTX_PUBLISH_PASS:-change_me_publisher_secret}
+      # Health worker: bootstrapped in-process by instrumentation when 'true'.
+      CAMERA_HEALTH_WORKER_ENABLED: ${CAMERA_HEALTH_WORKER_ENABLED:-true}
+      CAMERA_HEALTH_POLL_INTERVAL_MS: ${CAMERA_HEALTH_POLL_INTERVAL_MS:-15000}
     ports:
       - "3000:3000"
     healthcheck:
@@ -67,6 +79,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mediamtx:
+        condition: service_started
     networks:
       - sparking-network
 
@@ -239,18 +253,47 @@ services:
     container_name: sparking-mediamtx
     restart: unless-stopped
     environment:
-      - MTX_PROTOCOLS=tcp,webrtc
-      - MTX_WEBRTCADDRESS=:8889
+      # Publisher credentials — must match MEDIAMTX_PUBLISH_USER/PASS in the app.
+      - MTX_PUBLISH_USER=${MEDIAMTX_PUBLISH_USER:-sparking_pub}
+      - MTX_PUBLISH_PASS=${MEDIAMTX_PUBLISH_PASS:-change_me_publisher_secret}
+    volumes:
+      # Hardened config (auth split, control API internal-only). See docs/cctv.
+      - ./docker/mediamtx/mediamtx.yml:/mediamtx.yml:ro
     ports:
+      # RTSP ingest, HLS (browser), WebRTC (browser). The control API :9997 is
+      # deliberately NOT host-published — reachable only on sparking-network.
       - "8554:8554"
+      - "8888:8888"
       - "8889:8889"
       - "8890:8890/udp"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8889/v3/paths/list"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9997/v3/paths/list"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
+    networks:
+      - sparking-network
+
+  # Simulated H.264 camera for end-to-end CCTV verification (no physical camera).
+  # Publishes a test pattern to rtsp://mediamtx:8554/cam-sim. Enable explicitly:
+  #   docker compose --profile simulate up simulate-camera
+  # Then register a camera with rtspUrl rtsp://<publisher>@mediamtx:8554/cam-sim
+  # (or mediaMtxPath=cam-sim) and confirm HLS playback. See docs/cctv/deployment.md.
+  simulate-camera:
+    image: linuxserver/ffmpeg:latest
+    container_name: sparking-camera-sim
+    profiles: ["simulate"]
+    restart: "no"
+    entrypoint: >
+      ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=25
+      -f lavfi -i sine=frequency=1000:sample_rate=48000
+      -c:v libx264 -preset veryfast -tune zerolatency -pix_fmt yuv420p -g 50
+      -c:a aac
+      -f rtsp -rtsp_transport tcp
+      rtsp://${MEDIAMTX_PUBLISH_USER:-sparking_pub}:${MEDIAMTX_PUBLISH_PASS:-change_me_publisher_secret}@mediamtx:8554/cam-sim
+    depends_on:
+      - mediamtx
     networks:
       - sparking-network
 

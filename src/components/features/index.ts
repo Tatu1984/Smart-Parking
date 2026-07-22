@@ -13,8 +13,8 @@ export { RecentActivity } from '../dashboard/recent-activity'
 export { ZoneOccupancyCard } from '../dashboard/zone-occupancy-card'
 export { ParkingMap } from '../dashboard/parking-map'
 
-// Camera components
-export { CameraStream } from '../camera/CameraStream'
+// Camera components (LiveCameraView, exported as CameraStream for back-compat)
+export { CameraStream } from '../camera'
 
 // Signage components
 export { DirectionalDisplay } from '../signage/directional-display'

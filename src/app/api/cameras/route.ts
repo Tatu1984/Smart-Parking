@@ -5,6 +5,8 @@ import { createCameraSchema } from '@/lib/validators'
 import { getCurrentUser } from '@/lib/auth/session'
 import { getAuthUser } from '@/lib/auth/getAuthUser'
 import { encrypt } from '@/lib/crypto/encryption'
+import { registerCameraStream } from '@/lib/streaming'
+import { logger } from '@/lib/logger'
 
 // GET /api/cameras - List all cameras
 export async function GET(request: NextRequest) {
@@ -102,6 +104,27 @@ export async function POST(request: NextRequest) {
         },
       },
     })
+
+    // Register the camera's stream with the media server (best-effort: a media
+    // server outage must not fail camera creation — the health worker will pick
+    // it up once the source is reachable).
+    try {
+      await registerCameraStream({
+        id: camera.id,
+        name: camera.name,
+        rtspUrl: camera.rtspUrl,
+        username: camera.username,
+        password: camera.password,
+        mediaMtxPath: camera.mediaMtxPath,
+        parkingLotId: camera.parkingLotId,
+        zoneId: camera.zoneId,
+      })
+    } catch (streamErr) {
+      logger.warn('Camera created but stream registration failed', {
+        cameraId: camera.id,
+        error: streamErr instanceof Error ? streamErr.message : String(streamErr),
+      })
+    }
 
     // Mask credentials in response
     const response = {

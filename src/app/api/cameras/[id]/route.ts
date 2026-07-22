@@ -5,6 +5,8 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { successResponse, errorResponse, handleApiError } from '@/lib/utils/api'
 import { updateCameraSchema } from '@/lib/validators'
 import { encrypt, decrypt } from '@/lib/crypto/encryption'
+import { registerCameraStream, unregisterCameraStream } from '@/lib/streaming'
+import { logger } from '@/lib/logger'
 
 // GET /api/cameras/[id] - Get a single camera
 export async function GET(
@@ -170,6 +172,33 @@ export async function PATCH(
       },
     })
 
+    // If connection details changed, refresh the media-server registration so
+    // the stream picks up the new source/credentials/path (best-effort).
+    const connectionChanged =
+      data.rtspUrl !== undefined ||
+      data.username !== undefined ||
+      data.password !== undefined ||
+      'mediaMtxPath' in data
+    if (connectionChanged) {
+      try {
+        await registerCameraStream({
+          id: camera.id,
+          name: camera.name,
+          rtspUrl: camera.rtspUrl,
+          username: camera.username,
+          password: camera.password,
+          mediaMtxPath: camera.mediaMtxPath,
+          parkingLotId: camera.parkingLotId,
+          zoneId: camera.zoneId,
+        })
+      } catch (streamErr) {
+        logger.warn('Camera updated but stream re-registration failed', {
+          cameraId: camera.id,
+          error: streamErr instanceof Error ? streamErr.message : String(streamErr),
+        })
+      }
+    }
+
     // Map field names and mask credentials in response
     const { lastPingAt: lp, fps: f, ...camRest } = camera as Record<string, unknown> & typeof camera
     const response = {
@@ -207,7 +236,14 @@ export async function DELETE(
     // Check if camera exists
     const camera = await prisma.camera.findUnique({
       where: { id },
-      select: { id: true, parkingLot: { select: { organizationId: true } } },
+      select: {
+        id: true,
+        name: true,
+        mediaMtxPath: true,
+        parkingLotId: true,
+        zoneId: true,
+        parkingLot: { select: { organizationId: true } },
+      },
     })
 
     if (!camera) {
@@ -218,6 +254,16 @@ export async function DELETE(
     if (user.role !== 'SUPER_ADMIN' && userOrgId && camera.parkingLot.organizationId !== userOrgId) {
       return errorResponse('Forbidden', 403)
     }
+
+    // Remove the media-server registration first (best-effort; won't throw).
+    // Runs before the DB delete so the connection-log row can still be written.
+    await unregisterCameraStream({
+      id: camera.id,
+      name: camera.name,
+      mediaMtxPath: camera.mediaMtxPath,
+      parkingLotId: camera.parkingLotId,
+      zoneId: camera.zoneId,
+    })
 
     // Use transaction to ensure consistency
     await prisma.$transaction(async (tx) => {

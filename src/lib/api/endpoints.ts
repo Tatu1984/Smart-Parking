@@ -72,7 +72,10 @@ export const API_ENDPOINTS = {
     LIST: '/cameras',
     BY_ID: (id: string) => `/cameras/${id}`,
     SNAPSHOT: (id: string) => `/cameras/${id}/snapshot`,
-    STREAM: (id: string) => `/cameras/${id}/stream`,
+    // Credential-free HLS/WebRTC playback URLs (replaces the old MJPEG STREAM).
+    PLAYBACK: (id: string) => `/cameras/${id}/playback`,
+    LOGS: (id: string) => `/cameras/${id}/logs`,
+    PROBE: (id: string) => `/cameras/${id}/probe`,
     CREATE: '/cameras',
     UPDATE: (id: string) => `/cameras/${id}`,
     DELETE: (id: string) => `/cameras/${id}`,

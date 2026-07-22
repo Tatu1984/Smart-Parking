@@ -419,11 +419,24 @@ model Camera {
   pipelineId   String?       // DL Streamer pipeline ID
   modelConfig  Json?         // Model configuration
 
+  // Streaming (MediaMTX)
+  // Named path this camera occupies on the media server. Defaults to the camera
+  // id at runtime when null. Playback URLs are derived from this, credential-free.
+  mediaMtxPath String?
+
   // Status
   status       CameraStatus  @default(OFFLINE)
   lastPingAt   DateTime?
   fps          Float?
   resolution   String?       // e.g., "1920x1080"
+
+  // Streaming metrics (populated incrementally by the health worker; structured
+  // now so uptime/latency/bitrate reporting can be added without a schema change)
+  reconnectCount Int          @default(0)
+  lastOnlineAt   DateTime?
+  lastOfflineAt  DateTime?
+  avgLatencyMs   Int?
+  bitrateKbps    Int?
 
   // Features
   hasIR        Boolean       @default(false)
@@ -438,9 +451,26 @@ model Camera {
   slots      Slot[]
   detectionEvents DetectionEvent[]
   featureIndices  VehicleFeatureIndex[]
+  connectionLogs  CameraConnectionLog[]
 
   @@index([parkingLotId, status])
   @@map("cameras")
+}
+
+// Append-only log of camera streaming lifecycle events (connect, disconnect,
+// registration, errors). Written by the health worker on state transitions and
+// by camera CRUD. Powers the per-camera "connection logs" view and diagnostics.
+model CameraConnectionLog {
+  id         String   @id @default(cuid())
+  cameraId   String
+  eventType  String   // CONNECTED | DISCONNECTED | REGISTERED | UNREGISTERED | NETWORK_ERROR | ERROR
+  message    String?
+  createdAt  DateTime @default(now())
+
+  camera Camera @relation(fields: [cameraId], references: [id], onDelete: Cascade)
+
+  @@index([cameraId, createdAt])
+  @@map("camera_connection_logs")
 }
 
 enum CameraStatus {

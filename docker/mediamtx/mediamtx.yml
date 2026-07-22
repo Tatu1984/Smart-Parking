@@ -1,0 +1,95 @@
+###############################################################################
+# SParking — MediaMTX configuration
+#
+# MediaMTX ingests camera RTSP and republishes it as HLS (primary, browser
+# playback) and WebRTC (optional, low-latency). The SParking backend drives it
+# over the control API (:9997) — it never re-implements RTSP.
+#
+# SECURITY MODEL (docs/cctv/deployment.md §Security):
+#   - Publisher creds: used by the backend/edge to push streams IN. Never sent
+#     to a browser.
+#   - Reader: browsers pull HLS/WebRTC OUT. Playback URLs are credential-free.
+#   - Control API + all listeners are published ONLY on the internal Docker
+#     network (see docker-compose.yml — no host port mapping for :9997). A
+#     reverse proxy terminates and authenticates any public HLS/WebRTC exposure.
+###############################################################################
+
+logLevel: info
+logDestinations: [stdout]
+
+readTimeout: 10s
+writeTimeout: 10s
+
+###############################################################################
+# Authentication — the credential firewall
+###############################################################################
+authMethod: internal
+authInternalUsers:
+  # Publisher (camera / backend / edge side). MUST match MEDIAMTX_PUBLISH_USER /
+  # MEDIAMTX_PUBLISH_PASS in the app environment. Never exposed to browsers.
+  - user: ${MTX_PUBLISH_USER}
+    pass: ${MTX_PUBLISH_PASS}
+    ips: []
+    permissions:
+      - action: publish
+
+  # Reader (browser side). Read/playback only, no password — the playback URL is
+  # credential-free by design. Exposure to the public internet must go through
+  # the reverse proxy, which is where playback authorization is enforced
+  # (scoped/short-lived tokens are the Phase-2C hardening — see future-architecture.md).
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: read
+      - action: playback
+
+  # Admin (control API). Restricted to the internal Docker network so only the
+  # SParking backend (same compose network) can drive MediaMTX.
+  - user: any
+    pass:
+    ips: ["127.0.0.1", "::1", "172.16.0.0/12", "10.0.0.0/8", "192.168.0.0/16"]
+    permissions:
+      - action: api
+      - action: metrics
+
+###############################################################################
+# RTSP — ingest (TCP-only for firewall/NAT resilience)
+###############################################################################
+rtsp: true
+rtspTransports: [tcp]
+rtspAddress: :8554
+
+###############################################################################
+# HLS — primary browser output (low-latency)
+###############################################################################
+hls: true
+hlsAddress: :8888
+hlsVariant: lowLatency
+hlsAlwaysRemux: true
+
+###############################################################################
+# WebRTC — optional low-latency browser output
+###############################################################################
+webrtc: true
+webrtcAddress: :8889
+# ICE servers for the reader (WHEP/browser) side. On a public-IP host set
+# webrtcAdditionalHosts to the public address; behind NAT, pair with coturn.
+webrtcICEServers2: []
+
+###############################################################################
+# Control API — how the SParking backend drives MediaMTX
+###############################################################################
+api: true
+apiAddress: :9997
+
+# Protocols we don't use — keep the surface small.
+rtmp: false
+srt: false
+
+###############################################################################
+# Paths — created dynamically by the backend via the control API (pull mode:
+# source = the camera's RTSP URL). A catch-all keeps ad-hoc test paths working.
+###############################################################################
+paths:
+  all_others:

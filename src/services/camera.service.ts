@@ -11,6 +11,33 @@ export interface CameraFilters {
   status?: string
 }
 
+export interface CameraPlayback {
+  cameraId: string
+  path: string
+  status: string
+  /** Credential-free HLS manifest URL (primary playback). */
+  hlsUrl: string
+  /** Credential-free WebRTC/WHEP URL (optional low-latency). */
+  webrtcUrl: string
+  primary: 'hls'
+}
+
+export interface CameraConnectionLog {
+  id: string
+  cameraId: string
+  eventType: string
+  message: string | null
+  createdAt: string
+}
+
+export interface CameraProbeResult {
+  status: 'ONLINE' | 'OFFLINE'
+  resolution?: string
+  fps?: number
+  codec?: string
+  message: string
+}
+
 export interface CreateCameraData {
   parkingLotId: string
   zoneId?: string
@@ -73,8 +100,19 @@ export const cameraService = {
     return apiClient.get(API_ENDPOINTS.CAMERAS.SNAPSHOT(id))
   },
 
-  async getCameraStreamUrl(id: string): Promise<{ streamUrl: string; type: string }> {
-    return apiClient.get(API_ENDPOINTS.CAMERAS.STREAM(id))
+  /** Credential-free playback URLs (HLS primary, WebRTC optional). */
+  async getCameraPlayback(id: string): Promise<CameraPlayback> {
+    return apiClient.get<CameraPlayback>(API_ENDPOINTS.CAMERAS.PLAYBACK(id))
+  },
+
+  /** Camera connection log (connect/disconnect/register/error events). */
+  async getCameraLogs(id: string): Promise<CameraConnectionLog[]> {
+    return apiClient.get<CameraConnectionLog[]>(API_ENDPOINTS.CAMERAS.LOGS(id))
+  },
+
+  /** Probe RTSP reachability and refresh status/resolution/fps. */
+  async probeCamera(id: string): Promise<CameraProbeResult> {
+    return apiClient.post<CameraProbeResult>(API_ENDPOINTS.CAMERAS.PROBE(id))
   },
 
   // Gates

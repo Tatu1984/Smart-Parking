@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { getSession } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { decrypt } from '@/lib/crypto/encryption'
+import { buildCredentialedRtspUrl } from '@/lib/streaming'
 
 /**
  * Probe RTSP stream connectivity using FFprobe
@@ -35,35 +36,39 @@ export async function POST(
       return NextResponse.json({ error: 'No RTSP URL configured' }, { status: 400 })
     }
 
-    // Build RTSP URL with decrypted credentials if stored separately
-    let rtspUrl = camera.rtspUrl
-    if (camera.username && camera.password) {
-      try {
-        const decryptedUser = decrypt(camera.username)
-        const decryptedPass = decrypt(camera.password)
-        if (!camera.rtspUrl.includes('@') || camera.rtspUrl.indexOf('@') > camera.rtspUrl.indexOf('//') + 2) {
-          const urlObj = new URL(camera.rtspUrl)
-          urlObj.username = decryptedUser
-          urlObj.password = decryptedPass
-          rtspUrl = urlObj.toString()
-        }
-      } catch {
-        // URL may already contain credentials
-      }
-    }
+    // Build RTSP URL with decrypted credentials, correctly URL-encoded (shared
+    // helper — same @-in-password handling as the streaming layer).
+    const rtspUrl = buildCredentialedRtspUrl({
+      rtspUrl: camera.rtspUrl,
+      username: camera.username ? decrypt(camera.username) : null,
+      password: camera.password ? decrypt(camera.password) : null,
+    })
 
     // Probe the RTSP stream using ffprobe
     const probeResult = await probeRtspStream(rtspUrl)
 
     // Update camera status in DB
     const newStatus = probeResult.success ? 'ONLINE' : 'OFFLINE'
-    const updated = await prisma.camera.update({
+    await prisma.camera.update({
       where: { id },
       data: {
         status: newStatus,
         lastPingAt: new Date(),
+        ...(newStatus === 'ONLINE' && { lastOnlineAt: new Date() }),
+        ...(newStatus === 'OFFLINE' && { lastOfflineAt: new Date() }),
         ...(probeResult.resolution && { resolution: probeResult.resolution }),
         ...(probeResult.fps && { fps: probeResult.fps }),
+      },
+    })
+
+    // Record the probe outcome in the connection log for diagnostics.
+    await prisma.cameraConnectionLog.create({
+      data: {
+        cameraId: id,
+        eventType: probeResult.success ? 'CONNECTED' : 'NETWORK_ERROR',
+        message: probeResult.success
+          ? `probe ok: ${probeResult.resolution || 'stream'} ${probeResult.codec || ''}`.trim()
+          : `probe failed: ${probeResult.error || 'unreachable'}`,
       },
     })
 
@@ -94,6 +99,16 @@ interface ProbeResult {
   fps?: number
   codec?: string
   error?: string
+}
+
+/** Parse an FFprobe rational frame-rate string ("num/den") to a number. */
+function parseFrameRate(value: unknown): number | undefined {
+  if (typeof value !== 'string') return undefined
+  const [numStr, denStr] = value.split('/')
+  const num = Number(numStr)
+  const den = denStr === undefined ? 1 : Number(denStr)
+  if (!isFinite(num) || !isFinite(den) || den === 0) return undefined
+  return num / den
 }
 
 function probeRtspStream(rtspUrl: string): Promise<ProbeResult> {
@@ -132,16 +147,15 @@ function probeRtspStream(rtspUrl: string): Promise<ProbeResult> {
           const stream = output.streams?.[0]
 
           if (stream) {
-            const fps = stream.r_frame_rate
-              ? eval(stream.r_frame_rate) // e.g., "25/1" → 25
-              : undefined
+            // r_frame_rate is a "num/den" rational string, e.g. "25/1" → 25.
+            const fps = parseFrameRate(stream.r_frame_rate)
 
             resolve({
               success: true,
               resolution: stream.width && stream.height
                 ? `${stream.width}x${stream.height}`
                 : undefined,
-              fps: typeof fps === 'number' && isFinite(fps) ? Math.round(fps) : undefined,
+              fps: fps !== undefined ? Math.round(fps) : undefined,
               codec: stream.codec_name,
             })
           } else {

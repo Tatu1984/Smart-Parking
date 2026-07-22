@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ParkingMap } from '@/components/dashboard/parking-map'
+import { LiveCameraView } from '@/components/camera'
 import {
   Camera,
   Video,
@@ -322,11 +323,14 @@ export default function LiveViewPage() {
                 <Card key={camera.id} className="overflow-hidden">
                   <div className="aspect-video bg-slate-900 relative flex items-center justify-center">
                     {camera.status === 'ONLINE' ? (
-                      <div className="text-center text-white">
-                        <Video className="h-12 w-12 mx-auto mb-2 opacity-50 animate-pulse" />
-                        <p className="text-sm opacity-50">Live Feed</p>
-                        <p className="text-xs opacity-30 mt-1">AI Detection Active</p>
-                      </div>
+                      <LiveCameraView
+                        cameraId={camera.id}
+                        cameraName={camera.name}
+                        status="ONLINE"
+                        showControls={false}
+                        autoPlay
+                        className="w-full h-full"
+                      />
                     ) : (
                       <div className="text-center text-white">
                         <VideoOff className="h-12 w-12 mx-auto mb-2 opacity-30" />
