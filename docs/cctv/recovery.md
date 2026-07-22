@@ -11,6 +11,9 @@ How the system behaves under each failure, and the operator runbook.
 | App server restarts | In-process health worker restarts via instrumentation; paths persist in MediaMTX config or are re-registered on next `/playback`. | Automatic. |
 | Media server unreachable during CRUD | Register/unregister are best-effort: the CRUD request still succeeds; a warning is logged. | Health worker + next `/playback` reconcile once MediaMTX is back. |
 | Browser network blip | `HlsPlayer` shows buffering; hls.js recovers non-fatal errors; fatal → error state with Retry. | Automatic (hls.js) or user clicks Retry / component refetches `/playback`. |
+| **Edge**: camera/network drops at the site | Agent's ffmpeg exits; agent logs `disconnected`. Playlist stops updating → goes stale → health worker flips OFFLINE. | Agent probes + reconnects with exponential backoff; when it republishes, the playlist freshens and the worker flips ONLINE (reconnect counted). |
+| **Edge**: agent process killed | No more uploads; playlist goes stale → OFFLINE. | Restart the agent (use systemd `Restart=always` — see edge-agent.md). |
+| **Edge**: token revoked/rotated | Uploads start returning 401; stream goes stale → OFFLINE. | Re-issue the token and update the agent's `config.yaml`. |
 
 ## Runbook
 

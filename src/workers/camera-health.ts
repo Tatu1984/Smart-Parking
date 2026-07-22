@@ -11,7 +11,7 @@
 
 import prisma from '@/lib/db'
 import { logger } from '@/lib/logger'
-import { getStreamProvider, getStreamingConfig } from '@/lib/streaming'
+import { getStreamProvider, providerForCamera, getStreamingConfig } from '@/lib/streaming'
 import { CameraHealthService } from '@/lib/streaming/camera-health.service'
 
 let singleton: CameraHealthService | null = null
@@ -27,6 +27,8 @@ export function startCameraHealthWorker(): CameraHealthService {
   singleton = new CameraHealthService({
     prisma,
     provider: getStreamProvider(),
+    // Select MediaMTX vs Edge provider per camera by sourceMode.
+    providerFor: providerForCamera,
     logger,
     intervalMs: cfg.healthPollIntervalMs,
   })

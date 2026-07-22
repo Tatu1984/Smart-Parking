@@ -424,6 +424,17 @@ model Camera {
   // id at runtime when null. Playback URLs are derived from this, credential-free.
   mediaMtxPath String?
 
+  // How this camera's video reaches the server:
+  //   MEDIAMTX_PULL - server pulls RTSP into MediaMTX (Phase 1; server can reach camera)
+  //   EDGE_PUSH     - an on-site Edge Agent pushes HLS-over-HTTP to us (Phase 2; NAT/CGNAT)
+  // Defaults to MEDIAMTX_PULL so existing cameras are unchanged.
+  sourceMode   String  @default("MEDIAMTX_PULL")
+
+  // For EDGE_PUSH cameras: hash of the per-camera ingest Bearer token the Edge
+  // Agent presents when uploading segments. Plaintext is shown once at issuance
+  // and never stored. Null for pull cameras / before a token is issued.
+  ingestTokenHash String?
+
   // Status
   status       CameraStatus  @default(OFFLINE)
   lastPingAt   DateTime?
@@ -454,6 +465,7 @@ model Camera {
   connectionLogs  CameraConnectionLog[]
 
   @@index([parkingLotId, status])
+  @@index([ingestTokenHash])
   @@map("cameras")
 }
 

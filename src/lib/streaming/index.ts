@@ -42,6 +42,24 @@ export type { CameraHealthServiceDeps, HealthLogger } from './camera-health.serv
 export {
   getStreamingConfig,
   getStreamProvider,
+  getEdgeProvider,
+  providerForCamera,
   __setStreamProvider,
+  __setEdgeProvider,
 } from './config'
-export type { StreamingConfig } from './config'
+export type { StreamingConfig, SourceMode } from './config'
+
+export { EdgeProvider } from './edge-provider'
+export {
+  generateIngestToken,
+  hashIngestToken,
+  verifyIngestToken,
+} from './ingest-token'
+export {
+  ingestRoot,
+  resolveIngestPath,
+  atomicWrite,
+  removeFile,
+  readFile as readIngestFile,
+  playlistMtime,
+} from './ingest-store'

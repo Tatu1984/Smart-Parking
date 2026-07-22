@@ -23,23 +23,32 @@ The hard problem: cameras sit on private LANs the cloud cannot reach inbound
 (NAT, and especially **CGNAT**, make "cloud connects to camera" impossible for a
 large fraction of sites). The rule: **the site must reach OUT to us.**
 
+**Status: IMPLEMENTED** (`edge-agent/` + `/api/edge/ingest`, see
+[edge-agent.md](edge-agent.md)). The transport is **HLS-over-HTTP-PUT**, not
+WHIP. WHIP was the intuitive first choice, but WebRTC media can't cross NAT
+through an HTTP tunnel, and the free ngrok tier offers no TCP tunnel for
+RTSP/RTMP/SRT ingest. The design that actually works: the on-site agent's ffmpeg
+writes HLS and **uploads segments over outbound HTTP PUT** — ordinary HTTP that
+rides any HTTPS reverse proxy/tunnel, with no public IP, WebRTC, UDP, or TURN.
+
 ```mermaid
 flowchart LR
   subgraph Site["Remote site (NAT/CGNAT)"]
-    CAM["Camera (RTSP)"] --> EDGE["Edge agent\n(FFmpeg WHIP publish)"]
+    CAM["Camera (RTSP)"] --> EDGE["Edge Agent\n(ffmpeg HLS-over-HTTP-PUT)"]
   end
-  EDGE -->|WHIP outbound| MTX["MediaMTX cluster\n(public / cloud)"]
-  MTX --> B["Browsers (fan-out)"]
+  EDGE -->|"HTTPS PUT (outbound)"| INGEST["SParking ingest\n(per-camera token)"]
+  INGEST --> B["Browsers (credential-free HLS)"]
 ```
 
-- **Seam:** a new `StreamProvider` implementation (e.g. `EdgeProvider` /
-  `CloudStreamProvider`) — the backend, routes, health worker, and UI are
-  unchanged; only the provider and ingest mechanism differ.
-- **Fan-out** moves off the camera to the cluster (one camera uplink can serve
-  one stream; the cluster serves many viewers).
-- **Phase 2C hardening:** replace open reader access with **short-lived,
-  scoped playback tokens** minted by the backend, so a playback URL is not a
-  permanent key.
+- **Seam used:** the `EdgeProvider` `StreamProvider` implementation — the
+  backend, routes, health worker, and UI are unchanged; provider selection is by
+  `Camera.sourceMode` (`MEDIAMTX_PULL` vs `EDGE_PUSH`).
+- **Fan-out:** the ingest serves many browsers from the uploaded segments; the
+  camera uplink carries a single outbound stream. Object storage + CDN in front
+  of the ingest is the horizontal-scale step.
+- **Phase 2C hardening (not yet done):** replace credential-free-by-URL playback
+  with **short-lived, scoped playback tokens** minted by the backend, so a
+  playback URL is not a permanent key.
 
 ## Phase 3 — AI analytics
 

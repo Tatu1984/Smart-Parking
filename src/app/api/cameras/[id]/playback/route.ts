@@ -36,6 +36,7 @@ export async function GET(
         username: true,
         password: true,
         mediaMtxPath: true,
+        sourceMode: true,
         parkingLotId: true,
         zoneId: true,
       },
@@ -53,22 +54,27 @@ export async function GET(
     // Ensure the media-server path exists (idempotent). Best-effort: if the
     // media server is unreachable we still return the URLs — the browser player
     // will retry, and the health worker will reconcile status.
-    try {
-      await registerCameraStream({
-        id: camera.id,
-        name: camera.name,
-        rtspUrl: camera.rtspUrl,
-        username: camera.username,
-        password: camera.password,
-        mediaMtxPath: camera.mediaMtxPath,
-        parkingLotId: camera.parkingLotId,
-        zoneId: camera.zoneId,
-      })
-    } catch (streamErr) {
-      logger.warn('playback: stream (re)registration failed', {
-        cameraId: camera.id,
-        error: streamErr instanceof Error ? streamErr.message : String(streamErr),
-      })
+    // Only pull-mode cameras need a media-server registration; edge-push cameras
+    // are fed by the on-site agent, so there is nothing to register here.
+    if (camera.sourceMode !== 'EDGE_PUSH') {
+      try {
+        await registerCameraStream({
+          id: camera.id,
+          name: camera.name,
+          rtspUrl: camera.rtspUrl,
+          username: camera.username,
+          password: camera.password,
+          mediaMtxPath: camera.mediaMtxPath,
+          sourceMode: camera.sourceMode,
+          parkingLotId: camera.parkingLotId,
+          zoneId: camera.zoneId,
+        })
+      } catch (streamErr) {
+        logger.warn('playback: stream (re)registration failed', {
+          cameraId: camera.id,
+          error: streamErr instanceof Error ? streamErr.message : String(streamErr),
+        })
+      }
     }
 
     const urls = cameraPlaybackUrls(camera)

@@ -11,11 +11,11 @@
 import prisma from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { decrypt } from '@/lib/crypto/encryption'
-import { getStreamProvider } from './config'
+import { providerForCamera } from './config'
 import { streamEvents } from './events'
 import type { PlaybackUrls } from './providers'
 
-/** The MediaMTX path for a camera (its explicit path or, by default, its id). */
+/** The stream key for a camera (its explicit path or, by default, its id). */
 export function streamKeyFor(camera: { id: string; mediaMtxPath?: string | null }): string {
   return camera.mediaMtxPath || camera.id
 }
@@ -27,6 +27,7 @@ interface CameraForStream {
   username: string | null
   password: string | null
   mediaMtxPath: string | null
+  sourceMode?: string | null
   parkingLotId: string
   zoneId: string | null
 }
@@ -38,7 +39,7 @@ interface CameraForStream {
  * decides whether a provider failure should fail the whole request.
  */
 export async function registerCameraStream(camera: CameraForStream): Promise<void> {
-  const provider = getStreamProvider()
+  const provider = providerForCamera(camera)
   const key = streamKeyFor(camera)
 
   await provider.register({
@@ -69,10 +70,11 @@ export async function unregisterCameraStream(camera: {
   id: string
   name?: string
   mediaMtxPath?: string | null
+  sourceMode?: string | null
   parkingLotId?: string
   zoneId?: string | null
 }): Promise<void> {
-  const provider = getStreamProvider()
+  const provider = providerForCamera(camera)
   const key = streamKeyFor(camera)
   try {
     await provider.unregister(key)
@@ -95,9 +97,9 @@ export async function unregisterCameraStream(camera: {
   }
 }
 
-/** Resolve credential-free playback URLs for a camera. */
-export function cameraPlaybackUrls(camera: { id: string; mediaMtxPath?: string | null }): PlaybackUrls {
-  return getStreamProvider().playbackUrls(streamKeyFor(camera))
+/** Resolve credential-free playback URLs for a camera (provider by sourceMode). */
+export function cameraPlaybackUrls(camera: { id: string; mediaMtxPath?: string | null; sourceMode?: string | null }): PlaybackUrls {
+  return providerForCamera(camera).playbackUrls(streamKeyFor(camera))
 }
 
 function safeDecrypt(value: string): string {

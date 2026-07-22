@@ -47,4 +47,7 @@ next-env.d.ts
 
 /src/generated/prisma
 
+# Edge-pushed HLS segments (runtime data, never committed)
+/.edge-hls
+
 /.claude

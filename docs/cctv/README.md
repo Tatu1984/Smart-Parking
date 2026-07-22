@@ -20,6 +20,7 @@ log.
 | [api.md](api.md) | Every endpoint: method, auth, request, response, errors |
 | [env.md](env.md) | Environment variables reference |
 | [deployment.md](deployment.md) | Running the stack, MediaMTX config, the health worker, security |
+| [edge-agent.md](edge-agent.md) | Phase 2 on-site Edge Agent (cameras behind NAT/CGNAT) |
 | [recovery.md](recovery.md) | Failure modes and how the system recovers; runbook |
 | [future-architecture.md](future-architecture.md) | Phase 1–4 roadmap; provider seams for recording/AI/edge/cluster |
 
@@ -41,6 +42,15 @@ src/app/api/cameras/[id]/logs/route.ts        connection logs
 src/components/camera/HlsPlayer.tsx           hls.js player
 src/components/camera/LiveCameraView.tsx      live view (HLS default + WebRTC toggle)
 docker/mediamtx/mediamtx.yml                  hardened media-server config
+
+# Phase 2 — Edge push (cameras behind NAT/CGNAT)
+src/lib/streaming/edge-provider.ts            StreamProvider for pushed HLS (health by freshness)
+src/lib/streaming/ingest-store.ts             path-guarded + atomic HLS segment store
+src/lib/streaming/ingest-token.ts             per-camera token gen/hash/verify
+src/app/api/edge/ingest/[...path]/route.ts    authed upload + credential-free playback
+src/app/api/cameras/[id]/ingest-token/route.ts   issue/revoke a camera's ingest token
+edge-agent/                                   Go on-site agent (ffmpeg HLS-over-HTTP-PUT)
+scripts/edge-e2e.sh                           local edge validation
 ```
 
 ## Quick start (local, with the simulated camera)

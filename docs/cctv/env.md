@@ -15,6 +15,10 @@ credentials and the browser-facing bases explicitly.
 | `CAMERA_HEALTH_POLL_INTERVAL_MS` | `15000` | server | Health poll interval. |
 | `WEBRTC_ICE_SERVERS` | `turn:localhost:3478` | server | ICE/TURN for WebRTC NAT traversal (optional path). |
 | `TURN_USERNAME` / `TURN_PASSWORD` | `sparking` / `sparking_secret` | server | TURN credentials. Change in production. |
+| `EDGE_INGEST_DIR` | `./.edge-hls` | server | Where edge-pushed HLS segments are stored. Gitignored runtime data. |
+| `EDGE_INGEST_PUBLIC_BASE` | `NEXT_PUBLIC_APP_URL` or localhost | browser | Base for edge HLS playback URLs (public app host in prod). |
+| `EDGE_FRESHNESS_MS` | `20000` | server | A pushed stream is "live" if its playlist updated within this window. |
+| `INGEST_TOKEN_SECRET` | falls back to `ENCRYPTION_KEY` | server | Secret used to hash per-camera ingest tokens. |
 
 ## Notes
 

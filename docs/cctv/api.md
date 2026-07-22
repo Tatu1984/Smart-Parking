@@ -90,3 +90,31 @@ request — the health worker reconciles once the server is reachable.
 `GET/POST/PATCH/DELETE /api/metro/streams/[id]/webrtc` remains as the optional
 low-latency WebRTC/WHEP path on the same MediaMTX path. `LiveCameraView` uses it
 only when the viewer toggles WebRTC.
+
+---
+
+## Edge push (Phase 2 — cameras behind NAT/CGNAT)
+
+See [edge-agent.md](edge-agent.md) for the on-site agent.
+
+### POST `/api/cameras/[id]/ingest-token`
+Issues/rotates the per-camera ingest Bearer token and flips the camera to
+`sourceMode = EDGE_PUSH`.
+- **Auth:** ADMIN/SUPER_ADMIN · org-scoped
+- **Response 200:** `{ cameraId, streamKey, token, ingestUrl, note }` — `token` is
+  shown **once** (only its keyed hash is stored).
+
+### DELETE `/api/cameras/[id]/ingest-token`
+Revokes the token (agent can no longer push). ADMIN only, org-scoped.
+
+### PUT/POST/DELETE `/api/edge/ingest/<streamKey>/<file>`
+The Edge Agent uploads HLS here.
+- **Auth:** per-camera Bearer token (matched to the `EDGE_PUSH` camera owning the
+  stream key). No session; self-authenticating (allowlisted in the proxy).
+- **Guards:** path traversal blocked; only `.m3u8/.ts/.mp4/.m4s` allowed; writes
+  are atomic (temp + rename).
+- **Responses:** `201` write · `204` delete · `400` bad path · `401` bad token.
+
+### GET `/api/edge/ingest/<streamKey>/<file>`
+Credential-free HLS playback (what `/api/cameras/[id]/playback` returns for edge
+cameras). Playlists are `no-cache`; segments are immutable/cacheable.

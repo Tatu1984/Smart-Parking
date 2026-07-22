@@ -1,0 +1,32 @@
+# ============================================================================
+# SParking Edge Agent configuration — the ONLY file the on-site operator edits.
+# See docs/cctv/edge-agent.md.
+#
+# The agent pulls the local camera's RTSP and PUBLISHES it to SParking by
+# uploading HLS segments over outbound HTTPS (PUT). Outbound HTTP only, so it
+# works behind NAT/CGNAT with no router config, no public IP, no WebRTC/UDP/TURN.
+# ============================================================================
+
+# Which SParking camera this agent feeds (informational; from the dashboard).
+cameraId: cam-mall-2
+
+camera:
+  name: Mall Entrance 2
+  # Source RTSP URL on the LOCAL network (may embed credentials).
+  # e.g. rtsp://admin:pass@192.168.1.100:554/Streaming/Channels/101
+  rtsp: rtsp://admin:password@192.168.1.100:554/Streaming/Channels/101
+
+cloud:
+  # HLS ingest endpoint from POST /api/cameras/<id>/ingest-token (field ingestUrl),
+  # prefixed with your SParking base URL. Must end in .../index.m3u8.
+  publish: https://app.example.com/api/edge/ingest/cam-mall-2/index.m3u8
+  # The per-camera Bearer token returned ONCE by the ingest-token endpoint.
+  token: edge_REPLACE_WITH_ISSUED_TOKEN
+
+ffmpeg:
+  binary: ffmpeg
+  # auto | copy | h264   (auto: copy H.264, transcode H.265→H.264 for browsers)
+  transcode: auto
+
+log:
+  level: info   # debug | info | warn | error

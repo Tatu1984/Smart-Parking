@@ -27,7 +27,11 @@ export interface HealthLogger {
 
 export interface CameraHealthServiceDeps {
   prisma: PrismaClient
+  /** Default provider, used when providerFor is not supplied. */
   provider: StreamProvider
+  /** Optional per-camera provider selector (e.g. by sourceMode). Falls back to
+   *  `provider` when omitted. */
+  providerFor?: (camera: { sourceMode?: string | null }) => StreamProvider
   logger: HealthLogger
   /** Poll interval in ms. */
   intervalMs: number
@@ -81,6 +85,7 @@ export class CameraHealthService {
           name: true,
           status: true,
           mediaMtxPath: true,
+          sourceMode: true,
           parkingLotId: true,
           zoneId: true,
           lastOnlineAt: true,
@@ -89,9 +94,10 @@ export class CameraHealthService {
 
       for (const cam of cameras) {
         const key = cam.mediaMtxPath || cam.id
+        const activeProvider = this.deps.providerFor ? this.deps.providerFor(cam) : provider
         let ready = false
         try {
-          const health = await provider.health(key)
+          const health = await activeProvider.health(key)
           ready = health.ready
         } catch (error) {
           logger.debug('health poll: provider error', {
