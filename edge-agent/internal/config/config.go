@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -58,6 +59,34 @@ func Load(path string) (*Config, error) {
 	return &c, nil
 }
 
+// Save writes the config to path (0600 — it contains an ingest token), creating
+// parent directories as needed. Used by the GUI.
+func Save(path string, c *Config) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("create config dir: %w", err)
+	}
+	data, err := yaml.Marshal(c)
+	if err != nil {
+		return fmt.Errorf("marshal config: %w", err)
+	}
+	// 0600: the file holds a live ingest token.
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+	return nil
+}
+
+// LoadOrDefault returns the config at path, or a defaulted empty config when the
+// file does not exist yet (first GUI launch).
+func LoadOrDefault(path string) *Config {
+	if c, err := Load(path); err == nil {
+		return c
+	}
+	c := &Config{}
+	c.applyDefaults()
+	return c
+}
+
 func (c *Config) applyDefaults() {
 	if c.FFmpeg.Binary == "" {
 		c.FFmpeg.Binary = "ffmpeg"
@@ -90,6 +119,35 @@ func (c *Config) validate() error {
 		return fmt.Errorf("ffmpeg.transcode must be auto|copy|h264 (got %q)", c.FFmpeg.Transcode)
 	}
 	return nil
+}
+
+// FFprobeBinary returns the ffprobe path that pairs with the configured ffmpeg
+// binary. ffprobe always ships alongside ffmpeg, so when ffmpeg is an absolute
+// path (a bundled copy, or a custom install) we look for ffprobe in the SAME
+// directory; otherwise we fall back to resolving "ffprobe" on PATH.
+//
+// Without this, pointing ffmpeg.binary at a bundled ffmpeg would still leave
+// ffprobe unresolvable.
+func (c *Config) FFprobeBinary() string {
+	bin := c.FFmpeg.Binary
+	if bin == "" || bin == "ffmpeg" || bin == "ffmpeg.exe" {
+		return "ffprobe"
+	}
+
+	// Split on BOTH separators: a config written on Windows may be read by a
+	// build running elsewhere, and filepath.Dir only understands the host's.
+	idx := strings.LastIndexAny(bin, `/\`)
+	if idx < 0 {
+		// A bare command name (e.g. "ffmpeg7") — resolve ffprobe on PATH.
+		return "ffprobe"
+	}
+	dir, sep := bin[:idx], bin[idx:idx+1]
+
+	name := "ffprobe"
+	if strings.HasSuffix(strings.ToLower(bin), ".exe") {
+		name = "ffprobe.exe"
+	}
+	return dir + sep + name
 }
 
 // Redacted returns a URL safe for logs (credentials/token masked). The mask is

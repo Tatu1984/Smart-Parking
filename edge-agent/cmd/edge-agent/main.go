@@ -12,6 +12,7 @@ package main
 import (
 	"context"
 	"flag"
+	"io"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -28,6 +29,7 @@ var version = "dev"
 func main() {
 	cfgPath := flag.String("config", "config.yaml", "path to config.yaml")
 	showVersion := flag.Bool("version", false, "print version and exit")
+	serviceMode := flag.Bool("service", false, "run as a background service (log to the app log file)")
 	flag.Parse()
 
 	if *showVersion {
@@ -41,7 +43,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	log := newLogger(cfg.Log.Level)
+	// In service mode there is no terminal, so write logs to the shared app log
+	// file, which the GUI tails to show live status.
+	var logOut *os.File = os.Stdout
+	if *serviceMode {
+		if p, perr := config.LogPath(); perr == nil {
+			if f, ferr := os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600); ferr == nil {
+				logOut = f
+				defer f.Close()
+			}
+		}
+	}
+
+	log := newLoggerTo(logOut, cfg.Log.Level)
 	log.Info("edge-agent starting",
 		"version", version,
 		"cameraId", cfg.CameraID,
@@ -67,7 +81,7 @@ func main() {
 	log.Info("edge-agent stopped")
 }
 
-func newLogger(level string) *slog.Logger {
+func newLoggerTo(w io.Writer, level string) *slog.Logger {
 	var lvl slog.Level
 	switch level {
 	case "debug":
@@ -79,5 +93,5 @@ func newLogger(level string) *slog.Logger {
 	default:
 		lvl = slog.LevelInfo
 	}
-	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
+	return slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: lvl}))
 }

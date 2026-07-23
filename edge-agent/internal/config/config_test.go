@@ -80,3 +80,21 @@ func TestRedacted(t *testing.T) {
 	// Unparseable input must not panic.
 	_ = Redacted("://not a url")
 }
+
+func TestFFprobeBinaryPairsWithFFmpeg(t *testing.T) {
+	cases := []struct{ ffmpeg, want string }{
+		{"", "ffprobe"},                                     // default → PATH
+		{"ffmpeg", "ffprobe"},                               // PATH lookup
+		{"/opt/sparking/ffmpeg", "/opt/sparking/ffprobe"},   // bundled (unix)
+		{`C:\App\bin\ffmpeg.exe`, `C:\App\bin\ffprobe.exe`}, // bundled (windows)
+	}
+	for _, c := range cases {
+		cfg := &Config{}
+		cfg.FFmpeg.Binary = c.ffmpeg
+		got := cfg.FFprobeBinary()
+		// Normalise separators so the windows case passes on linux too.
+		if filepath.ToSlash(got) != filepath.ToSlash(c.want) {
+			t.Errorf("FFprobeBinary(%q) = %q, want %q", c.ffmpeg, got, c.want)
+		}
+	}
+}

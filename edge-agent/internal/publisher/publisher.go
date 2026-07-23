@@ -47,7 +47,7 @@ func (p *Publisher) Run(ctx context.Context) {
 		}
 
 		// 1. Probe the source.
-		probe := Probe(ctx, "ffprobe", p.cfg.Camera.RTSP, p.probeTimeout)
+		probe := Probe(ctx, p.cfg.FFprobeBinary(), p.cfg.Camera.RTSP, p.probeTimeout)
 		if !probe.Reachable {
 			p.log.Warn("source not reachable",
 				"event", "network_error", "source", src, "detail", probe.Detail)

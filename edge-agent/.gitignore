@@ -1,3 +1,6 @@
 /bin/
 config.yaml
 *.log
+friend-config.yaml
+build/**/dist/
+build/**/*.zip

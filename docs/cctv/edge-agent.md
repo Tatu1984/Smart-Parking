@@ -33,7 +33,53 @@ flowchart LR
 - **Per-camera auth**: each edge camera has its own Bearer token; the ingest maps
   token → camera → org.
 
-## Install & run (on-site)
+## Two ways to run it
+
+| | Desktop app (Windows/macOS) | Headless binary (Linux/servers) |
+|---|---|---|
+| For | A person at the site with a normal PC | An always-on mini-PC / Raspberry Pi |
+| UI | GUI control panel: settings, Start/Stop, status, logs | `config.yaml` + terminal/systemd |
+| Autostart | Checkbox in the GUI | systemd unit (see below) |
+| Build | `make windows` / `make macos` | `make build` / `make cross` |
+
+### Desktop app (recommended for a non-technical site contact)
+
+The package contains **two** binaries that work together:
+
+- **`edge-agent-gui`** — the control panel the user opens. Settings form
+  (camera RTSP, portal ingest URL, token), **Start/Stop** buttons, live status,
+  activity log, and an "start automatically" checkbox.
+- **`edge-agent`** — the background worker that actually streams. It is a
+  *separate process*: closing the control panel window does **not** stop
+  streaming; only the Stop button does.
+
+Both read the same config file, so there is no IPC to go wrong:
+
+| OS | Config + log location |
+|----|------------------------|
+| Windows | `%APPDATA%\SParking\config.yaml` · `agent.log` |
+| macOS | `~/Library/Application Support/SParking/` |
+| Linux | `~/.config/sparking/` |
+
+Autostart uses each platform's native mechanism — Startup-folder entry
+(Windows), LaunchAgent (macOS), `systemd --user` unit (Linux).
+
+**Building the packages:**
+
+```bash
+cd edge-agent
+make windows     # cross-compiles from Linux (needs mingw-w64); output: build/windows/dist/
+make macos       # MUST run on a Mac (Apple SDK); output: build/macos/dist/
+```
+
+Each `dist/` contains the binaries, an installer, and an end-user README.
+Give the site contact that folder (zipped) plus their config values.
+
+> **macOS note:** an unsigned build triggers Gatekeeper — the user must
+> right-click → Open once. For wider distribution, sign + notarize (commands are
+> printed at the end of `build-macos.sh`).
+
+### Headless (Linux)
 
 Prereqs: `ffmpeg` on the box (`apt install ffmpeg`). A small Linux mini-PC or
 Raspberry Pi is plenty.
@@ -116,6 +162,15 @@ camera, publishing to your local ingest. See the script header for prereqs.
 
 ## Troubleshooting
 
+- **Desktop app: Start does nothing / "worker binary not found"** → the GUI
+  expects `edge-agent(.exe)` next to it in the install directory. Re-run the
+  installer rather than copying just the GUI.
+- **Desktop app: status stays "Stopped"** → open the activity log at the bottom
+  of the window; it shows the worker's own error (usually ffmpeg missing or the
+  camera unreachable).
+- **Linux GUI build fails to link (`cannot find -lXxf86vm`)** → install the X11
+  dev headers: `sudo apt install libgl1-mesa-dev xorg-dev libxxf86vm-dev`.
+  (Only affects building the GUI *on Linux*; Windows/macOS builds are unaffected.)
 - **Agent logs "source not reachable"** → the box can't reach the camera's RTSP.
   Check IP/port/credentials on the *local* network.
 - **Uploads 401** → wrong/expired token, or the camera isn't `EDGE_PUSH`. Re-issue.
