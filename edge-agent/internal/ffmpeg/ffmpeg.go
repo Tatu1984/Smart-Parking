@@ -8,30 +8,9 @@
 // long-standing).
 package ffmpeg
 
-import (
-	"context"
-	"fmt"
-	"os/exec"
-	"strings"
-	"time"
-)
-
-// Version returns the ffmpeg version line (for logging / preflight).
-func Version(ctx context.Context, bin string) (string, error) {
-	if bin == "" {
-		bin = "ffmpeg"
-	}
-	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(cctx, bin, "-hide_banner", "-version").Output()
-	if err != nil {
-		return "", fmt.Errorf("run %s -version: %w", bin, err)
-	}
-	if len(out) == 0 {
-		return "unknown", nil
-	}
-	return strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0], nil
-}
+// ffmpeg version detection lives in detect.go (ffmpeg.Detect), which also
+// resolves off-PATH install locations. There is intentionally no bare-name
+// exec here.
 
 // Mode is the resolved encoding mode for the publish.
 type Mode string
