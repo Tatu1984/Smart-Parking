@@ -68,14 +68,19 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// Preflight: confirm ffmpeg is runnable.
-	if ver, err := ffmpeg.Version(ctx, cfg.FFmpeg.Binary); err != nil {
-		log.Error("cannot run ffmpeg", "binary", cfg.FFmpeg.Binary, "err", err,
-			"hint", "install ffmpeg (Debian/Ubuntu: apt install ffmpeg)")
+	// Resolve ffmpeg/ffprobe to absolute paths. A GUI-launched agent inherits a
+	// minimal PATH that omits Homebrew (macOS) etc., so resolve the real
+	// locations and pin them into the config for everything downstream.
+	av := ffmpeg.Detect(cfg.FFmpeg.Binary, cfg.FFprobeBinary())
+	cfg.FFmpeg.Binary = av.FFmpegPath
+	cfg.FFmpeg.Probe = av.FFprobePath
+	if !av.OK() {
+		log.Error("cannot run ffmpeg/ffprobe",
+			"ffmpeg", av.FFmpegPath, "ffprobe", av.FFprobePath,
+			"hint", ffmpeg.InstallHint())
 		os.Exit(1)
-	} else {
-		log.Info("ffmpeg ok", "version", ver)
 	}
+	log.Info("ffmpeg ok", "version", av.Version, "path", av.FFmpegPath)
 
 	publisher.New(cfg, log).Run(ctx) // blocks until ctx cancelled
 	log.Info("edge-agent stopped")

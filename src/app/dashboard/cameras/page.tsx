@@ -52,6 +52,10 @@ import {
   X,
   Maximize2,
   Signal,
+  Radio,
+  Copy,
+  Check,
+  KeyRound,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -71,6 +75,7 @@ interface CameraData {
   hasIR: boolean
   hasPTZ: boolean
   isActive: boolean
+  sourceMode?: string
   lastSeenAt: string | null
   username?: string
   password?: string
@@ -108,6 +113,11 @@ export default function CamerasPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [updating, setUpdating] = useState(false)
+  // Edge-push ingest token dialog
+  const [edgeCamera, setEdgeCamera] = useState<CameraData | null>(null)
+  const [edgeToken, setEdgeToken] = useState<{ token: string; streamKey: string; ingestUrl: string } | null>(null)
+  const [edgeLoading, setEdgeLoading] = useState(false)
+  const [copied, setCopied] = useState<string | null>(null)
   const [parkingLots, setParkingLots] = useState<{ id: string; name: string }[]>([])
   const [zones, setZones] = useState<{ id: string; name: string; code: string }[]>([])
   const [selectedParkingLotId, setSelectedParkingLotId] = useState<string>('')
@@ -291,6 +301,51 @@ export default function CamerasPage() {
       toast.error('Failed to test connection')
     }
   }
+
+  // Open the edge-streaming dialog for a camera (does not issue a token yet).
+  const openEdgeDialog = (camera: CameraData) => {
+    setEdgeCamera(camera)
+    setEdgeToken(null)
+    setCopied(null)
+  }
+
+  // Issue (or rotate) the ingest token — the plaintext is returned once.
+  const handleGenerateToken = async () => {
+    if (!edgeCamera) return
+    setEdgeLoading(true)
+    try {
+      const res = await fetch(`/api/cameras/${edgeCamera.id}/ingest-token`, { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        setEdgeToken({
+          token: data.data.token,
+          streamKey: data.data.streamKey,
+          ingestUrl: data.data.ingestUrl,
+        })
+        toast.success('Ingest token generated — copy it now, it won’t be shown again')
+        fetchCameras()
+      } else {
+        toast.error(data.error || 'Failed to generate token')
+      }
+    } catch {
+      toast.error('Failed to generate token')
+    } finally {
+      setEdgeLoading(false)
+    }
+  }
+
+  const copyToClipboard = async (value: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopied(field)
+      setTimeout(() => setCopied((c) => (c === field ? null : c)), 1500)
+    } catch {
+      toast.error('Could not copy to clipboard')
+    }
+  }
+
+  // The browser-facing base for the ingest URL (portal origin the agent PUTs to).
+  const portalBase = typeof window !== 'undefined' ? window.location.origin : ''
 
   const handleToggleActive = async (cameraId: string, isActive: boolean) => {
     try {
@@ -580,6 +635,12 @@ export default function CamerasPage() {
                   </div>
                   {/* Features */}
                   <div className="absolute bottom-2 left-2 flex gap-1">
+                    {camera.sourceMode === 'EDGE_PUSH' && (
+                      <Badge className="bg-blue-600 text-xs">
+                        <Radio className="mr-1 h-3 w-3" />
+                        Edge
+                      </Badge>
+                    )}
                     {camera.hasIR && (
                       <Badge variant="secondary" className="text-xs">IR</Badge>
                     )}
@@ -613,6 +674,10 @@ export default function CamerasPage() {
                         <DropdownMenuItem onClick={() => setStreamingCamera(camera)}>
                           <Play className="mr-2 h-4 w-4" />
                           View Live Stream
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openEdgeDialog(camera)}>
+                          <Radio className="mr-2 h-4 w-4" />
+                          Edge Streaming
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setSelectedCamera(camera)}>
                           <Eye className="mr-2 h-4 w-4" />
@@ -667,6 +732,73 @@ export default function CamerasPage() {
           })
         )}
       </div>
+
+      {/* Edge Streaming Dialog */}
+      <Dialog open={!!edgeCamera} onOpenChange={() => setEdgeCamera(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Radio className="h-5 w-5" />
+              Edge Streaming — {edgeCamera?.name}
+            </DialogTitle>
+            <DialogDescription>
+              For cameras on a remote network (behind NAT/CGNAT) that this server can’t reach.
+              An on-site Edge Agent pushes the video to SParking. Generate a token, then set up
+              the agent with the details below.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!edgeToken ? (
+            <div className="space-y-4">
+              {edgeCamera?.sourceMode === 'EDGE_PUSH' && (
+                <p className="text-sm text-muted-foreground">
+                  This camera is already set to Edge push. Generating a new token
+                  <span className="font-medium"> revokes the old one</span> — the agent will
+                  need the new token to keep streaming.
+                </p>
+              )}
+              <Button onClick={handleGenerateToken} disabled={edgeLoading} className="w-full">
+                <KeyRound className="mr-2 h-4 w-4" />
+                {edgeLoading ? 'Generating…' : edgeCamera?.sourceMode === 'EDGE_PUSH' ? 'Regenerate ingest token' : 'Enable edge push & generate token'}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
+                Copy the token now — it is shown <span className="font-semibold">only once</span>.
+              </div>
+
+              {/* Copyable fields the operator hands to the on-site agent */}
+              {[
+                { label: 'Ingest token', value: edgeToken.token, field: 'token' },
+                { label: 'Portal ingest URL', value: `${portalBase}${edgeToken.ingestUrl}`, field: 'url' },
+                { label: 'Stream key', value: edgeToken.streamKey, field: 'key' },
+              ].map(({ label, value, field }) => (
+                <div key={field} className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">{label}</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 overflow-x-auto rounded bg-muted px-2 py-1.5 text-xs break-all">
+                      {value}
+                    </code>
+                    <Button size="icon" variant="outline" onClick={() => copyToClipboard(value, field)}>
+                      {copied === field ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              <p className="text-xs text-muted-foreground">
+                In the Edge Agent app: paste the Portal ingest URL and Ingest token, add the
+                camera’s local RTSP URL, then Save and Start.
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEdgeCamera(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Live Stream Dialog */}
       <Dialog open={!!streamingCamera} onOpenChange={() => setStreamingCamera(null)}>

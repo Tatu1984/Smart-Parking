@@ -12,6 +12,10 @@ type Availability struct {
 	FFmpegOK  bool
 	FFprobeOK bool
 	Version   string // ffmpeg version line when available
+	// Resolved absolute paths (may differ from the input when found off-PATH,
+	// e.g. Homebrew on macOS for a Finder-launched GUI).
+	FFmpegPath  string
+	FFprobePath string
 }
 
 // OK is true only when both tools are usable.
@@ -38,7 +42,12 @@ func Detect(ffmpegBin, ffprobeBin string) Availability {
 	if ffprobeBin == "" {
 		ffprobeBin = "ffprobe"
 	}
-	var a Availability
+	// Resolve off-PATH locations (Homebrew etc.) so a Finder-launched GUI finds
+	// the same binaries the terminal does.
+	ffmpegBin = Resolve(ffmpegBin)
+	ffprobeBin = Resolve(ffprobeBin)
+
+	a := Availability{FFmpegPath: ffmpegBin, FFprobePath: ffprobeBin}
 
 	if out, err := exec.Command(ffmpegBin, "-hide_banner", "-version").Output(); err == nil {
 		a.FFmpegOK = true

@@ -38,6 +38,14 @@ export interface CameraProbeResult {
   message: string
 }
 
+export interface IngestTokenResult {
+  cameraId: string
+  streamKey: string
+  token: string
+  ingestUrl: string
+  note: string
+}
+
 export interface CreateCameraData {
   parkingLotId: string
   zoneId?: string
@@ -113,6 +121,17 @@ export const cameraService = {
   /** Probe RTSP reachability and refresh status/resolution/fps. */
   async probeCamera(id: string): Promise<CameraProbeResult> {
     return apiClient.post<CameraProbeResult>(API_ENDPOINTS.CAMERAS.PROBE(id))
+  },
+
+  /** Issue (or rotate) the edge ingest token; flips the camera to EDGE_PUSH.
+   *  The plaintext token is returned ONCE. */
+  async issueIngestToken(id: string): Promise<IngestTokenResult> {
+    return apiClient.post<IngestTokenResult>(API_ENDPOINTS.CAMERAS.INGEST_TOKEN(id))
+  },
+
+  /** Revoke the edge ingest token (agent can no longer push). */
+  async revokeIngestToken(id: string): Promise<{ cameraId: string; revoked: boolean }> {
+    return apiClient.delete(API_ENDPOINTS.CAMERAS.INGEST_TOKEN(id))
   },
 
   // Gates

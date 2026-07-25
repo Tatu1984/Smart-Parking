@@ -76,6 +76,8 @@ export const API_ENDPOINTS = {
     PLAYBACK: (id: string) => `/cameras/${id}/playback`,
     LOGS: (id: string) => `/cameras/${id}/logs`,
     PROBE: (id: string) => `/cameras/${id}/probe`,
+    // Edge-push: issue/revoke the per-camera ingest token for an on-site agent.
+    INGEST_TOKEN: (id: string) => `/cameras/${id}/ingest-token`,
     CREATE: '/cameras',
     UPDATE: (id: string) => `/cameras/${id}`,
     DELETE: (id: string) => `/cameras/${id}`,

@@ -33,6 +33,9 @@ type Config struct {
 
 	FFmpeg struct {
 		Binary string `yaml:"binary"` // default "ffmpeg"
+		// Probe is the ffprobe path; pinned at runtime after PATH resolution.
+		// Not usually set by the operator (derived from Binary when empty).
+		Probe string `yaml:"probe,omitempty"`
 		// transcode: auto | copy | h264. auto = copy H.264, transcode H.265→H.264.
 		Transcode string `yaml:"transcode"`
 	} `yaml:"ffmpeg"`
@@ -129,6 +132,10 @@ func (c *Config) validate() error {
 // Without this, pointing ffmpeg.binary at a bundled ffmpeg would still leave
 // ffprobe unresolvable.
 func (c *Config) FFprobeBinary() string {
+	// A path pinned at runtime (after PATH resolution) wins.
+	if c.FFmpeg.Probe != "" {
+		return c.FFmpeg.Probe
+	}
 	bin := c.FFmpeg.Binary
 	if bin == "" || bin == "ffmpeg" || bin == "ffmpeg.exe" {
 		return "ffprobe"
