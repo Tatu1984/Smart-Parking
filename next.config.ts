@@ -61,7 +61,11 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://*.blob.core.windows.net https://*.s3.amazonaws.com https://res.cloudinary.com https://*.tile.openstreetmap.org https://avatars.githubusercontent.com https://*.gravatar.com",
               "font-src 'self'",
-              "connect-src 'self' https://login.microsoftonline.com https://*.sentry.io wss: ws:",
+              // connect-src allows hls.js to fetch the HLS manifest + segments
+              // (from self and, for edge/tunnelled playback, any https host).
+              "connect-src 'self' https: https://login.microsoftonline.com https://*.sentry.io wss: ws:",
+              // media-src lets the <video> element play HLS segments (blob:/https).
+              "media-src 'self' blob: data: https:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

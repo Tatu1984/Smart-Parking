@@ -338,6 +338,9 @@ export async function proxy(request: NextRequest) {
         "img-src 'self' data: blob: https:",
         "font-src 'self' data:",
         "connect-src 'self' wss: https:",
+        // HLS video playback: the <video> element and hls.js load segments via
+        // blob: URLs and from the ingest host (self / public https).
+        "media-src 'self' blob: data: https:",
         "frame-ancestors 'none'",
         "base-uri 'self'",
         "form-action 'self'",
