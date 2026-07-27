@@ -58,10 +58,10 @@ function checkEdgeRateLimit(identifier: string): { limited: boolean; remaining: 
 // Protected routes that require authentication
 const PROTECTED_ROUTES = ['/dashboard']
 const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/api/auth/login', '/api/auth/register']
-// Note: /api/edge/ingest self-authenticates (per-camera Bearer token on upload;
-// credential-free HLS playback by design), so it bypasses session auth here —
-// same pattern as /api/payments/webhook and /api/realtime.
-const PUBLIC_API_ROUTES = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/auth/microsoft', '/api/auth/logout', '/api/payments/webhook', '/api/docs', '/api/mobile/auth/', '/api/auth/microsoft/authorize', '/api/auth/microsoft/callback', '/api/edge/ingest/']
+// Note: /api/edge/ingest and /api/realtime self-authenticate (edge: per-camera
+// Bearer token on upload + credential-free HLS playback; realtime: detection API
+// key), so they bypass session auth here — same pattern as /api/payments/webhook.
+const PUBLIC_API_ROUTES = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/auth/microsoft', '/api/auth/logout', '/api/payments/webhook', '/api/docs', '/api/mobile/auth/', '/api/auth/microsoft/authorize', '/api/auth/microsoft/callback', '/api/edge/ingest/', '/api/realtime/']
 
 // Development-only fallback secret (must match jwt.ts)
 const DEV_SECRET = 'dev-only-secret-key-min-32-chars-long!'

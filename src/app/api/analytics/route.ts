@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || 'overview' // overview, occupancy, revenue, traffic
 
     if (!parkingLotId) {
-      return handleApiError(new Error('parkingLotId is required'))
+      return errorResponse('parkingLotId is required', 400)
     }
 
     const now = new Date()
@@ -98,12 +98,12 @@ async function getOverviewAnalytics(parkingLotId: string, startDate: Date) {
     // Peak hours analysis
     prisma.$queryRaw`
       SELECT
-        EXTRACT(HOUR FROM entry_time) as hour,
+        EXTRACT(HOUR FROM "entryTime") as hour,
         COUNT(*) as count
       FROM tokens
-      WHERE parking_lot_id = ${parkingLotId}
-        AND entry_time >= ${startDate}
-      GROUP BY EXTRACT(HOUR FROM entry_time)
+      WHERE "parkingLotId" = ${parkingLotId}
+        AND "entryTime" >= ${startDate}
+      GROUP BY EXTRACT(HOUR FROM "entryTime")
       ORDER BY count DESC
       LIMIT 5
     `,
