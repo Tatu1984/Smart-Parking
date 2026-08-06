@@ -38,22 +38,31 @@ func main() {
 	}
 	cfg := config.LoadOrDefault(cfgPath)
 
+	// PHASE 1 BRIDGE: this GUI still edits a SINGLE camera (cfg.Cameras[0]).
+	// Phase 2 replaces this form with a multi-camera list UI. We ensure exactly
+	// one camera entry exists so the existing form binds to it and old
+	// single-camera behavior is preserved during the transition.
+	if len(cfg.Cameras) == 0 {
+		cfg.Cameras = []config.CameraConfig{{Enabled: true}}
+	}
+	cam0 := &cfg.Cameras[0]
+
 	// ---- Settings fields -------------------------------------------------
 	cameraName := widget.NewEntry()
 	cameraName.SetPlaceHolder("e.g. Main Gate Camera")
-	cameraName.SetText(cfg.Camera.Name)
+	cameraName.SetText(cam0.Name)
 
 	rtsp := widget.NewEntry()
 	rtsp.SetPlaceHolder("rtsp://user:password@192.168.1.100:554/Streaming/Channels/101")
-	rtsp.SetText(cfg.Camera.RTSP)
+	rtsp.SetText(cam0.RTSP)
 
 	publish := widget.NewEntry()
 	publish.SetPlaceHolder("https://your-portal/api/edge/ingest/<streamKey>/index.m3u8")
-	publish.SetText(cfg.Cloud.Publish)
+	publish.SetText(cam0.Publish)
 
 	token := widget.NewPasswordEntry()
 	token.SetPlaceHolder("edge_… (from the SParking dashboard)")
-	token.SetText(cfg.Cloud.Token)
+	token.SetText(cam0.Token)
 
 	transcode := widget.NewSelect([]string{"auto", "copy", "h264"}, nil)
 	if cfg.FFmpeg.Transcode == "" {
@@ -129,10 +138,11 @@ func main() {
 	}
 
 	saveConfig := func() error {
-		cfg.Camera.Name = cameraName.Text
-		cfg.Camera.RTSP = strings.TrimSpace(rtsp.Text)
-		cfg.Cloud.Publish = strings.TrimSpace(publish.Text)
-		cfg.Cloud.Token = strings.TrimSpace(token.Text)
+		cam0.Name = cameraName.Text
+		cam0.RTSP = strings.TrimSpace(rtsp.Text)
+		cam0.Publish = strings.TrimSpace(publish.Text)
+		cam0.Token = strings.TrimSpace(token.Text)
+		cam0.Enabled = true
 		cfg.FFmpeg.Transcode = transcode.Selected
 		if cfg.FFmpeg.Binary == "" {
 			cfg.FFmpeg.Binary = "ffmpeg"

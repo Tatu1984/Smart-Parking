@@ -14,6 +14,8 @@ import (
 	"flag"
 	"io"
 	"log/slog"
+	"net/http"
+	_ "net/http/pprof" // registers /debug/pprof handlers (only served when EDGE_DEBUG_ADDR is set)
 	"os"
 	"os/signal"
 	"syscall"
@@ -37,6 +39,14 @@ func main() {
 		return
 	}
 
+	// Optional diagnostics: when EDGE_DEBUG_ADDR is set (e.g. "127.0.0.1:6060"),
+	// expose net/http/pprof for live goroutine/heap inspection. Off by default,
+	// zero cost otherwise. Useful for field troubleshooting a busy multi-camera
+	// agent.
+	if addr := os.Getenv("EDGE_DEBUG_ADDR"); addr != "" {
+		go func() { _ = http.ListenAndServe(addr, nil) }()
+	}
+
 	cfg, err := config.Load(*cfgPath)
 	if err != nil {
 		os.Stderr.WriteString("config error: " + err.Error() + "\n")
@@ -58,10 +68,9 @@ func main() {
 	log := newLoggerTo(logOut, cfg.Log.Level)
 	log.Info("edge-agent starting",
 		"version", version,
-		"cameraId", cfg.CameraID,
-		"camera", cfg.Camera.Name,
-		"source", config.Redacted(cfg.Camera.RTSP),
-		"publish", config.Redacted(cfg.Cloud.Publish),
+		"schemaVersion", cfg.SchemaVersion,
+		"agentId", cfg.AgentID,
+		"cameras", len(cfg.EnabledCameras()),
 		"transcode", cfg.FFmpeg.Transcode,
 	)
 
@@ -82,7 +91,8 @@ func main() {
 	}
 	log.Info("ffmpeg ok", "version", av.Version, "path", av.FFmpegPath)
 
-	publisher.New(cfg, log).Run(ctx) // blocks until ctx cancelled
+	// One supervisor runs every enabled camera concurrently (a goroutine each).
+	publisher.NewSupervisor(cfg, log).Run(ctx) // blocks until ctx cancelled
 	log.Info("edge-agent stopped")
 }
 

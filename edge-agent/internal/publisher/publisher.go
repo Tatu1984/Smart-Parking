@@ -1,6 +1,6 @@
-// Package publisher is the supervisor loop: probe the source, launch ffmpeg to
-// publish it to the cloud, watch ffmpeg, and reconnect with backoff if it exits.
-// This is the "continuously publish / auto-reconnect" requirement.
+// Package publisher is the per-camera supervisor loop: probe the source, launch
+// ffmpeg to publish it to the cloud, watch ffmpeg, and reconnect with backoff if
+// it exits. One Publisher runs one camera; the Supervisor runs many concurrently.
 package publisher
 
 import (
@@ -14,20 +14,37 @@ import (
 	"github.com/sparking/edge-agent/internal/ffmpeg"
 )
 
+// Publisher continuously publishes ONE camera and maintains its runtime state.
 type Publisher struct {
-	cfg *config.Config
-	log *slog.Logger
+	cfg   *config.Config       // global settings (ffmpeg binary/probe, defaults)
+	cam   config.CameraConfig  // this camera's config
+	log   *slog.Logger         // logger, pre-tagged with cameraId/name
+	State *CameraState         // per-camera live state + metrics (exposed to readers)
+
+	// resolved once at construction
+	rtsp      string
+	publish   string
+	token     string
+	transcode string
 
 	probeTimeout time.Duration
 	backoffMin   time.Duration
 	backoffMax   time.Duration
-	stableAfter  time.Duration // a run lasting this long resets the backoff
+	stableAfter  time.Duration
 }
 
-func New(cfg *config.Config, log *slog.Logger) *Publisher {
+// New builds a Publisher for one camera. rtsp/publish are the effective values
+// (already resolved from template/streamKey by the caller).
+func New(cfg *config.Config, cam config.CameraConfig, rtsp, publish string, log *slog.Logger) *Publisher {
 	return &Publisher{
 		cfg:          cfg,
-		log:          log,
+		cam:          cam,
+		log:          log.With("cameraId", cam.CameraID, "camera", cam.Name),
+		State:        NewCameraState(cam.CameraID, cam.Name),
+		rtsp:         rtsp,
+		publish:      publish,
+		token:        cam.Token,
+		transcode:    cfg.EffectiveTranscode(&cam),
 		probeTimeout: 10 * time.Second,
 		backoffMin:   1 * time.Second,
 		backoffMax:   30 * time.Second,
@@ -35,23 +52,27 @@ func New(cfg *config.Config, log *slog.Logger) *Publisher {
 	}
 }
 
-// Run supervises the publish forever until ctx is cancelled.
+// Run supervises this camera's publish until ctx is cancelled.
 func (p *Publisher) Run(ctx context.Context) {
 	backoff := p.backoffMin
-	src := config.Redacted(p.cfg.Camera.RTSP)
-	dst := config.Redacted(p.cfg.Cloud.Publish)
+	src := config.Redacted(p.rtsp)
+	dst := config.Redacted(p.publish)
 
 	for {
 		if ctx.Err() != nil {
+			p.State.setStopped()
 			return
 		}
 
 		// 1. Probe the source.
-		probe := Probe(ctx, p.cfg.FFprobeBinary(), p.cfg.Camera.RTSP, p.probeTimeout)
+		p.State.setConnecting("probing source")
+		probe := Probe(ctx, p.cfg.FFprobeBinary(), p.rtsp, p.probeTimeout)
 		if !probe.Reachable {
 			p.log.Warn("source not reachable",
 				"event", "network_error", "source", src, "detail", probe.Detail)
+			p.State.setOffline(probe.Detail)
 			if p.sleep(ctx, backoff) {
+				p.State.setStopped()
 				return
 			}
 			backoff = p.next(backoff)
@@ -62,15 +83,17 @@ func (p *Publisher) Run(ctx context.Context) {
 			"codec", probe.VideoCodec, "resolution", res(probe))
 
 		// 2. Decide copy vs transcode.
-		mode, why := ffmpeg.ResolveMode(p.cfg.FFmpeg.Transcode, probe.IsH265())
+		mode, why := ffmpeg.ResolveMode(p.transcode, probe.IsH265())
 		p.log.Info("publish plan", "mode", string(mode), "reason", why, "target", dst)
 
 		// 3. Run ffmpeg (blocks until it exits).
+		p.State.setOnline(probe.VideoCodec, res(probe))
 		start := time.Now()
 		err := p.runFFmpeg(ctx, mode)
 		ran := time.Since(start)
 
 		if ctx.Err() != nil {
+			p.State.setStopped()
 			return
 		}
 
@@ -83,12 +106,13 @@ func (p *Publisher) Run(ctx context.Context) {
 				"event", "disconnected", "ran", ran.Round(time.Second).String())
 		}
 
-		// A long, stable run means the network was fine — reset backoff.
 		if ran >= p.stableAfter {
 			backoff = p.backoffMin
 		}
+		p.State.setReconnecting("ffmpeg exited; retrying")
 		p.log.Info("reconnecting", "event", "reconnect", "in", backoff.String())
 		if p.sleep(ctx, backoff) {
+			p.State.setStopped()
 			return
 		}
 		backoff = p.next(backoff)
@@ -96,7 +120,7 @@ func (p *Publisher) Run(ctx context.Context) {
 }
 
 func (p *Publisher) runFFmpeg(ctx context.Context, mode ffmpeg.Mode) error {
-	args := ffmpeg.Args(p.cfg.Camera.RTSP, p.cfg.Cloud.Publish, p.cfg.Cloud.Token, mode)
+	args := ffmpeg.Args(p.rtsp, p.publish, p.token, mode)
 	cmd := exec.CommandContext(ctx, p.cfg.FFmpeg.Binary, args...)
 
 	stderr, _ := cmd.StderrPipe()
@@ -108,6 +132,8 @@ func (p *Publisher) runFFmpeg(ctx context.Context, mode ffmpeg.Mode) error {
 	go func() {
 		sc := bufio.NewScanner(stderr)
 		for sc.Scan() {
+			// Any ffmpeg output means it's alive and working — refresh lastSeen.
+			p.State.touch()
 			p.log.Debug("ffmpeg", "line", sc.Text())
 		}
 	}()

@@ -58,10 +58,14 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	path := filepath.Join(tmp, "nested", "config.yaml")
 
 	in := &Config{}
-	in.Camera.Name = "Gate Cam"
-	in.Camera.RTSP = "rtsp://user:p@ss@10.0.0.5:554/s"
-	in.Cloud.Publish = "https://app.example.com/api/edge/ingest/k/index.m3u8"
-	in.Cloud.Token = "edge_secret"
+	in.Cameras = []CameraConfig{{
+		CameraID: "cam-001",
+		Name:     "Gate Cam",
+		RTSP:     "rtsp://user:p@ss@10.0.0.5:554/s",
+		Publish:  "https://app.example.com/api/edge/ingest/k/index.m3u8",
+		Token:    "edge_secret",
+		Enabled:  true,
+	}}
 	in.FFmpeg.Transcode = "auto"
 
 	if err := Save(path, in); err != nil {
@@ -81,8 +85,14 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if out.Camera.RTSP != in.Camera.RTSP || out.Cloud.Token != in.Cloud.Token {
+	if len(out.Cameras) != 1 ||
+		out.Cameras[0].RTSP != in.Cameras[0].RTSP ||
+		out.Cameras[0].Token != in.Cameras[0].Token {
 		t.Errorf("round-trip mismatch: %+v", out)
+	}
+	// Save must stamp the current schema version.
+	if out.SchemaVersion != CurrentSchemaVersion {
+		t.Errorf("schemaVersion = %d, want %d", out.SchemaVersion, CurrentSchemaVersion)
 	}
 }
 
