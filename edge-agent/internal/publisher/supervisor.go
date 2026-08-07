@@ -5,65 +5,304 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/sparking/edge-agent/internal/audit"
 	"github.com/sparking/edge-agent/internal/config"
 )
 
-// Supervisor runs one Publisher per enabled camera, concurrently and
-// independently: each camera has its own goroutine, ffmpeg process, backoff, and
-// runtime state. One camera failing or reconnecting never affects the others.
-type Supervisor struct {
-	cfg        *config.Config
-	log        *slog.Logger
-	publishers []*Publisher
+// managed wraps one camera's publisher with its OWN cancel func and a done
+// channel, so it can be started/stopped independently of every other camera.
+type managed struct {
+	pub    *Publisher
+	cancel context.CancelFunc // nil when not running
+	done   chan struct{}      // closed when the publisher goroutine exits
 }
 
-// NewSupervisor builds a Publisher for each ENABLED camera, resolving each
-// camera's effective RTSP and publish URL up front. Cameras that fail to resolve
-// are recorded in FAILED state and skipped (they never block healthy ones).
-func NewSupervisor(cfg *config.Config, log *slog.Logger) *Supervisor {
-	s := &Supervisor{cfg: cfg, log: log}
-	for _, cam := range cfg.EnabledCameras() {
+// running reports whether this camera has a live (or still winding-down)
+// publisher goroutine. It stays true from start until the goroutine's `done`
+// channel actually closes — NOT merely until cancel is called — so a start that
+// races a stop can never launch a SECOND goroutine on the same Publisher while
+// the first is still exiting (which corrupted state and stranded the old
+// goroutine's context, causing a hang). See StopCamera.
+func (m *managed) running() bool {
+	if m.done == nil {
+		return false
+	}
+	select {
+	case <-m.done:
+		return false // goroutine has fully exited
+	default:
+		return true // still running or winding down
+	}
+}
+
+// Supervisor owns all cameras' publishers and controls their lifecycle at
+// runtime: a camera can be started or stopped individually WITHOUT disturbing
+// the others (each has its own context derived from the root). It is the single
+// source of truth for runtime state; readers get snapshots via States().
+//
+// Concurrency: `mu` guards the map and each managed entry's cancel/done. The
+// root context (set in Run) bounds every camera; StopAll/root-cancel stop all.
+type Supervisor struct {
+	cfg   *config.Config
+	log   *slog.Logger
+	audit *auditRecorder
+	bus   *eventBus
+
+	mu   sync.Mutex
+	root context.Context // set when Run starts; parent for per-camera contexts
+	cams map[string]*managed
+	order []string // stable iteration order (config order)
+}
+
+// auditRecorder is the small subset of audit.Logger the supervisor uses; kept as
+// an interface so tests can pass nil/no-op.
+type auditRecorder struct{ l *audit.Logger }
+
+func (a *auditRecorder) camera(action audit.Action, id, name string) {
+	if a != nil && a.l != nil {
+		a.l.Camera(action, id, name)
+	}
+}
+
+// NewSupervisor builds a managed publisher for each camera in the config
+// (enabled and disabled alike — disabled ones simply aren't started). Cameras
+// whose config can't be resolved are recorded FAILED and never started.
+func NewSupervisor(cfg *config.Config, log *slog.Logger, aud *audit.Logger) *Supervisor {
+	s := &Supervisor{
+		cfg:   cfg,
+		log:   log,
+		audit: &auditRecorder{l: aud},
+		bus:   newEventBus(),
+		cams:  make(map[string]*managed),
+	}
+	for _, cam := range cfg.Cameras {
+		id := cam.CameraID
+		if id == "" {
+			// Guard: every camera needs a stable key. Fall back to name+index.
+			id = cam.Name
+		}
 		rtsp, rerr := cfg.EffectiveRTSP(&cam)
 		pub, perr := cfg.EffectivePublish(&cam)
 		p := New(cfg, cam, rtsp, pub, log)
+		// Attach group + capabilities to runtime state.
+		p.State.SetMeta(cam.Group, Capabilities{
+			SupportsPTZ:       cam.Capabilities.SupportsPTZ,
+			SupportsAudio:     cam.Capabilities.SupportsAudio,
+			SupportsRecording: cam.Capabilities.SupportsRecording,
+			SupportsAI:        cam.Capabilities.SupportsAI,
+		})
+		// Bridge state transitions → event bus (non-blocking).
+		cid, cname := id, cam.Name
+		p.State.SetTransitionHook(func(_, to Status, detail string) {
+			if et := eventFromStatus(to); et != "" {
+				s.bus.publish(Event{Type: et, CameraID: cid, Name: cname, At: nowFn(), Detail: detail})
+			}
+		})
 		if rerr != nil {
 			p.State.setFailed("rtsp: " + rerr.Error())
-			log.Error("camera config invalid; skipping", "cameraId", cam.CameraID, "err", rerr)
+			log.Error("camera config invalid; will not start", "cameraId", id, "err", rerr)
 		} else if perr != nil {
 			p.State.setFailed("publish: " + perr.Error())
-			log.Error("camera config invalid; skipping", "cameraId", cam.CameraID, "err", perr)
+			log.Error("camera config invalid; will not start", "cameraId", id, "err", perr)
 		}
-		s.publishers = append(s.publishers, p)
+		s.cams[id] = &managed{pub: p}
+		s.order = append(s.order, id)
 	}
 	return s
 }
 
-// Run starts every valid camera's publisher and blocks until ctx is cancelled
-// and all goroutines have exited.
+// Run sets the root context and starts every ENABLED, valid camera, then blocks
+// until ctx is cancelled and all publishers have exited.
+//
+// Runtime state is RECONSTRUCTED from config here (Enabled flag) — the agent
+// persists configuration only, never transient runtime state. A disabled camera
+// stays stopped; an enabled one starts from CONNECTING.
 func (s *Supervisor) Run(ctx context.Context) {
-	s.log.Info("supervisor starting", "cameras", len(s.publishers))
-	var wg sync.WaitGroup
-	for _, p := range s.publishers {
-		// A FAILED-at-construction camera has nothing to run; leave its state.
-		if p.State.Snapshot().Status == StatusFailed {
-			continue
+	s.log.Info("supervisor starting", "cameras", len(s.cams))
+
+	// Hold the lock across setting root + starting the enabled cameras, so the
+	// managed entries' cancel/done writes are synchronized against concurrent
+	// readers (IsRunning/States/StopCamera).
+	s.mu.Lock()
+	s.root = ctx
+	for _, cam := range s.cfg.EnabledCameras() {
+		id := cam.CameraID
+		if id == "" {
+			id = cam.Name
 		}
-		wg.Add(1)
-		go func(pub *Publisher) {
-			defer wg.Done()
-			pub.Run(ctx) // its own probe/ffmpeg/backoff loop
-		}(p)
+		s.startLocked(id, false) // startup start (not an operator action → no audit)
 	}
-	wg.Wait()
+	s.mu.Unlock()
+
+	<-ctx.Done() // root cancelled (app quitting)
+	s.stopAllInternal(true)
 	s.log.Info("supervisor stopped")
 }
 
-// States returns a snapshot of every camera's runtime state (for the GUI / a
-// future status endpoint). Safe to call concurrently while Run is active.
+// StartCamera starts one camera if it is not already running. Idempotent.
+func (s *Supervisor) StartCamera(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.startLocked(id, true)
+}
+
+// startLocked must be called with s.mu held. `operator` gates audit logging so
+// startup-time starts aren't logged as operator actions.
+func (s *Supervisor) startLocked(id string, operator bool) {
+	m, ok := s.cams[id]
+	if !ok {
+		s.log.Warn("start: unknown camera", "cameraId", id)
+		return
+	}
+	if m.running() {
+		return // idempotent
+	}
+	if m.pub.State.Snapshot().Status == StatusFailed {
+		s.log.Warn("start: camera is FAILED (fix config)", "cameraId", id)
+		return
+	}
+	if s.root == nil {
+		s.log.Warn("start: supervisor not running yet", "cameraId", id)
+		return
+	}
+	cctx, cancel := context.WithCancel(s.root)
+	done := make(chan struct{})
+	m.cancel = cancel
+	m.done = done
+	go func(p *Publisher) {
+		defer close(done)
+		p.Run(cctx) // its own probe/ffmpeg/backoff loop
+	}(m.pub)
+
+	if operator {
+		s.audit.camera(audit.CameraStarted, m.pub.State.CameraID, m.pub.State.Name)
+		s.bus.publish(Event{Type: EventCameraStarted, CameraID: m.pub.State.CameraID, Name: m.pub.State.Name, At: nowFn()})
+	}
+}
+
+// StopCamera stops one camera if running, leaving all others untouched.
+// Idempotent. Blocks until that camera's publisher goroutine has exited and its
+// ffmpeg child is gone (no orphaned processes).
+func (s *Supervisor) StopCamera(id string) {
+	s.mu.Lock()
+	m, ok := s.cams[id]
+	if !ok || !m.running() {
+		s.mu.Unlock()
+		return // unknown or already stopped — idempotent
+	}
+	cancel, done := m.cancel, m.done
+	// Cancel THIS run now. Leave m.cancel/m.done in place so running() keeps
+	// reporting true (winding down) until the goroutine actually closes `done` —
+	// that's what stops a racing StartCamera from launching a second goroutine on
+	// the same Publisher. Every concurrent stopper captures the SAME cancel+done,
+	// so it is always safe to call cancel() (idempotent) and then wait on the
+	// closed-channel broadcast; nobody can strand the goroutine by niling cancel.
+	id2, name := m.pub.State.CameraID, m.pub.State.Name
+	s.mu.Unlock()
+
+	cancel() // signal only THIS camera's context (idempotent across stoppers)
+	<-done   // wait for its goroutine (and thus ctx-bound ffmpeg) to exit
+
+	// Clear the slot, but ONLY if it still points at the run we just drained — a
+	// StartCamera after full exit may have installed a fresh goroutine (new
+	// m.cancel/m.done) which we must not disturb.
+	s.mu.Lock()
+	if m.done == done {
+		m.cancel = nil
+		m.done = nil
+	}
+	s.mu.Unlock()
+
+	s.audit.camera(audit.CameraStopped, id2, name)
+	s.bus.publish(Event{Type: EventCameraStopped, CameraID: id2, Name: name, At: nowFn()})
+}
+
+// StartAll starts every enabled, valid, not-yet-running camera.
+func (s *Supervisor) StartAll() {
+	s.mu.Lock()
+	for _, id := range s.order {
+		// Only auto-start cameras marked enabled in config.
+		if s.isEnabled(id) {
+			s.startLocked(id, true)
+		}
+	}
+	s.mu.Unlock()
+}
+
+// StopAll stops every running camera (operator action).
+func (s *Supervisor) StopAll() { s.stopAllInternal(false) }
+
+func (s *Supervisor) stopAllInternal(shutdown bool) {
+	// Collect running ids under lock, then stop each (StopCamera re-locks).
+	s.mu.Lock()
+	ids := make([]string, 0, len(s.order))
+	for _, id := range s.order {
+		if m := s.cams[id]; m != nil && m.running() {
+			ids = append(ids, id)
+		}
+	}
+	s.mu.Unlock()
+	for _, id := range ids {
+		s.StopCamera(id)
+	}
+	if !shutdown && s.audit != nil {
+		s.audit.l.Record(audit.StoppedAll, "count", len(ids))
+	}
+}
+
+func (s *Supervisor) isEnabled(id string) bool {
+	for _, cam := range s.cfg.Cameras {
+		cid := cam.CameraID
+		if cid == "" {
+			cid = cam.Name
+		}
+		if cid == id {
+			return cam.Enabled
+		}
+	}
+	return false
+}
+
+// States returns a snapshot of every camera's runtime state, in config order.
+// Safe to call concurrently while Run is active.
 func (s *Supervisor) States() []StateSnapshot {
-	out := make([]StateSnapshot, 0, len(s.publishers))
-	for _, p := range s.publishers {
-		out = append(out, p.State.Snapshot())
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]StateSnapshot, 0, len(s.order))
+	for _, id := range s.order {
+		if m := s.cams[id]; m != nil {
+			out = append(out, m.pub.State.Snapshot())
+		}
 	}
 	return out
+}
+
+// Histories returns each camera's bounded diagnostic history, keyed by camera
+// ID, in stable display order. Used by the diagnostics endpoint (?history=true).
+func (s *Supervisor) Histories() map[string]HistorySnapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make(map[string]HistorySnapshot, len(s.order))
+	for _, id := range s.order {
+		if m := s.cams[id]; m != nil {
+			out[id] = m.pub.State.History()
+		}
+	}
+	return out
+}
+
+// Events subscribes to runtime events. Returns a receive-only channel and an
+// unsubscribe func. The channel is buffered; if a subscriber falls behind, the
+// oldest events are dropped rather than blocking the engine (delivery never
+// stalls streaming). Part of the STABLE runtime API — see runtime-api.md.
+func (s *Supervisor) Events(bufSize int) (<-chan Event, func()) {
+	return s.bus.subscribe(bufSize)
+}
+
+// IsRunning reports whether a camera's publisher goroutine is active.
+func (s *Supervisor) IsRunning(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	m := s.cams[id]
+	return m != nil && m.running()
 }

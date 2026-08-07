@@ -129,6 +129,58 @@ camera:
 For deployments beyond one machine's CPU/uplink, run **multiple agents** — each
 is fully independent (the architecture already supports it).
 
+## Runtime control (Phase 2a)
+
+The supervisor is **runtime-mutable**: cameras can be started/stopped
+individually without disturbing the others.
+
+- Each camera has its **own** `context.CancelFunc` derived from the root
+  context. `StopCamera(id)` cancels *only that* context; the publisher's `Run`
+  returns cleanly and its ffmpeg child (launched via `exec.CommandContext`) is
+  terminated and reaped before `StopCamera` returns. **No orphaned processes.**
+- Control API: `StartCamera(id)` · `StopCamera(id)` · `StartAll()` · `StopAll()`
+  · `IsRunning(id)` · `States()`. All are mutex-guarded and **idempotent**
+  (double start/stop and unknown ids are safe no-ops).
+- The supervisor is the **single source of truth for runtime state**; the GUI
+  (Phase 2b) only *reads* `States()` snapshots and issues commands — it never
+  owns runtime state.
+
+```mermaid
+sequenceDiagram
+  participant GUI
+  participant Sup as Supervisor
+  participant Pub as Publisher(cam-3)
+  participant FF as ffmpeg(cam-3)
+  GUI->>Sup: StopCamera("cam-3")
+  Sup->>Sup: lock; take cam-3 cancel/done; unlock
+  Sup->>Pub: cancel(cam-3 ctx)   %% only cam-3
+  Pub->>FF: ctx cancel → SIGKILL
+  FF-->>Pub: exits
+  Pub-->>Sup: done channel closed (process reaped)
+  Sup-->>GUI: returns (cam-1, cam-2 untouched)
+```
+
+### Restart behavior (state persistence policy)
+
+**Configuration is the only persisted state. Runtime state is reconstructed on
+startup and never persisted.**
+
+- On start, the supervisor starts every camera with `enabled: true` (→
+  CONNECTING); disabled cameras stay stopped.
+- To make a camera stay stopped across restarts, **disable it** (set
+  `enabled: false`). A camera merely *stopped* at runtime (still `enabled: true`)
+  will start again on the next launch — a single, unambiguous source of intent
+  (`enabled`), with no hidden/stale runtime state to recover after a crash.
+
+### Audit log
+
+Operator/lifecycle actions are recorded to an append-only **`audit.log`**
+(separate from the operational log), one structured line each:
+`camera.added/edited/deleted`, `camera.started/stopped`, `cameras.started_all/
+stopped_all`, `config.imported/exported/saved/restored`, `template.changed` —
+tagged with `cameraId` where applicable. For troubleshooting and operational
+review.
+
 ## Diagnostics
 
 Set `EDGE_DEBUG_ADDR=127.0.0.1:6060` to expose `net/http/pprof`

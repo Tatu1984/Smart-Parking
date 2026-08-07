@@ -68,30 +68,57 @@ imports. Versioned independently of the agent config.
 
 ```json
 {
-  "version": "1.0",
-  "generatedAt": "2026-08-06T16:30:00Z",
-  "agentId": "parking-lot-01",
+  "version": "2.0",
+  "generatedAt": "2026-08-07T16:30:00Z",
+  "agentVersion": "1.4.0",
+  "hostname": "site-pc-01",
+  "platform": "windows/amd64",
+  "cameraCount": 30,
+  "configChecksum": "a1b2c3d4e5f60718",
   "portalBaseUrl": "https://portal.example.com",
+  "rtspTemplate": "rtsp://u:p@10.0.0.5:554/cam?channel={channel}&subtype={subtype}",
+  "groups": ["Entrance", "Basement"],
   "cameras": [
     {
       "cameraId": "cam-001",
       "name": "Entrance Gate",
+      "group": "Entrance",
       "streamKey": "cms00tvbm...",
       "token": "edge_...",
       "rtsp": "rtsp://user:pass@host:554/...",
       "channel": 1,
       "subtype": 0,
-      "enabled": true
+      "enabled": true,
+      "capabilities": { "supportsPtz": true }
     }
   ]
 }
 ```
+
+**Metadata** (added in v2.0) aids support/debugging: `agentVersion`, `hostname`,
+`platform`, `cameraCount`, and a `configChecksum` (stable hash of the camera set).
 
 - `streamKey` is **authoritative** — the portal owns it (it's the camera's
   `mediaMtxPath`), so the agent never guesses the ingest path.
 - Each entry may carry a full `rtsp` **or** `channel`/`subtype` (used with the
   agent's `rtspTemplate`).
 - The file contains live **tokens** — distribute it privately.
+
+### Import conflict rules (deterministic)
+
+Import is **all-or-nothing per validation, never partially applied**:
+
+| Situation | Result |
+|-----------|--------|
+| Duplicate `cameraId` within the file | whole import rejected |
+| Duplicate ingest target within the file | whole import rejected |
+| Missing required field (id/token/source/target) | that row skipped + reported |
+| (Merge mode) `cameraId` already present | that row skipped + reported |
+| Duplicate RTSP across cameras | allowed + warned (shared NVR is valid) |
+| `version` newer major than the agent | refused with an update message |
+
+Import offers **Merge** (add new by `cameraId`) or **Replace** (swap the whole
+list).
 
 ---
 

@@ -201,3 +201,94 @@ func TestFFprobeBinaryPairsWithFFmpeg(t *testing.T) {
 		}
 	}
 }
+
+func TestGroupAndCapabilitiesParse(t *testing.T) {
+	p := writeTemp(t, `
+schemaVersion: 1
+groups: [Entrance, Basement]
+cameras:
+  - cameraId: cam-a
+    name: Gate
+    group: Entrance
+    rtsp: rtsp://h/a
+    publish: https://app/api/edge/ingest/a/index.m3u8
+    token: edge_a
+    enabled: true
+    capabilities:
+      supportsPtz: true
+      supportsAi: true
+`)
+	c, err := Load(p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(c.Groups) != 2 || c.Groups[0] != "Entrance" {
+		t.Errorf("groups not parsed: %v", c.Groups)
+	}
+	cam := c.Cameras[0]
+	if cam.Group != "Entrance" {
+		t.Errorf("camera group = %q", cam.Group)
+	}
+	if !cam.Capabilities.SupportsPTZ || !cam.Capabilities.SupportsAI {
+		t.Errorf("capabilities not parsed: %+v", cam.Capabilities)
+	}
+	if cam.Capabilities.SupportsAudio {
+		t.Error("supportsAudio should default false")
+	}
+}
+
+// A config WITHOUT group/capabilities still loads (back-compat).
+func TestNoGroupNoCapabilitiesBackCompat(t *testing.T) {
+	p := writeTemp(t, `
+schemaVersion: 1
+cameras:
+  - {cameraId: c, rtsp: "rtsp://h/s", publish: "https://a/x/index.m3u8", token: t, enabled: true}
+`)
+	c, err := Load(p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if c.Cameras[0].Group != "" {
+		t.Error("group should default empty")
+	}
+}
+
+func TestWatchdogAndBackoffDefaultsAndClamp(t *testing.T) {
+	// Defaults when unset.
+	p := writeTemp(t, `
+schemaVersion: 1
+cameras:
+  - {cameraId: c, rtsp: "rtsp://h/s", publish: "https://a/x/index.m3u8", token: t, enabled: true}
+`)
+	c, _ := Load(p)
+	if c.Watchdog.StallSeconds != 30 || c.BackoffMaxSeconds != 30 {
+		t.Errorf("defaults wrong: stall=%d backoff=%d", c.Watchdog.StallSeconds, c.BackoffMaxSeconds)
+	}
+	if c.Log.MaxSizeMB != 5 || c.Log.MaxBackups != 3 {
+		t.Errorf("log defaults wrong: %d x %d", c.Log.MaxSizeMB, c.Log.MaxBackups)
+	}
+
+	// Clamp below min.
+	p2 := writeTemp(t, `
+schemaVersion: 1
+watchdog: {stallSeconds: 5}
+cameras:
+  - {cameraId: c, rtsp: "rtsp://h/s", publish: "https://a/x/index.m3u8", token: t, enabled: true}
+`)
+	c2, _ := Load(p2)
+	if c2.Watchdog.StallSeconds != 15 {
+		t.Errorf("stall should clamp to 15, got %d", c2.Watchdog.StallSeconds)
+	}
+
+	// Clamp above max.
+	p3 := writeTemp(t, `
+schemaVersion: 1
+watchdog: {stallSeconds: 999}
+cameras:
+  - {cameraId: c, rtsp: "rtsp://h/s", publish: "https://a/x/index.m3u8", token: t, enabled: true}
+`)
+	c3, _ := Load(p3)
+	if c3.Watchdog.StallSeconds != 120 {
+		t.Errorf("stall should clamp to 120, got %d", c3.Watchdog.StallSeconds)
+	}
+}

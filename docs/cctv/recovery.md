@@ -2,6 +2,10 @@
 
 How the system behaves under each failure, and the operator runbook.
 
+> **Edge Agent operators:** for the site-side runbook — self-heal behaviors,
+> `/health` and `/diagnostics`, the support bundle, and restart/power-loss
+> recovery — see [operations.md](operations.md).
+
 ## Automatic recovery
 
 | Failure | Behavior | Recovery |

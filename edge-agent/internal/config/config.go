@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -19,6 +20,17 @@ import (
 // CurrentSchemaVersion is the schema this build writes and understands.
 // Bump the MAJOR when a change is not backward-compatible.
 const CurrentSchemaVersion = 1
+
+// CameraCapabilities declares OPTIONAL features a camera supports. These are
+// hints provided by config/portal (not auto-detected in v1) so future features
+// — PTZ control, audio, recording, AI pipelines — can be represented and gated
+// without changing the core data model. All default false.
+type CameraCapabilities struct {
+	SupportsPTZ       bool `yaml:"supportsPtz,omitempty"`
+	SupportsAudio     bool `yaml:"supportsAudio,omitempty"`
+	SupportsRecording bool `yaml:"supportsRecording,omitempty"`
+	SupportsAI        bool `yaml:"supportsAi,omitempty"`
+}
 
 // CameraConfig is one camera the agent publishes. Each is independent: its own
 // source, ingest target, token, and (optionally) transcode override.
@@ -30,6 +42,13 @@ type CameraConfig struct {
 
 	// Name is the human-facing label (shown in the GUI/logs). Renamable.
 	Name string `yaml:"name"`
+
+	// Group is an optional logical grouping (e.g. "Entrance", "Basement") for
+	// future Start/Stop/filter/AI/recording per group. Empty = ungrouped.
+	Group string `yaml:"group,omitempty"`
+
+	// Capabilities are optional feature hints (PTZ/audio/recording/AI).
+	Capabilities CameraCapabilities `yaml:"capabilities,omitempty"`
 
 	// Source: either a full RTSP URL, OR channel/subtype used with the global
 	// RTSP template (rtspTemplate) for NVR-style cameras. RTSP wins if set.
@@ -67,6 +86,10 @@ type Config struct {
 	//   rtsp://user:pass@192.168.1.185:554/cam/realmonitor?channel={channel}&subtype={subtype}
 	RTSPTemplate string `yaml:"rtspTemplate,omitempty"`
 
+	// Groups is an optional list of group names (for the GUI/filtering). Cameras
+	// reference a group by name; a group need not be pre-declared here.
+	Groups []string `yaml:"groups,omitempty"`
+
 	Cameras []CameraConfig `yaml:"cameras"`
 
 	FFmpeg struct {
@@ -76,8 +99,19 @@ type Config struct {
 	} `yaml:"ffmpeg"`
 
 	Log struct {
-		Level string `yaml:"level"` // debug | info | warn | error
+		Level      string `yaml:"level"`                // debug | info | warn | error
+		MaxSizeMB  int    `yaml:"maxSizeMB,omitempty"`  // rotate when a log exceeds this (default 5)
+		MaxBackups int    `yaml:"maxBackups,omitempty"` // rotated files to keep (default 3)
 	} `yaml:"log"`
+
+	// Watchdog restarts a camera whose ffmpeg is alive but produced no output
+	// within StallSeconds. Default 30, clamped to [15,120].
+	Watchdog struct {
+		StallSeconds int `yaml:"stallSeconds,omitempty"`
+	} `yaml:"watchdog"`
+
+	// BackoffMaxSeconds caps the per-camera reconnect backoff (default 30).
+	BackoffMaxSeconds int `yaml:"backoffMaxSeconds,omitempty"`
 
 	// ---- Legacy single-camera fields (schema v0) ----
 	// Retained ONLY so an old config still parses; migrate() folds them into
@@ -165,11 +199,93 @@ func Save(path string, c *Config) error {
 	if err != nil {
 		return fmt.Errorf("marshal config: %w", err)
 	}
+	// ATOMIC + DURABLE: write to a temp file, fsync it, rename over the target,
+	// then fsync the directory. A crash or power loss never leaves a half-written
+	// or zero-length config.yaml (which would break the worker on next start).
+	//   - fsync(tmp) before rename → the data blocks are on disk before we commit.
+	//   - fsync(dir) after rename → the rename itself is durable.
+	// On ANY failure (notably ENOSPC — disk full) the temp file is removed and the
+	// EXISTING config is left byte-for-byte intact.
 	// 0600: the file holds live ingest tokens.
-	if err := os.WriteFile(path, data, 0o600); err != nil {
+	tmp := path + ".tmp"
+	if err := writeFileSync(tmp, data, 0o600); err != nil {
+		_ = os.Remove(tmp) // never leave a partial temp behind (disk-full etc.)
 		return fmt.Errorf("write config: %w", err)
 	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("commit config: %w", err)
+	}
+	// Best-effort dir fsync so the rename survives power loss. Not fatal if it
+	// fails (some filesystems don't support it); the rename already succeeded.
+	_ = fsyncDir(filepath.Dir(path))
 	return nil
+}
+
+// writeFileSync writes data to path and fsyncs it before returning. Unlike
+// os.WriteFile it guarantees the bytes are flushed to disk on success, and it
+// surfaces a disk-full (ENOSPC) error from EITHER the write OR the fsync — some
+// filesystems defer the ENOSPC to fsync/close, so checking only Write can miss
+// a full disk and report a false success.
+func writeFileSync(path string, data []byte, perm os.FileMode) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil { // ENOSPC often shows up HERE, not at Write
+		f.Close()
+		return err
+	}
+	return f.Close()
+}
+
+// fsyncDir fsyncs a directory so a rename/create inside it is durable.
+func fsyncDir(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	return d.Sync()
+}
+
+// ValidateBytes is a DRY-RUN: parse + validate a candidate config WITHOUT
+// touching the live file. Returns the parsed config on success, or a clear
+// error. The GUI/CLI calls this before applying a change so a bad edit can never
+// take down a running fleet.
+func ValidateBytes(data []byte) (*Config, error) {
+	var c Config
+	if err := yaml.Unmarshal(data, &c); err != nil {
+		return nil, fmt.Errorf("parse config: %w", err)
+	}
+	if err := c.migrate(); err != nil {
+		return nil, err
+	}
+	c.applyDefaults()
+	if err := c.validate(); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// SaveValidated marshals + validates the config (dry-run) BEFORE the atomic
+// write, so an invalid config is never committed.
+func SaveValidated(path string, c *Config) error {
+	c.SchemaVersion = CurrentSchemaVersion
+	c.LegacyCamera = nil
+	c.LegacyCloud = nil
+	data, err := yaml.Marshal(c)
+	if err != nil {
+		return fmt.Errorf("marshal config: %w", err)
+	}
+	if _, err := ValidateBytes(data); err != nil {
+		return fmt.Errorf("refusing to save invalid config: %w", err)
+	}
+	return Save(path, c)
 }
 
 // LoadOrDefault returns the config at path, or a defaulted empty config when the
@@ -196,6 +312,35 @@ func (c *Config) applyDefaults() {
 	if c.Log.Level == "" {
 		c.Log.Level = "info"
 	}
+	if c.Log.MaxSizeMB <= 0 {
+		c.Log.MaxSizeMB = 5
+	}
+	if c.Log.MaxBackups <= 0 {
+		c.Log.MaxBackups = 3
+	}
+	// Stall window: default 30s, clamp to [15,120].
+	if c.Watchdog.StallSeconds == 0 {
+		c.Watchdog.StallSeconds = 30
+	}
+	if c.Watchdog.StallSeconds < 15 {
+		c.Watchdog.StallSeconds = 15
+	}
+	if c.Watchdog.StallSeconds > 120 {
+		c.Watchdog.StallSeconds = 120
+	}
+	if c.BackoffMaxSeconds <= 0 {
+		c.BackoffMaxSeconds = 30
+	}
+}
+
+// StallWindow returns the configured stall watchdog window.
+func (c *Config) StallWindow() time.Duration {
+	return time.Duration(c.Watchdog.StallSeconds) * time.Second
+}
+
+// BackoffMax returns the configured max reconnect backoff.
+func (c *Config) BackoffMax() time.Duration {
+	return time.Duration(c.BackoffMaxSeconds) * time.Second
 }
 
 func (c *Config) validate() error {
@@ -209,6 +354,11 @@ func (c *Config) validate() error {
 			continue
 		}
 		label := cam.label(i)
+
+		// A token is required to authenticate to the ingest endpoint.
+		if strings.TrimSpace(cam.Token) == "" {
+			return fmt.Errorf("camera %q: token is required", label)
+		}
 
 		// Resolve the effective RTSP + publish so validation matches runtime.
 		rtsp, err := c.EffectiveRTSP(cam)

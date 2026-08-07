@@ -11,18 +11,26 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	_ "net/http/pprof" // registers /debug/pprof handlers (only served when EDGE_DEBUG_ADDR is set)
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
+	"time"
 
+	"github.com/sparking/edge-agent/internal/audit"
 	"github.com/sparking/edge-agent/internal/config"
+	"github.com/sparking/edge-agent/internal/control"
+	"github.com/sparking/edge-agent/internal/diagbundle"
 	"github.com/sparking/edge-agent/internal/ffmpeg"
 	"github.com/sparking/edge-agent/internal/publisher"
+	"github.com/sparking/edge-agent/internal/rotatelog"
 )
 
 // version is set at build time via -ldflags "-X main.version=...".
@@ -54,13 +62,13 @@ func main() {
 	}
 
 	// In service mode there is no terminal, so write logs to the shared app log
-	// file, which the GUI tails to show live status.
-	var logOut *os.File = os.Stdout
+	// file (rotated by size), which the GUI tails to show live status.
+	var logOut io.Writer = os.Stdout
 	if *serviceMode {
 		if p, perr := config.LogPath(); perr == nil {
-			if f, ferr := os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600); ferr == nil {
-				logOut = f
-				defer f.Close()
+			if rw, ferr := rotatelog.New(p, cfg.Log.MaxSizeMB, cfg.Log.MaxBackups); ferr == nil {
+				logOut = rw
+				defer rw.Close()
 			}
 		}
 	}
@@ -91,9 +99,113 @@ func main() {
 	}
 	log.Info("ffmpeg ok", "version", av.Version, "path", av.FFmpegPath)
 
+	// Audit log: structured, append-only, size-rotated. Separate from the
+	// operational log. Best-effort (no-op if the path fails).
+	auditFile, _ := config.AuditPath()
+	var aud *audit.Logger
+	var auditCloser io.Closer
+	if arw, aerr := rotatelog.New(auditFile, cfg.Log.MaxSizeMB, cfg.Log.MaxBackups); aerr == nil {
+		aud, auditCloser = audit.OpenRotating(arw)
+	} else {
+		aud, auditCloser = audit.Open(auditFile)
+	}
+	defer auditCloser.Close()
+
 	// One supervisor runs every enabled camera concurrently (a goroutine each).
-	publisher.NewSupervisor(cfg, log).Run(ctx) // blocks until ctx cancelled
+	// Runtime state is reconstructed from config (Enabled) — config is the only
+	// persisted state; transient runtime state is never persisted.
+	sup := publisher.NewSupervisor(cfg, log, aud)
+
+	// Local control API (127.0.0.1 + per-run token) so the GUI — a SEPARATE
+	// process — can drive per-camera start/stop and read live state/events, and
+	// so operators can hit /health, /version, /diagnostics.
+	// Best-effort: streaming does not depend on it.
+	host, _ := os.Hostname()
+	meta := &control.Meta{
+		AgentVersion:  version,
+		SchemaVersion: config.CurrentSchemaVersion,
+		FFmpegPath:    av.FFmpegPath,
+		FFmpegVersion: av.Version,
+		OS:            runtime.GOOS,
+		Arch:          runtime.GOARCH,
+		Hostname:      host,
+		StartedAt:     time.Now(),
+	}
+	stopControl := startControlAPI(sup, log, meta, cfg)
+	defer stopControl()
+
+	sup.Run(ctx) // blocks until ctx cancelled
 	log.Info("edge-agent stopped")
+}
+
+// startControlAPI binds the local control server, publishes its endpoint file
+// (0600) for the GUI, and serves in the background. Returns a cleanup func that
+// stops the server and removes the endpoint file. Best-effort — failure to start
+// it never affects streaming (returns a no-op cleanup).
+func startControlAPI(sup *publisher.Supervisor, log *slog.Logger, meta *control.Meta, cfg *config.Config) func() {
+	noop := func() {}
+	epPath, err := config.ControlEndpointPath()
+	if err != nil {
+		log.Warn("control API: no endpoint path", "err", err)
+		return noop
+	}
+	token := control.NewToken()
+	srv, err := control.NewServerWithMeta(sup, token, 0, meta) // OS-assigned port on 127.0.0.1
+	if err != nil {
+		log.Warn("control API: bind failed", "err", err)
+		return noop
+	}
+	srv.SetBundleFunc(bundleBuilder(sup, meta, cfg))
+	if err := control.WriteEndpoint(epPath, control.Endpoint{Addr: srv.Addr(), Token: token}); err != nil {
+		log.Warn("control API: could not publish endpoint", "err", err)
+	}
+	log.Info("control API listening", "addr", srv.Addr())
+	go func() { _ = srv.Serve() }()
+	return func() {
+		_ = srv.Close()
+		control.RemoveEndpoint(epPath)
+	}
+}
+
+// bundleBuilder returns a closure that writes a support diagnostics zip. It
+// redacts the config (secrets stripped) and never includes tokens/stream keys.
+func bundleBuilder(sup *publisher.Supervisor, meta *control.Meta, cfg *config.Config) func(io.Writer) error {
+	return func(w io.Writer) error {
+		logPath, _ := config.LogPath()
+		auditPath, _ := config.AuditPath()
+
+		redacted, _ := cfg.RedactedYAML()
+
+		// Diagnostics snapshot: current camera states (state carries no secrets).
+		diagJSON, _ := json.Marshal(map[string]any{
+			"generatedAt": time.Now().UTC().Format(time.RFC3339),
+			"cameras":     sup.States(),
+		})
+
+		sysInfo := fmt.Sprintf(
+			"agent: %s\nschemaVersion: %d\nos: %s\narch: %s\nhostname: %s\nffmpeg: %s (%s)\nuptimeSeconds: %d\ngoVersion: %s\nnumGoroutine: %d\n",
+			meta.AgentVersion, meta.SchemaVersion, meta.OS, meta.Arch, meta.Hostname,
+			meta.FFmpegVersion, meta.FFmpegPath,
+			int64(time.Since(meta.StartedAt).Seconds()),
+			runtime.Version(), runtime.NumGoroutine(),
+		)
+
+		return diagbundle.Build(w, diagbundle.Inputs{
+			Manifest: diagbundle.Manifest{
+				AgentVersion:  meta.AgentVersion,
+				SchemaVersion: meta.SchemaVersion,
+				GeneratedAt:   time.Now().UTC().Format(time.RFC3339),
+				OS:            meta.OS,
+				Arch:          meta.Arch,
+				Hostname:      meta.Hostname,
+			},
+			RedactedConfigYAML: redacted,
+			DiagnosticsJSON:    diagJSON,
+			SystemInfo:         []byte(sysInfo),
+			AgentLogPath:       logPath,
+			AuditLogPath:       auditPath,
+		})
+	}
 }
 
 func newLoggerTo(w io.Writer, level string) *slog.Logger {

@@ -21,6 +21,9 @@ log.
 | [env.md](env.md) | Environment variables reference |
 | [deployment.md](deployment.md) | Running the stack, MediaMTX config, the health worker, security |
 | [edge-agent.md](edge-agent.md) | Phase 2 on-site Edge Agent (cameras behind NAT/CGNAT) |
+| [operations.md](operations.md) | Edge Agent operations runbook: self-heal, health/diagnostics, support bundle, restart/power-loss recovery |
+| [resilience.md](resilience.md) | Phase 2.6 resilience verification: disk-full, concurrency, scale, soak + chaos harnesses, and the 2 bugs found |
+| [runtime-api.md](runtime-api.md) | Supervisor stable API + local control API (health/version/diagnostics/bundle) |
 | [recovery.md](recovery.md) | Failure modes and how the system recovers; runbook |
 | [future-architecture.md](future-architecture.md) | Phase 1–4 roadmap; provider seams for recording/AI/edge/cluster |
 

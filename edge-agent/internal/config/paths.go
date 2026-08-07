@@ -80,3 +80,22 @@ func PIDPath() (string, error) {
 	}
 	return filepath.Join(dir, "agent.pid"), nil
 }
+
+// AuditPath is the append-only audit log of lifecycle/operator actions.
+func AuditPath() (string, error) {
+	dir, err := AppDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "audit.log"), nil
+}
+
+// ControlEndpointPath is the 0600 file where the worker publishes its local
+// control-API address + token for the GUI to read.
+func ControlEndpointPath() (string, error) {
+	dir, err := AppDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "control.json"), nil
+}
