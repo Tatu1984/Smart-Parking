@@ -63,12 +63,34 @@ WPID=$!
 for _ in $(seq 1 40); do [ -f "$APPDIR/control.json" ] && health >/dev/null 2>&1 && break; sleep 0.25; done
 echo "worker pid=$WPID  csv=$CSV"
 
+# OS-aware resource samplers. Linux reads /proc; macOS (Darwin) has no /proc, so
+# it uses ps/lsof. Both return a single integer (or empty) per call.
+OS="$(uname -s)"
+
 # zombies: child ffmpeg processes of the worker in Z (defunct) state.
-count_zombies(){ ps -o stat= --ppid "$WPID" 2>/dev/null | grep -c 'Z'; true; }
+count_zombies(){
+  if [ "$OS" = "Linux" ]; then
+    ps -o stat= --ppid "$WPID" 2>/dev/null | grep -c 'Z'; true
+  else # Darwin/BSD: -o stat=, children via -O ppid, zombie state is 'Z'
+    ps -o stat=,ppid= -ax 2>/dev/null | awk -v p="$WPID" '$2==p && $1 ~ /Z/' | wc -l | tr -d ' '
+  fi
+}
 # open FDs of the worker.
-count_fds(){ ls "/proc/$WPID/fd" 2>/dev/null | wc -l; }
+count_fds(){
+  if [ "$OS" = "Linux" ]; then
+    ls "/proc/$WPID/fd" 2>/dev/null | wc -l | tr -d ' '
+  else # Darwin: lsof counts open files for the pid
+    lsof -p "$WPID" 2>/dev/null | tail -n +2 | wc -l | tr -d ' '
+  fi
+}
 # RSS in KB.
-rss_kb(){ awk '/VmRSS/{print $2}' "/proc/$WPID/status" 2>/dev/null; }
+rss_kb(){
+  if [ "$OS" = "Linux" ]; then
+    awk '/VmRSS/{print $2}' "/proc/$WPID/status" 2>/dev/null
+  else # Darwin: ps rss is already in KB
+    ps -o rss= -p "$WPID" 2>/dev/null | tr -d ' '
+  fi
+}
 # goroutines: from /health? not exposed; use pprof if EDGE_DEBUG_ADDR set, else "-".
 goroutines(){
   if [ -n "${EDGE_DEBUG_ADDR:-}" ]; then

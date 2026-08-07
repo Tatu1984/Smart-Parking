@@ -26,7 +26,10 @@ INGEST_HOST="${INGEST_HOST:-}"
 CONTROL_DIR="${CONTROL_DIR:-$HOME/.config/sparking}"
 DURATION="${DURATION:-60}"
 
+OS="$(uname -s)"
 ep(){ python3 -c "import json;print(json.load(open('$CONTROL_DIR/control.json'))['$1'])" 2>/dev/null; }
+# sed -i differs: GNU wants `-i`, BSD/macOS wants `-i ''`.
+sed_inplace(){ if [ "$OS" = "Darwin" ]; then sed -i '' "$@"; else sed -i "$@"; fi; }
 health_status(){
   local a t; a=$(ep addr); t=$(ep token)
   curl -s -H "Authorization: Bearer $t" "http://$a/health" \
@@ -41,13 +44,26 @@ need_root(){ [ "$(id -u)" = 0 ] || { echo "scenario '$SCENARIO' needs root (tc/i
 case "$SCENARIO" in
   loss|latency)
     need_root
-    RULE=$([ "$SCENARIO" = loss ] && echo "loss 20%" || echo "delay 300ms")
     echo "== baseline =="; watch_health 10 base
-    echo "== applying: netem $RULE on $IFACE for ${DURATION}s =="
-    tc qdisc add dev "$IFACE" root netem $RULE || { echo "tc failed"; exit 1; }
-    trap 'tc qdisc del dev "$IFACE" root netem 2>/dev/null' EXIT
-    watch_health "$DURATION" fault
-    tc qdisc del dev "$IFACE" root netem 2>/dev/null; trap - EXIT
+    if [ "$OS" = "Linux" ]; then
+      RULE=$([ "$SCENARIO" = loss ] && echo "loss 20%" || echo "delay 300ms")
+      echo "== applying: netem $RULE on $IFACE for ${DURATION}s =="
+      tc qdisc add dev "$IFACE" root netem $RULE || { echo "tc failed"; exit 1; }
+      trap 'tc qdisc del dev "$IFACE" root netem 2>/dev/null' EXIT
+      watch_health "$DURATION" fault
+      tc qdisc del dev "$IFACE" root netem 2>/dev/null; trap - EXIT
+    elif [ "$OS" = "Darwin" ]; then
+      # macOS dummynet via dnctl + pfctl.
+      PARM=$([ "$SCENARIO" = loss ] && echo "plr 0.2" || echo "delay 300")
+      echo "== applying: dummynet $PARM (all traffic) for ${DURATION}s =="
+      dnctl pipe 1 config $PARM
+      echo 'dummynet out all pipe 1' | pfctl -f - -e 2>/dev/null
+      trap 'pfctl -d 2>/dev/null; dnctl -q flush 2>/dev/null' EXIT
+      watch_health "$DURATION" fault
+      pfctl -d 2>/dev/null; dnctl -q flush 2>/dev/null; trap - EXIT
+    else
+      echo "loss/latency not supported on $OS"; exit 2
+    fi
     echo "== recovery window =="; watch_health 30 recover
     ;;
   dnsfail)
@@ -55,19 +71,31 @@ case "$SCENARIO" in
     echo "== baseline =="; watch_health 10 base
     echo "== poisoning DNS for $INGEST_HOST (→127.0.0.1) for ${DURATION}s =="
     echo "127.0.0.1 $INGEST_HOST # sparking-chaos" >> /etc/hosts
-    trap 'sed -i "/# sparking-chaos/d" /etc/hosts' EXIT
+    # macOS caches DNS aggressively — flush so the change takes effect now.
+    [ "$OS" = "Darwin" ] && dscacheutil -flushcache 2>/dev/null; killall -HUP mDNSResponder 2>/dev/null
+    trap 'sed_inplace "/# sparking-chaos/d" /etc/hosts' EXIT
     watch_health "$DURATION" fault
-    sed -i '/# sparking-chaos/d' /etc/hosts; trap - EXIT
+    sed_inplace '/# sparking-chaos/d' /etc/hosts; trap - EXIT
+    [ "$OS" = "Darwin" ] && dscacheutil -flushcache 2>/dev/null; killall -HUP mDNSResponder 2>/dev/null
     echo "== recovery window =="; watch_health 30 recover
     ;;
   ingestdown)
     need_root; [ -n "$INGEST_HOST" ] || { echo "set INGEST_HOST"; exit 2; }
     echo "== baseline =="; watch_health 10 base
     echo "== blocking outbound 443 to $INGEST_HOST for ${DURATION}s =="
-    iptables -A OUTPUT -p tcp -d "$INGEST_HOST" --dport 443 -j DROP
-    trap 'iptables -D OUTPUT -p tcp -d "$INGEST_HOST" --dport 443 -j DROP 2>/dev/null' EXIT
-    watch_health "$DURATION" fault
-    iptables -D OUTPUT -p tcp -d "$INGEST_HOST" --dport 443 -j DROP 2>/dev/null; trap - EXIT
+    if [ "$OS" = "Linux" ]; then
+      iptables -A OUTPUT -p tcp -d "$INGEST_HOST" --dport 443 -j DROP
+      trap 'iptables -D OUTPUT -p tcp -d "$INGEST_HOST" --dport 443 -j DROP 2>/dev/null' EXIT
+      watch_health "$DURATION" fault
+      iptables -D OUTPUT -p tcp -d "$INGEST_HOST" --dport 443 -j DROP 2>/dev/null; trap - EXIT
+    elif [ "$OS" = "Darwin" ]; then
+      echo "block drop out proto tcp to $INGEST_HOST port 443" | pfctl -f - -e 2>/dev/null
+      trap 'pfctl -d 2>/dev/null' EXIT
+      watch_health "$DURATION" fault
+      pfctl -d 2>/dev/null; trap - EXIT
+    else
+      echo "ingestdown not supported on $OS"; exit 2
+    fi
     echo "== recovery window =="; watch_health 30 recover
     ;;
   rtspreboot)
