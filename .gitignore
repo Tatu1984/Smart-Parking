@@ -50,4 +50,8 @@ next-env.d.ts
 # Edge-pushed HLS segments (runtime data, never committed)
 /.edge-hls
 
+# Edge Agent build outputs + resilience-harness artifacts (generated, never committed)
+/edge-agent/bin/
+/edge-agent/soak-*.csv
+
 /.claude

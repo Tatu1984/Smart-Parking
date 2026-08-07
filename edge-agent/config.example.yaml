@@ -1,32 +1,96 @@
 # ============================================================================
-# SParking Edge Agent configuration — the ONLY file the on-site operator edits.
-# See docs/cctv/edge-agent.md.
+# SParking Edge Agent configuration.
+# See docs/cctv/edge-agent.md and docs/cctv/edge-config-format.md.
 #
-# The agent pulls the local camera's RTSP and PUBLISHES it to SParking by
+# The agent pulls each local camera's RTSP and PUBLISHES it to SParking by
 # uploading HLS segments over outbound HTTPS (PUT). Outbound HTTP only, so it
 # works behind NAT/CGNAT with no router config, no public IP, no WebRTC/UDP/TURN.
+#
+# One agent can run MANY cameras concurrently (one supervised ffmpeg each, with
+# independent reconnect + fault isolation). The GUI reads/writes this same file.
 # ============================================================================
 
-# Which SParking camera this agent feeds (informational; from the dashboard).
-cameraId: cam-mall-2
+# Config schema version. The loader migrates older/unversioned configs forward,
+# so existing installs never break on upgrade. Leave as-is.
+schemaVersion: 1
 
-camera:
-  name: Mall Entrance 2
-  # Source RTSP URL on the LOCAL network (may embed credentials).
-  # e.g. rtsp://admin:pass@192.168.1.100:554/Streaming/Channels/101
-  rtsp: rtsp://admin:password@192.168.1.100:554/Streaming/Channels/101
+# Human label for this agent (informational; not authenticated in v1).
+agentId: site-mall-north
 
-cloud:
-  # HLS ingest endpoint from POST /api/cameras/<id>/ingest-token (field ingestUrl),
-  # prefixed with your SParking base URL. Must end in .../index.m3u8.
-  publish: https://app.example.com/api/edge/ingest/cam-mall-2/index.m3u8
-  # The per-camera Bearer token returned ONCE by the ingest-token endpoint.
-  token: edge_REPLACE_WITH_ISSUED_TOKEN
+# Optional: build each camera's ingest URL from a shared base + the camera's
+# streamKey, instead of writing a full `publish:` URL per camera.
+#   publish (per camera) wins if set; otherwise portalBaseUrl + streamKey is used.
+# portalBaseUrl: https://app.example.com
+
+# Optional: build NVR-style cameras' RTSP from channel/subtype (see cam-nvr-1
+# below). {channel} and {subtype} are substituted per camera.
+# rtspTemplate: rtsp://admin:password@192.168.1.185:554/cam/realmonitor?channel={channel}&subtype={subtype}
+
+# Optional logical groups (for GUI filtering / future group control). A camera
+# may reference a group name without it being pre-declared here.
+groups:
+  - Entrance
+  - Basement
+
+cameras:
+  # --- A camera with a full, direct RTSP URL --------------------------------
+  - cameraId: cam-mall-2          # STABLE id from the dashboard (never rename this)
+    name: Mall Entrance 2         # display label (renamable)
+    group: Entrance               # optional
+    enabled: true                 # disabled cameras stay in config but aren't published
+
+    # Source RTSP on the LOCAL network (may embed credentials).
+    rtsp: rtsp://admin:password@192.168.1.100:554/Streaming/Channels/101
+
+    # Ingest target. Either give a full `publish:` URL (must end in .../index.m3u8)
+    # OR a `streamKey:` used with the global portalBaseUrl above.
+    publish: https://app.example.com/api/edge/ingest/cam-mall-2/index.m3u8
+    # streamKey: cam-mall-2
+
+    # Per-camera Bearer token returned ONCE by POST /api/cameras/<id>/ingest-token.
+    token: edge_REPLACE_WITH_ISSUED_TOKEN
+
+    # Optional per-camera transcode override (else the global ffmpeg.transcode).
+    #   auto | copy | h264
+    # transcode: auto
+
+    # Optional capability HINTS (config-provided, not auto-detected in v1).
+    # capabilities:
+    #   supportsPtz: false
+    #   supportsAudio: false
+    #   supportsRecording: false
+    #   supportsAi: false
+
+  # --- An NVR camera built from the rtspTemplate + channel/subtype ----------
+  # Uncomment rtspTemplate above to use this style.
+  # - cameraId: cam-nvr-1
+  #   name: Basement NVR Ch 3
+  #   group: Basement
+  #   enabled: true
+  #   channel: 3
+  #   subtype: 0                  # 0 = main stream, 1 = substream
+  #   publish: https://app.example.com/api/edge/ingest/cam-nvr-1/index.m3u8
+  #   token: edge_REPLACE_WITH_ISSUED_TOKEN
 
 ffmpeg:
-  binary: ffmpeg
-  # auto | copy | h264   (auto: copy H.264, transcode H.265→H.264 for browsers)
+  binary: ffmpeg                  # resolved on PATH + common install dirs; pinned at runtime
+  # probe: ffprobe                # ffprobe path; pinned automatically, override only if needed
+  # Global default transcode (a camera may override via its own transcode:).
+  #   auto | copy | h264   (auto: copy H.264, transcode H.265→H.264 for browsers)
   transcode: auto
 
 log:
-  level: info   # debug | info | warn | error
+  level: info                     # debug | info | warn | error
+  # Size-based log rotation for agent.log AND audit.log (Phase 2.5).
+  maxSizeMB: 5                    # rotate when a log exceeds this size (default 5)
+  maxBackups: 3                   # rotated files to keep, e.g. agent.log.1..3 (default 3)
+
+# Stall watchdog (Phase 2.5): if a camera is ONLINE but ffmpeg produces no output
+# within stallSeconds, it is treated as frozen and restarted (only that camera).
+# Default 30; clamped to [15, 120].
+watchdog:
+  stallSeconds: 30
+
+# Cap on the per-camera reconnect backoff, in seconds (default 30). Backoff grows
+# exponentially from 1s up to this cap on repeated failures.
+backoffMaxSeconds: 30
