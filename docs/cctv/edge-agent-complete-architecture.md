@@ -38,7 +38,7 @@ This document describes how the Edge Agent works: the components, the network pa
 
 ## 1. Executive Summary
 
-The Edge Agent is a small program that runs on a **customer-owned machine inside the same local network as the CCTV cameras**. It reads each camera’s video over **RTSP** and re-publishes that video **outbound over HTTP(S)** to a cloud ingest endpoint, from which the SParking portal serves it to browsers.
+The Edge Agent is a small program that runs on a **customer-owned machine inside the same local network as the CCTV cameras**. It reads each camera’s video over **RTSP** and re-publishes that video **outbound over HTTP(S)** to a cloud ingest endpoint, from which the SParking portal serves it to browsers. In the current deployment the portal and the ingest endpoint are the **same Vercel application**.
 
 The single most important architectural property, from a networking standpoint:
 
@@ -75,7 +75,7 @@ flowchart LR
     CAM["CCTV / NVR<br/>private IP"]
     EA["Edge Agent<br/>(same LAN)"]
   end
-  subgraph CLOUD["SParking Cloud"]
+  subgraph CLOUD["SParking Cloud — Vercel app"]
     ING["Ingest endpoint"]
   end
   CAM -->|"RTSP pull (TCP)"| EA
@@ -102,7 +102,7 @@ flowchart LR
     direction LR
     PIPE["outbound HTTPS"]
   end
-  subgraph CLOUD["SPARKING CLOUD"]
+  subgraph CLOUD["SPARKING CLOUD — Vercel app"]
     ING["/api/edge/ingest/<br/>(HTTP-PUT ingest + HLS store)"]
     PORTAL["Portal / Application Backend"]
   end
@@ -141,9 +141,9 @@ flowchart TB
 
   RTR["③ Customer Router / Firewall (NAT)"]
 
-  subgraph CLOUD["④ SParking Cloud"]
-    ING["Cloud Ingest<br/>/api/edge/ingest/&lt;key&gt;/…<br/>Bearer-authenticated PUT · HLS store"]
-    PORTAL["Portal / Application Backend<br/>issues credential-free playback URLs"]
+  subgraph CLOUD["④ SParking Cloud — Vercel app (portal + ingest)"]
+    ING["Cloud Ingest (Vercel route)<br/>/api/edge/ingest/&lt;key&gt;/…<br/>Bearer-authenticated PUT · HLS store"]
+    PORTAL["Portal / Application Backend (Vercel)<br/>issues credential-free playback URLs"]
   end
 
   BR["⑤ Operator Browser"]
@@ -161,7 +161,7 @@ flowchart TB
 | ① | Customer LAN | Cameras/NVR, LAN switch |
 | ② | Customer machine | Edge Agent worker, Edge Agent GUI |
 | ③ | Boundary | Customer router / firewall (NAT) |
-| ④ | Cloud | Ingest endpoint + HLS store, Portal/application backend |
+| ④ | Cloud (Vercel app) | Ingest endpoint + HLS store, Portal/application backend — both served by the same Vercel application |
 | ⑤ | Anywhere | Operator browser |
 
 ---
@@ -334,7 +334,7 @@ flowchart LR
 - **Edge Agent → Cloud ingest:** the video crosses the Internet here, as **outbound HTTP(S) PUT** requests carrying HLS files. Each ~2-second segment plus the updated playlist is uploaded as it is produced.
 - **Cloud ingest → Browser:** the browser fetches the same HLS files back over **HTTPS GET**. Playback is **credential-free** (the URL is what authorises access; RTSP credentials are never involved).
 
-**Important cloud-side distinction (confirmed in code):** the Edge Agent path (**EDGE\_PUSH** mode) delivers video **through the SParking application’s own ingest route** (`/api/edge/ingest/…`), which stores the HLS files and serves them to the browser. This path **does not use MediaMTX**. MediaMTX is used only for the *separate* “cloud pulls RTSP directly” mode (**MEDIAMTX\_PULL**), which is **not part of the Edge Agent flow**. See §10 for why this separation matters to networking.
+**Important cloud-side distinction (confirmed in code):** the Edge Agent path (**EDGE\_PUSH** mode) delivers video **through the SParking application’s own ingest route** (`/api/edge/ingest/…`), which stores the HLS files and serves them to the browser. In the current deployment this application — both the **portal** and the **ingest route** — is the **same Vercel app**; the agent publishes to and the browser fetches from that one application. This path **does not use MediaMTX**. MediaMTX is used only for the *separate* “cloud pulls RTSP directly” mode (**MEDIAMTX\_PULL**), which is **not part of the Edge Agent flow**. See §10 for why this separation matters to networking, and §24 for a deployment note on segment storage.
 
 ---
 
@@ -827,7 +827,9 @@ The following are **Not part of the current Edge Agent**:
 - **Reserved-but-inactive fields:** `FPS`, `BitrateKbps`, `RecordingStatus`, `AIStatus`, `EdgeLatencyMs` exist in the state snapshot but are zero/unused today. Camera **capabilities** (PTZ/audio/recording/AI) are optional config hints, default false, **not auto-detected and not acted upon**.
 - **Group-scoped control**, short-lived scoped playback tokens, and interchange/AI features are future work and **not part of the current agent**.
 
-The **portal/application backend** and the **video ingest** are cloud roles defined by function. Their exact hosting (which host serves the portal vs. where HLS segments are stored/served) is a **deployment concern** — the implementation does not encode a specific hosting provider; the publish/playback base is configured per deployment (`portalBaseUrl` / `EDGE_INGEST_PUBLIC_BASE`).
+**Hosting.** In the current deployment the **portal/application backend** and the **video ingest route** (`/api/edge/ingest/…`) are served by the **same Vercel application**. The Edge Agent publishes to that application, and browsers fetch both the playback URL and the HLS media from it. The publish/playback base is still configured per deployment (`portalBaseUrl` / `EDGE_INGEST_PUBLIC_BASE`), so the exact hostname is deployment-specific, but portal and ingest are not separate infrastructure here — they are one app.
+
+**Deployment note on segment storage (verify for production):** the ingest route stores HLS segments via a filesystem write (`EDGE_INGEST_DIR`, default `./.edge-hls`). Vercel’s serverless runtime provides only an **ephemeral, per-invocation filesystem** that is not shared between invocations and does not persist. A single Vercel app therefore serves the portal and ingest **route code** correctly, but whether HLS segments written by one request are reliably readable by a later playback request depends on the runtime/storage backing that path in production. This is a deployment/storage consideration to confirm — it is **not** a property of the Edge Agent itself, which simply performs outbound HTTP `PUT`/`DELETE` to the configured URL regardless of how the cloud stores the segments.
 
 ---
 
