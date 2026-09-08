@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"image/color"
 	"io"
 	"path/filepath"
@@ -9,6 +10,9 @@ import (
 
 	"github.com/sparking/edge-agent/internal/publisher"
 )
+
+// errPortalURL is shown when the Portal Connection URL isn't http(s).
+var errPortalURL = errors.New("Ingest URL must start with http:// or https://")
 
 // readAll drains a Fyne URI reader.
 func readAll(rc fyne.URIReadCloser) []byte {

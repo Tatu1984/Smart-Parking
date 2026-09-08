@@ -30,15 +30,30 @@ INSTALL
 
 FIRST RUN
   1. Open "SParking Edge Agent" from Applications.
-  2. Fill in the settings you were sent:
-       - Camera RTSP URL   (your camera's address on the local network)
-       - Portal ingest URL (provided by the SParking administrator)
-       - Ingest token      (provided by the SParking administrator)
-  3. Click "Save settings".
-  4. Click "Start".
 
-  The status line should change to "Running (streaming)" and the activity
-  log will show "source reachable" then "ffmpeg started".
+  2. LINK TO YOUR PORTAL (do this once):
+     In the "Portal" section at the top, fill in the two values you were sent:
+       - Ingest URL   e.g. https://your-portal.example.com
+       - Token        the portal ingest token
+     Click "Save connection". The line below shows "Linked to: <your URL>".
+     To point this agent at a DIFFERENT portal later, just paste that portal's
+     URL + token here and save again.
+
+  3. ADD YOUR CAMERA(S):
+     Click "Add camera" and fill in:
+       - Camera ID    a stable name, e.g. cam-001 (used as the stream key)
+       - Name         a friendly label, e.g. Front Gate
+       - Camera RTSP URL   your camera's address on the local network,
+                           e.g. rtsp://user:pass@192.168.1.100:554/Streaming/Channels/101
+     Leave "Portal publish URL" / "Ingest token" blank to use the Portal
+     Connection from step 2 (or fill them to override for this one camera).
+     Make sure "Enabled" is ticked, then Save.
+
+  4. Click "Start All" (or Start on the camera row).
+
+  The camera's status should go CONNECTING -> ONLINE, and the activity log
+  will show "source reachable" then "ffmpeg started". The feed then appears
+  in the portal.
 
 
 KEEP IT RUNNING AUTOMATICALLY

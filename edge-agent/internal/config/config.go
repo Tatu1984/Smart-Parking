@@ -79,8 +79,15 @@ type Config struct {
 	AgentID       string `yaml:"agentId,omitempty"` // human label for this agent (not authenticated in v1)
 
 	// PortalBaseUrl is used to build a camera's ingest URL from its StreamKey
-	// when the camera does not carry a full Publish URL.
+	// when the camera does not carry a full Publish URL. It is the address of the
+	// PORTAL/ingest this agent feeds — set it once in the GUI "Portal Connection"
+	// to point the whole agent at a portal.
 	PortalBaseUrl string `yaml:"portalBaseUrl,omitempty"`
+
+	// DefaultToken is the ingest Bearer token applied to any camera that does not
+	// carry its own. It lets an operator link the agent to a portal once (base URL
+	// + token) and have every camera publish there. A per-camera token still wins.
+	DefaultToken string `yaml:"defaultToken,omitempty"`
 
 	// RTSPTemplate builds a camera's RTSP URL from channel/subtype. It supports
 	// {channel} and {subtype} placeholders, e.g.
@@ -405,9 +412,10 @@ func (c *Config) validate() error {
 		}
 		label := cam.label(i)
 
-		// A token is required to authenticate to the ingest endpoint.
-		if strings.TrimSpace(cam.Token) == "" {
-			return fmt.Errorf("camera %q: token is required", label)
+		// A token is required to authenticate to the ingest endpoint — either the
+		// camera's own, or the global DefaultToken from the Portal Connection.
+		if strings.TrimSpace(c.EffectiveToken(cam)) == "" {
+			return fmt.Errorf("camera %q: token is required (set a per-camera token or a Portal Connection token)", label)
 		}
 
 		// Resolve the effective RTSP + publish so validation matches runtime.
@@ -500,6 +508,16 @@ func (c *Config) EffectiveTranscode(cam *CameraConfig) string {
 		return cam.Transcode
 	}
 	return c.FFmpeg.Transcode
+}
+
+// EffectiveToken returns the camera's ingest token: its own if set, otherwise the
+// global DefaultToken (set via the GUI "Portal Connection"). This lets an
+// operator link the whole agent to a portal with one token.
+func (c *Config) EffectiveToken(cam *CameraConfig) string {
+	if strings.TrimSpace(cam.Token) != "" {
+		return cam.Token
+	}
+	return c.DefaultToken
 }
 
 func (cam *CameraConfig) label(i int) string {

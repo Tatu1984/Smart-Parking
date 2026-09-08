@@ -57,7 +57,7 @@ func New(cfg *config.Config, cam config.CameraConfig, rtsp, publish string, log 
 		State:        NewCameraState(cam.CameraID, cam.Name),
 		rtsp:         rtsp,
 		publish:      publish,
-		token:        cam.Token,
+		token:        cfg.EffectiveToken(&cam),
 		transcode:    cfg.EffectiveTranscode(&cam),
 		probeTimeout: 10 * time.Second,
 		backoffMin:   1 * time.Second,

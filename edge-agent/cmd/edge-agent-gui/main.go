@@ -192,6 +192,8 @@ func (u *appUI) build() {
 		u.statusLabel,
 		container.NewHBox(workerBtns, autostart),
 		widget.NewSeparator(),
+		u.portalConnPanel(),
+		widget.NewSeparator(),
 		toolbar,
 		bulk,
 	)

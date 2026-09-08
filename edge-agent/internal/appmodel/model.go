@@ -56,6 +56,20 @@ func (m *Model) Cameras() []config.CameraConfig {
 // Groups returns configured group names.
 func (m *Model) Groups() []string { return append([]string(nil), m.cfg.Groups...) }
 
+// PortalConnection returns the currently-linked portal ingest base URL and the
+// global default token (both may be empty if not linked yet).
+func (m *Model) PortalConnection() (baseURL, token string) {
+	return m.cfg.PortalBaseUrl, m.cfg.DefaultToken
+}
+
+// SetPortalConnection links this agent to a portal: the ingest base URL every
+// camera publishes to (with its streamKey) and a default ingest token cameras
+// inherit when they have none. Empty values clear the connection.
+func (m *Model) SetPortalConnection(baseURL, token string) {
+	m.cfg.PortalBaseUrl = strings.TrimSpace(baseURL)
+	m.cfg.DefaultToken = strings.TrimSpace(token)
+}
+
 // FindIndex returns the slice index of a camera by id, or -1.
 func (m *Model) FindIndex(cameraID string) int {
 	for i := range m.cfg.Cameras {
