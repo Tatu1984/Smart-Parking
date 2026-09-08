@@ -68,6 +68,15 @@ func (c *Client) Health() (*Health, error) {
 	return &h, nil
 }
 
+// Streams fetches the credential-free portal discovery list (GET /streams).
+func (c *Client) Streams() (*StreamList, error) {
+	var sl StreamList
+	if err := c.getJSON("/streams", &sl); err != nil {
+		return nil, err
+	}
+	return &sl, nil
+}
+
 // Version fetches agent/schema/ffmpeg version info (GET /version).
 func (c *Client) Version() (*Version, error) {
 	var v Version

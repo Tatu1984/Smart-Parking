@@ -137,6 +137,7 @@ worker exposes, mapping 1:1 onto the stable API:
 
 ```
 GET  /states                     → []StateSnapshot
+GET  /streams                    → credential-free portal discovery list (see integration contract)
 GET  /events (SSE)               → runtime events
 GET  /health                     → structured operational summary (see below)
 GET  /version                    → agent/schema/ffmpeg versions

@@ -67,6 +67,7 @@ func NewServerWithMeta(ctrl Controller, token string, port int, meta *Meta) (*Se
 	s := &Server{ctrl: ctrl, token: token, ln: ln, metaData: meta, closed: make(chan struct{})}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/states", s.auth(s.handleStates))
+	mux.HandleFunc("/streams", s.auth(s.handleStreams))
 	mux.HandleFunc("/events", s.auth(s.handleEvents))
 	mux.HandleFunc("/health", s.auth(s.handleHealth))
 	mux.HandleFunc("/version", s.auth(s.handleVersion))

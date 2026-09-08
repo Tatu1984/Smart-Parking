@@ -24,6 +24,7 @@ log.
 | [operations.md](operations.md) | Edge Agent operations runbook: self-heal, health/diagnostics, support bundle, restart/power-loss recovery |
 | [resilience.md](resilience.md) | Phase 2.6 resilience verification: disk-full, concurrency, scale, soak + chaos harnesses, and the 2 bugs found |
 | [runtime-api.md](runtime-api.md) | Supervisor stable API + local control API (health/version/diagnostics/bundle) |
+| [edge-agent-integration-contract.md](edge-agent-integration-contract.md) | How ANY portal/dashboard integrates: video (HLS-over-HTTP-PUT) + local discovery/control API (`/streams`) + scaling model |
 | [recovery.md](recovery.md) | Failure modes and how the system recovers; runbook |
 | [future-architecture.md](future-architecture.md) | Phase 1–4 roadmap; provider seams for recording/AI/edge/cluster |
 

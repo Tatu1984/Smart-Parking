@@ -129,6 +129,13 @@ dcams=$(api GET /diagnostics | python3 -c "import json,sys;print(len(json.load(s
   ok "2.5 /diagnostics: history opt-in works, 30 cameras" || \
   no "/diagnostics bad: default_history=$dhist_default optin=$dhist_optin cams=$dcams"
 
+echo "== integration: /streams discovery list is present, complete, and carries NO secrets =="
+scount=$(api GET /streams | python3 -c "import json,sys;print(len(json.load(sys.stdin)['streams']))" 2>/dev/null)
+sleak=$(api GET /streams | python3 -c "import json,sys;s=json.dumps(json.load(sys.stdin)).lower();print(sum(k in s for k in ('rtsp','password','token','streamkey','publish','user:')))" 2>/dev/null)
+[ "$scount" = "30" ] && [ "${sleak:-1}" = "0" ] && \
+  ok "integration /streams: 30 streams, NO secret fields leaked" || \
+  no "/streams bad: count=$scount secretHits=$sleak"
+
 echo "== Phase 2.5: error classification surfaced in state (unreachable source → source-unreachable) =="
 # All sources are 127.0.0.1:1 (refused) → cameras should classify as source-unreachable/bad-rtsp.
 sleep 2

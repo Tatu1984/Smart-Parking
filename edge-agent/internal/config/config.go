@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -112,6 +113,19 @@ type Config struct {
 
 	// BackoffMaxSeconds caps the per-camera reconnect backoff (default 30).
 	BackoffMaxSeconds int `yaml:"backoffMaxSeconds,omitempty"`
+
+	// BackoffJitterPct adds +/- randomization to each reconnect delay so a fleet
+	// of cameras that all lost the source (or the cloud) at the same instant do
+	// NOT retry in lockstep and stampede the network/ingest on recovery. Value is
+	// a percentage 0–100 of the computed delay. A pointer so we can tell "unset"
+	// (→ default 20) from an explicit 0 (→ jitter disabled).
+	BackoffJitterPct *int `yaml:"backoffJitterPct,omitempty"`
+
+	// MaxConcurrentStarts bounds how many cameras may be performing their first
+	// probe+ffmpeg launch simultaneously. It smooths the startup burst when a
+	// large fleet comes up at once (avoids a thundering herd of ffprobe/ffmpeg
+	// processes). Default is a multiple of CPU count; 0 = unbounded.
+	MaxConcurrentStarts int `yaml:"maxConcurrentStarts,omitempty"`
 
 	// ---- Legacy single-camera fields (schema v0) ----
 	// Retained ONLY so an old config still parses; migrate() folds them into
@@ -331,6 +345,33 @@ func (c *Config) applyDefaults() {
 	if c.BackoffMaxSeconds <= 0 {
 		c.BackoffMaxSeconds = 30
 	}
+	// Jitter: unset → default 20%. An explicit value is clamped to [0,100]; an
+	// explicit 0 disables jitter.
+	if c.BackoffJitterPct == nil {
+		v := 20
+		c.BackoffJitterPct = &v
+	} else {
+		v := *c.BackoffJitterPct
+		if v < 0 {
+			v = 0
+		}
+		if v > 100 {
+			v = 100
+		}
+		c.BackoffJitterPct = &v
+	}
+	// MaxConcurrentStarts: default to a modest multiple of CPU count so a big
+	// fleet ramps up quickly but not all at once. 0 stays 0 only if set
+	// explicitly negative? We reserve negative as "unbounded".
+	if c.MaxConcurrentStarts == 0 {
+		n := runtime.NumCPU() * 8
+		if n < 16 {
+			n = 16
+		}
+		c.MaxConcurrentStarts = n
+	} else if c.MaxConcurrentStarts < 0 {
+		c.MaxConcurrentStarts = 0 // explicit unbounded
+	}
 }
 
 // StallWindow returns the configured stall watchdog window.
@@ -341,6 +382,15 @@ func (c *Config) StallWindow() time.Duration {
 // BackoffMax returns the configured max reconnect backoff.
 func (c *Config) BackoffMax() time.Duration {
 	return time.Duration(c.BackoffMaxSeconds) * time.Second
+}
+
+// BackoffJitter returns the configured jitter fraction (0.0–1.0) applied to
+// reconnect delays. Unset is treated as the 20% default.
+func (c *Config) BackoffJitter() float64 {
+	if c.BackoffJitterPct == nil {
+		return 0.20
+	}
+	return float64(*c.BackoffJitterPct) / 100.0
 }
 
 func (c *Config) validate() error {

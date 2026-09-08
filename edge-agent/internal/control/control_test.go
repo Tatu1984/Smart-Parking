@@ -2,7 +2,9 @@ package control
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -143,6 +145,54 @@ func (m *mixedFake) States() []publisher.StateSnapshot {
 }
 func (m *mixedFake) Histories() map[string]publisher.HistorySnapshot {
 	return map[string]publisher.HistorySnapshot{"a": {}, "b": {}, "c": {}, "d": {}}
+}
+
+func TestStreamsEndpoint(t *testing.T) {
+	c, stop := startMetaServer(t)
+	defer stop()
+	sl, err := c.Streams()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sl.Streams) != 4 {
+		t.Fatalf("streams = %d, want 4", len(sl.Streams))
+	}
+	if sl.Agent != "1.2.3" || sl.Hostname != "test-host" {
+		t.Errorf("stream list meta: %+v", sl)
+	}
+	// available must be true only for the ONLINE camera ("a").
+	byID := map[string]Stream{}
+	for _, s := range sl.Streams {
+		byID[s.CameraID] = s
+	}
+	if !byID["a"].Available {
+		t.Error("ONLINE camera 'a' should be available")
+	}
+	for _, id := range []string{"b", "c", "d"} {
+		if byID[id].Available {
+			t.Errorf("non-ONLINE camera %q must not be marked available", id)
+		}
+	}
+}
+
+// TestStreamsCarriesNoSecretFields is a structural guard: the Stream type must
+// never gain an RTSP/credential/token/streamKey field. If someone adds one, the
+// JSON will contain it and this test fails, flagging a portal-facing leak.
+func TestStreamsCarriesNoSecretFields(t *testing.T) {
+	// Structural guard: the Stream type must never gain an RTSP/credential/token/
+	// streamKey/publish field. Marshalling a fully-populated Stream and scanning
+	// its JSON keys fails loudly if a secret-bearing field is ever added.
+	b, _ := json.Marshal(Stream{
+		CameraID: "x", Name: "y", Group: "g", Status: "ONLINE", Available: true,
+		HealthScore: 100, VideoCodec: "h264", Resolution: "1920x1080",
+		ReconnectCount: 1, LastSeen: "2026-01-01T00:00:00Z",
+	})
+	s := strings.ToLower(string(b))
+	for _, banned := range []string{"rtsp", "password", "token", "streamkey", "publish", "user:", "secret", "credential"} {
+		if strings.Contains(s, banned) {
+			t.Errorf("SECURITY: Stream JSON exposes %q — portal-facing payload must carry no secrets: %s", banned, b)
+		}
+	}
 }
 
 func startMetaServer(t *testing.T) (*Client, func()) {

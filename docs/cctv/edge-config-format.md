@@ -45,6 +45,18 @@ ffmpeg:
 
 log:
   level: info                      # debug | info | warn | error
+  maxSizeMB: 5                     # rotate a log past this size (default 5)
+  maxBackups: 3                    # rotated files kept (default 3)
+
+watchdog:
+  stallSeconds: 30                 # restart a frozen ffmpeg after this (default 30, clamp 15–120)
+
+backoffMaxSeconds: 30              # cap on per-camera reconnect backoff (default 30)
+backoffJitterPct: 20               # ± jitter on reconnect delay, 0–100 (default 20; 0 disables)
+                                   #   spreads a fleet's retries so a mass outage
+                                   #   recovery does not stampede the ingest
+maxConcurrentStarts: 64            # max cameras doing their FIRST probe/launch at once
+                                   #   (startup ramp control; default 8×CPU min 16; negative = unbounded)
 ```
 
 ### Field resolution rules

@@ -52,6 +52,18 @@ type Supervisor struct {
 	root context.Context // set when Run starts; parent for per-camera contexts
 	cams map[string]*managed
 	order []string // stable iteration order (config order)
+
+	// enabled is a precomputed id→enabled lookup so StartAll is O(N), not O(N²)
+	// (previously isEnabled scanned cfg.Cameras for every camera). Built once at
+	// construction from the config; the config's camera SET is immutable for the
+	// life of a Supervisor (the GUI edits config then restarts the worker).
+	enabled map[string]bool
+
+	// startGate bounds how many cameras may be in the middle of their FIRST
+	// probe+launch at once, so bringing up a large fleet (or StartAll on
+	// thousands of cameras) does not spawn thousands of ffprobe processes in the
+	// same instant (a startup thundering herd). nil = unbounded (small fleets).
+	startGate chan struct{}
 }
 
 // auditRecorder is the small subset of audit.Logger the supervisor uses; kept as
@@ -69,11 +81,15 @@ func (a *auditRecorder) camera(action audit.Action, id, name string) {
 // whose config can't be resolved are recorded FAILED and never started.
 func NewSupervisor(cfg *config.Config, log *slog.Logger, aud *audit.Logger) *Supervisor {
 	s := &Supervisor{
-		cfg:   cfg,
-		log:   log,
-		audit: &auditRecorder{l: aud},
-		bus:   newEventBus(),
-		cams:  make(map[string]*managed),
+		cfg:     cfg,
+		log:     log,
+		audit:   &auditRecorder{l: aud},
+		bus:     newEventBus(),
+		cams:    make(map[string]*managed, len(cfg.Cameras)),
+		enabled: make(map[string]bool, len(cfg.Cameras)),
+	}
+	if n := cfg.MaxConcurrentStarts; n > 0 {
+		s.startGate = make(chan struct{}, n)
 	}
 	for _, cam := range cfg.Cameras {
 		id := cam.CameraID
@@ -107,6 +123,7 @@ func NewSupervisor(cfg *config.Config, log *slog.Logger, aud *audit.Logger) *Sup
 		}
 		s.cams[id] = &managed{pub: p}
 		s.order = append(s.order, id)
+		s.enabled[id] = cam.Enabled
 	}
 	return s
 }
@@ -169,8 +186,27 @@ func (s *Supervisor) startLocked(id string, operator bool) {
 	done := make(chan struct{})
 	m.cancel = cancel
 	m.done = done
+	gate := s.startGate
 	go func(p *Publisher) {
 		defer close(done)
+		// Startup admission control: bound how many cameras hit their FIRST probe
+		// at once (avoids a thundering herd of ffprobe/ffmpeg on a large fleet).
+		// The slot is held only until the first probe attempt returns — steady
+		// reconnects are NOT gated, so a later mass reconnect is spread by jitter
+		// instead (see Publisher backoff). Cancellation is respected while waiting.
+		if gate != nil {
+			select {
+			case gate <- struct{}{}:
+				p.releaseGateAfterFirstProbe(func() { <-gate })
+				// Safety net: if Run returns before its first probe (e.g. ctx
+				// cancelled at the loop top), still free the slot — release is
+				// idempotent, so a normal first-probe release is unaffected.
+				defer p.releaseGate()
+			case <-cctx.Done():
+				p.State.setStopped()
+				return
+			}
+		}
 		p.Run(cctx) // its own probe/ffmpeg/backoff loop
 	}(m.pub)
 
@@ -250,29 +286,31 @@ func (s *Supervisor) stopAllInternal(shutdown bool) {
 	}
 }
 
-func (s *Supervisor) isEnabled(id string) bool {
-	for _, cam := range s.cfg.Cameras {
-		cid := cam.CameraID
-		if cid == "" {
-			cid = cam.Name
-		}
-		if cid == id {
-			return cam.Enabled
-		}
-	}
-	return false
-}
+// isEnabled reports whether a camera is enabled in config. O(1) via the
+// precomputed map (previously an O(N) scan, making StartAll O(N²)).
+func (s *Supervisor) isEnabled(id string) bool { return s.enabled[id] }
 
 // States returns a snapshot of every camera's runtime state, in config order.
 // Safe to call concurrently while Run is active.
+//
+// Scale note: the global lock is held only long enough to copy the per-camera
+// pointers (the map/order are stable for the Supervisor's life), then released
+// BEFORE snapshotting each camera. Each Snapshot() takes that camera's OWN lock.
+// This keeps a large States() call (thousands of cameras) from serializing
+// against every StartCamera/StopCamera for the whole snapshot duration.
 func (s *Supervisor) States() []StateSnapshot {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make([]StateSnapshot, 0, len(s.order))
+	pubs := make([]*Publisher, 0, len(s.order))
 	for _, id := range s.order {
 		if m := s.cams[id]; m != nil {
-			out = append(out, m.pub.State.Snapshot())
+			pubs = append(pubs, m.pub)
 		}
+	}
+	s.mu.Unlock()
+
+	out := make([]StateSnapshot, 0, len(pubs))
+	for _, p := range pubs {
+		out = append(out, p.State.Snapshot())
 	}
 	return out
 }

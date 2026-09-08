@@ -8,7 +8,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/rand"
 	"os/exec"
+	"sync"
 	"time"
 
 	"github.com/sparking/edge-agent/internal/config"
@@ -33,6 +35,12 @@ type Publisher struct {
 	backoffMax   time.Duration
 	stableAfter  time.Duration
 	stallWindow  time.Duration // watchdog: restart if ffmpeg produces no output within this
+	jitter       float64       // reconnect backoff jitter fraction (0.0–1.0)
+
+	// gateOnce releases a startup-admission slot (set by the supervisor) exactly
+	// once, after the first probe attempt returns. nil when startup gating is off.
+	gateOnce sync.Once
+	gateFn   func()
 }
 
 // New builds a Publisher for one camera. rtsp/publish are the effective values
@@ -56,7 +64,35 @@ func New(cfg *config.Config, cam config.CameraConfig, rtsp, publish string, log 
 		backoffMax:   backoffMax,
 		stableAfter:  30 * time.Second,
 		stallWindow:  cfg.StallWindow(),
+		jitter:       cfg.BackoffJitter(),
 	}
+}
+
+// releaseGateAfterFirstProbe registers a startup-slot release fn that the
+// publisher invokes exactly once, right after its first probe attempt returns.
+// Called by the supervisor when startup admission control is active.
+func (p *Publisher) releaseGateAfterFirstProbe(fn func()) { p.gateFn = fn }
+
+// releaseGate frees the startup-admission slot (idempotent, once).
+func (p *Publisher) releaseGate() {
+	if p.gateFn != nil {
+		p.gateOnce.Do(p.gateFn)
+	}
+}
+
+// withJitter returns d adjusted by +/- up to p.jitter (e.g. 0.2 = ±20%), so a
+// fleet reconnecting together spreads its retries instead of stampeding.
+func (p *Publisher) withJitter(d time.Duration) time.Duration {
+	if p.jitter <= 0 || d <= 0 {
+		return d
+	}
+	// delta in [-jitter, +jitter] * d
+	delta := (rand.Float64()*2 - 1) * p.jitter
+	out := time.Duration(float64(d) * (1 + delta))
+	if out < 0 {
+		out = 0
+	}
+	return out
 }
 
 // Run supervises this camera's publish until ctx is cancelled.
@@ -74,6 +110,10 @@ func (p *Publisher) Run(ctx context.Context) {
 		// 1. Probe the source.
 		p.State.setConnecting("probing source")
 		probe := Probe(ctx, p.cfg.FFprobeBinary(), p.rtsp, p.probeTimeout)
+		// First probe done → free the startup-admission slot so the next camera
+		// in a large fleet can begin. Steady reconnects are spread by jitter, not
+		// gated, so this only shapes the initial ramp-up.
+		p.releaseGate()
 		if !probe.Reachable {
 			class := classifySource(probe.Detail)
 			p.State.setErrorClass(class)
@@ -81,7 +121,7 @@ func (p *Publisher) Run(ctx context.Context) {
 				"event", "network_error", "source", src, "detail", probe.Detail,
 				"errorClass", string(class), "hint", class.Hint())
 			p.State.setOffline(probe.Detail)
-			if p.sleep(ctx, backoff) {
+			if p.sleep(ctx, p.withJitter(backoff)) {
 				p.State.setStopped()
 				return
 			}
@@ -124,8 +164,9 @@ func (p *Publisher) Run(ctx context.Context) {
 			backoff = p.backoffMin
 		}
 		p.State.setReconnecting("ffmpeg exited; retrying")
-		p.log.Info("reconnecting", "event", "reconnect", "in", backoff.String())
-		if p.sleep(ctx, backoff) {
+		wait := p.withJitter(backoff)
+		p.log.Info("reconnecting", "event", "reconnect", "in", wait.String())
+		if p.sleep(ctx, wait) {
 			p.State.setStopped()
 			return
 		}

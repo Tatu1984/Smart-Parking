@@ -94,3 +94,17 @@ watchdog:
 # Cap on the per-camera reconnect backoff, in seconds (default 30). Backoff grows
 # exponentially from 1s up to this cap on repeated failures.
 backoffMaxSeconds: 30
+
+# Randomized jitter added to each reconnect delay, as a percentage (0–100) of the
+# computed backoff. Prevents a "reconnect storm" — when a whole fleet loses the
+# cameras or the cloud at the same instant, jitter spreads their retries instead
+# of hammering the network/ingest in lockstep on recovery.
+# Default 20. Set to 0 to disable (deterministic backoff).
+backoffJitterPct: 20
+
+# Startup admission control: the maximum number of cameras that may perform their
+# FIRST probe + ffmpeg launch simultaneously. Smooths the initial ramp-up of a
+# large fleet so the host isn't hit by thousands of ffprobe/ffmpeg processes at
+# once. Steady-state reconnects are not gated (jitter spreads those).
+# Default: 8 × CPU cores (min 16). Set to a negative value for unbounded.
+maxConcurrentStarts: 64

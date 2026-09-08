@@ -117,6 +117,65 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, h)
 }
 
+// Stream is one camera's PUBLIC, portal-facing descriptor: enough for any
+// dashboard to list and render the feed, and nothing sensitive. It deliberately
+// omits the RTSP source, credentials, ingest token, and stream key. The publish
+// target (where HLS lands in the cloud) is where a portal fetches the feed, so
+// it is safe to expose — it carries no secret (playback is credential-free).
+type Stream struct {
+	CameraID       string `json:"cameraId"`
+	Name           string `json:"name"`
+	Group          string `json:"group,omitempty"`
+	Status         string `json:"status"`
+	Available      bool   `json:"available"` // true when ONLINE (feed is live)
+	HealthScore    int    `json:"healthScore"`
+	VideoCodec     string `json:"videoCodec,omitempty"`
+	Resolution     string `json:"resolution,omitempty"`
+	ReconnectCount int    `json:"reconnectCount"`
+	LastSeen       string `json:"lastSeen,omitempty"` // RFC3339, empty if never
+}
+
+// StreamList is the payload of GET /streams.
+type StreamList struct {
+	GeneratedAt string   `json:"generatedAt"`
+	Agent       string   `json:"agent"`
+	Hostname    string   `json:"hostname,omitempty"`
+	Streams     []Stream `json:"streams"`
+}
+
+// handleStreams serves a credential-free discovery list any portal/dashboard can
+// consume to show available live feeds. No RTSP URL, credentials, token, or
+// stream key ever appear here.
+func (s *Server) handleStreams(w http.ResponseWriter, r *http.Request) {
+	m := s.meta()
+	states := s.ctrl.States()
+	out := make([]Stream, 0, len(states))
+	for _, st := range states {
+		lastSeen := ""
+		if !st.LastSeenAt.IsZero() {
+			lastSeen = st.LastSeenAt.UTC().Format(time.RFC3339)
+		}
+		out = append(out, Stream{
+			CameraID:       st.CameraID,
+			Name:           st.Name,
+			Group:          st.Group,
+			Status:         string(st.Status),
+			Available:      st.Status == publisher.StatusOnline,
+			HealthScore:    st.HealthScore,
+			VideoCodec:     st.VideoCodec,
+			Resolution:     st.Resolution,
+			ReconnectCount: st.ReconnectCount,
+			LastSeen:       lastSeen,
+		})
+	}
+	writeJSON(w, StreamList{
+		GeneratedAt: nowFn().UTC().Format(time.RFC3339),
+		Agent:       m.AgentVersion,
+		Hostname:    m.Hostname,
+		Streams:     out,
+	})
+}
+
 func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 	m := s.meta()
 	writeJSON(w, Version{
