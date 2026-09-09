@@ -12,23 +12,33 @@ import (
 // the classic macOS gotcha: apps started from the GUI inherit a minimal PATH
 // (/usr/bin:/bin:/usr/sbin:/sbin) that excludes Homebrew, so `exec.Command
 // ("ffmpeg")` fails even when ffmpeg is installed and works in the terminal.
+//
+// The FIRST entry is always the directory of the running executable and a
+// "ffmpeg" subfolder beside it — so an installer that BUNDLES ffmpeg.exe next to
+// the agent (or in an ffmpeg\ subdir) works with no PATH, winget, or internet.
 func commonDirs() []string {
+	var dirs []string
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		dirs = append(dirs, exeDir, filepath.Join(exeDir, "ffmpeg"), filepath.Join(exeDir, "ffmpeg", "bin"))
+	}
 	switch runtime.GOOS {
 	case "darwin":
-		return []string{
+		dirs = append(dirs,
 			"/opt/homebrew/bin", // Homebrew on Apple Silicon
 			"/usr/local/bin",    // Homebrew on Intel / manual installs
 			"/opt/local/bin",    // MacPorts
-		}
+		)
 	case "windows":
-		return []string{
+		dirs = append(dirs,
 			`C:\ffmpeg\bin`,
 			filepath.Join(os.Getenv("LOCALAPPDATA"), "Microsoft", "WinGet", "Links"),
 			filepath.Join(os.Getenv("ProgramFiles"), "ffmpeg", "bin"),
-		}
+		)
 	default:
-		return []string{"/usr/bin", "/usr/local/bin", "/snap/bin"}
+		dirs = append(dirs, "/usr/bin", "/usr/local/bin", "/snap/bin")
 	}
+	return dirs
 }
 
 // Resolve returns a runnable path for a tool ("ffmpeg" or "ffprobe").
