@@ -79,6 +79,13 @@ type appUI struct {
 
 	control *control.Client // nil until the worker publishes its endpoint
 	audit   *audit.Logger
+
+	// ready gates refreshTable() until build() has wired ALL the toolbar widgets.
+	// Setting a Select's initial value (SetSelected) fires its OnChanged during
+	// build(), which calls refreshTable → currentFilter; without this guard that
+	// runs before later widgets (groupFltr/sortSel) exist → nil-pointer panic on
+	// startup. build() sets ready=true once everything is constructed.
+	ready bool
 }
 
 func newAppUI(a fyne.App, w fyne.Window, m *appmodel.Model, cfgPath string) *appUI {
@@ -206,6 +213,9 @@ func (u *appUI) build() {
 	split.SetOffset(0.66)
 
 	u.win.SetContent(container.NewBorder(header, nil, nil, nil, split))
+
+	// All toolbar widgets now exist — enable refreshes and do the first real one.
+	u.ready = true
 	u.refreshTable()
 }
 
@@ -234,6 +244,11 @@ func (u *appUI) currentRows(runtime map[string]publisher.StateSnapshot) []appmod
 }
 
 func (u *appUI) refreshTable() {
+	// Ignore refreshes triggered by widget construction (SetSelected fires
+	// OnChanged) until every toolbar widget build() creates actually exists.
+	if !u.ready {
+		return
+	}
 	runtimeMap := u.fetchStates()
 	rows := u.currentRows(runtimeMap)
 	rows = appmodel.ApplyFilter(rows, u.currentFilter())
