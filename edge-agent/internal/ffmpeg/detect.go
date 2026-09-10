@@ -49,13 +49,17 @@ func Detect(ffmpegBin, ffprobeBin string) Availability {
 
 	a := Availability{FFmpegPath: ffmpegBin, FFprobePath: ffprobeBin}
 
-	if out, err := exec.Command(ffmpegBin, "-hide_banner", "-version").Output(); err == nil {
+	verCmd := exec.Command(ffmpegBin, "-hide_banner", "-version")
+	HideWindow(verCmd)
+	if out, err := verCmd.Output(); err == nil {
 		a.FFmpegOK = true
 		if len(out) > 0 {
 			a.Version = firstLine(string(out))
 		}
 	}
-	if err := exec.Command(ffprobeBin, "-hide_banner", "-version").Run(); err == nil {
+	probeCmd := exec.Command(ffprobeBin, "-hide_banner", "-version")
+	HideWindow(probeCmd)
+	if err := probeCmd.Run(); err == nil {
 		a.FFprobeOK = true
 	}
 	return a

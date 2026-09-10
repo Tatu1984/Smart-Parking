@@ -127,3 +127,36 @@ func TestDetailsDrawerShowHide(t *testing.T) {
 		t.Error("drawer should hide")
 	}
 }
+
+// TestAppUIBuildDoesNotPanic constructs the FULL control panel and runs build()
+// on a headless canvas. This is the exact path that once panicked on startup
+// (a Select's initial SetSelected fired refreshTable before later widgets
+// existed → nil deref, window never showed). It also covers the activity-log
+// panel wiring. If build() ever panics again, this fails instead of shipping a
+// GUI that won't open.
+func TestAppUIBuildDoesNotPanic(t *testing.T) {
+	a := test.NewApp()
+	defer a.Quit()
+	w := test.NewWindow(nil)
+	defer w.Close()
+
+	cfg := &config.Config{SchemaVersion: config.CurrentSchemaVersion}
+	cfg.FFmpeg.Binary = "ffmpeg"
+	cfg.Cameras = []config.CameraConfig{
+		{CameraID: "c1", Name: "One", Group: "Home", RTSP: "rtsp://127.0.0.1:1/a",
+			Publish: "https://x/a/index.m3u8", Token: "t", Enabled: true},
+	}
+	m := appmodel.New(cfg)
+
+	ui := newAppUI(a, w, m, t.TempDir()+"/config.yaml")
+	// build() + a refresh must complete without panicking.
+	ui.build()
+	ui.refreshTable()
+
+	if ui.logs == nil {
+		t.Fatal("logs panel not initialised")
+	}
+	// The activity log must accept lines without panicking.
+	ui.logs.info("test line")
+	ui.logs.noteState("c1", "One", "OFFLINE", "source not reachable", "source-unreachable", "check the camera network")
+}

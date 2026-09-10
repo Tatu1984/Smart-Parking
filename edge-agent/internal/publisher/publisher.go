@@ -180,6 +180,7 @@ func (p *Publisher) Run(ctx context.Context) {
 func (p *Publisher) runFFmpeg(ctx context.Context, mode ffmpeg.Mode) (error, string) {
 	args := ffmpeg.Args(p.rtsp, p.publish, p.token, mode)
 	cmd := exec.CommandContext(ctx, p.cfg.FFmpeg.Binary, args...)
+	ffmpeg.HideWindow(cmd) // Windows: no console window per ffmpeg spawn
 
 	stderr, _ := cmd.StderrPipe()
 	if err := cmd.Start(); err != nil {

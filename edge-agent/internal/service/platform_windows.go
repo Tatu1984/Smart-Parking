@@ -22,11 +22,18 @@ func detach(cmd *exec.Cmd) {
 	}
 }
 
+// noWindow hides the console window for a short-lived helper command (tasklist/
+// taskkill), so the GUI's periodic status poll doesn't flash cmd windows.
+func noWindow(cmd *exec.Cmd) *exec.Cmd {
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000} // CREATE_NO_WINDOW
+	return cmd
+}
+
 func processAlive(pid int) bool {
 	// On Windows, FindProcess only fails for genuinely invalid handles, so we
 	// probe with tasklist to confirm the PID is actually present. When the PID
 	// is gone, tasklist prints an "INFO: No tasks..." banner instead of a row.
-	out, err := exec.Command("tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/NH").Output()
+	out, err := noWindow(exec.Command("tasklist", "/FI", fmt.Sprintf("PID eq %d", pid), "/NH")).Output()
 	if err != nil {
 		return false
 	}
@@ -35,7 +42,7 @@ func processAlive(pid int) bool {
 }
 
 func terminate(pid int) error {
-	return exec.Command("taskkill", "/PID", fmt.Sprintf("%d", pid), "/T", "/F").Run()
+	return noWindow(exec.Command("taskkill", "/PID", fmt.Sprintf("%d", pid), "/T", "/F")).Run()
 }
 
 // startupShortcutPath is the per-user Startup folder entry (no admin rights

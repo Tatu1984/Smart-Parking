@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/sparking/edge-agent/internal/ffmpeg"
 )
 
 // ProbeResult is the outcome of an ffprobe reachability + codec check.
@@ -41,6 +43,7 @@ func Probe(ctx context.Context, ffprobeBin, rtsp string, timeout time.Duration) 
 		"-of", "json",
 		rtsp,
 	)
+	ffmpeg.HideWindow(cmd) // Windows: no console window per probe
 	out, err := cmd.Output()
 	if err != nil {
 		detail := err.Error()

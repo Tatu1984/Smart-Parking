@@ -79,6 +79,7 @@ type appUI struct {
 
 	control *control.Client // nil until the worker publishes its endpoint
 	audit   *audit.Logger
+	logs    *logsPanel // live, in-memory activity log (this session only)
 
 	// ready gates refreshTable() until build() has wired ALL the toolbar widgets.
 	// Setting a Select's initial value (SetSelected) fires its OnChanged during
@@ -100,6 +101,7 @@ func newAppUI(a fyne.App, w fyne.Window, m *appmodel.Model, cfgPath string) *app
 		rtview: appmodel.NewRuntimeView(),
 		sortAsc: true,
 		audit:  aud,
+		logs:   newLogsPanel(),
 	}
 }
 
@@ -212,11 +214,14 @@ func (u *appUI) build() {
 	)
 	split.SetOffset(0.66)
 
-	u.win.SetContent(container.NewBorder(header, nil, nil, nil, split))
+	// Header on top, the live activity log pinned to the bottom, camera
+	// table/drawer split filling the middle.
+	u.win.SetContent(container.NewBorder(header, u.logs.root, nil, nil, split))
 
 	// All toolbar widgets now exist — enable refreshes and do the first real one.
 	u.ready = true
 	u.refreshTable()
+	u.logs.info("Edge Agent started")
 }
 
 // ---- table rendering (config-driven rows merged with runtime snapshots) ----
@@ -250,6 +255,10 @@ func (u *appUI) refreshTable() {
 		return
 	}
 	runtimeMap := u.fetchStates()
+	// Surface changed camera states into the activity log (deduped inside).
+	for _, s := range runtimeMap {
+		u.logs.noteState(s.CameraID, s.Name, string(s.Status), s.Detail, string(s.ErrorClass), s.ErrorHint)
+	}
 	rows := u.currentRows(runtimeMap)
 	rows = appmodel.ApplyFilter(rows, u.currentFilter())
 	appmodel.SortRows(rows, u.currentSortKey(), u.sortAsc)
@@ -374,9 +383,11 @@ func (u *appUI) allCameras(start bool) {
 	if start {
 		err = c.StartAll()
 		u.audit.Record(audit.StartedAll)
+		u.logs.info("Start All requested")
 	} else {
 		err = c.StopAll()
 		u.audit.Record(audit.StoppedAll)
+		u.logs.info("Stop All requested")
 	}
 	if err != nil {
 		dialog.ShowError(err, u.win)
@@ -603,6 +614,9 @@ func (u *appUI) startWorker() {
 	}
 	if err := service.Start(); err != nil {
 		dialog.ShowError(err, u.win)
+		u.logs.info("Worker start failed: " + err.Error())
+	} else {
+		u.logs.info("Worker started")
 	}
 	u.refreshStatus()
 }
@@ -612,6 +626,7 @@ func (u *appUI) stopWorker() {
 		dialog.ShowError(err, u.win)
 	}
 	u.control = nil
+	u.logs.info("Worker stopped")
 	u.refreshStatus()
 }
 
