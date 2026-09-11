@@ -69,14 +69,35 @@ func Args(sourceRTSP, publishURL, token string, mode Mode) []string {
 	args = append(args, "-c:a", "aac", "-b:a", "128k")
 
 	// Publish as HLS via HTTP PUT.
+	//
+	// Window sizing is the difference between a smooth live feed and a 404 storm.
+	// A browser playing over the internet sits several seconds BEHIND the live
+	// edge (network RTT to the origin + R2 write→read propagation + hls.js's own
+	// live-sync buffer, ~6s by default). If the sliding window is shorter than
+	// that lag, ffmpeg deletes a segment before the browser fetches it → 404,
+	// stall, and a jump back to whatever is still on the playlist (the "loop").
+	//
+	//   -hls_list_size 10        20s of segments listed in the playlist
+	//   -hls_delete_threshold 6  keep 6 MORE segments on the origin after they
+	//                            leave the playlist before deleting → a segment
+	//                            survives ~32s from creation, well past any
+	//                            realistic player lag, so a slightly-behind
+	//                            browser always finds what the playlist named.
+	//   append_list              on an ffmpeg restart, CONTINUE the existing
+	//                            playlist and segment numbering instead of
+	//                            resetting to index0/MEDIA-SEQUENCE:0 — which is
+	//                            what made a transient restart replay old footage.
+	//   program_date_time        wall-clock tags so the player can pin the true
+	//                            live edge rather than drifting backwards.
 	args = append(args,
 		"-f", "hls",
 		"-method", "PUT",
 		"-http_persistent", "1", // reuse the HTTP connection
 		"-ignore_io_errors", "1", // survive transient upload blips
 		"-hls_time", "2", // 2s segments
-		"-hls_list_size", "6", // 6-segment sliding window
-		"-hls_flags", "delete_segments+omit_endlist",
+		"-hls_list_size", "10", // 20s sliding window (was 6 = 12s, too small)
+		"-hls_delete_threshold", "6", // keep 6 segments past the window before deleting
+		"-hls_flags", "delete_segments+append_list+omit_endlist+program_date_time",
 	)
 	if token != "" {
 		args = append(args, "-headers", "Authorization: Bearer "+token+"\r\n")
