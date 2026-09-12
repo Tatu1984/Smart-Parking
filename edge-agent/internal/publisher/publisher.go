@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"math/rand"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -152,9 +153,14 @@ func (p *Publisher) Run(ctx context.Context) {
 			procErr := err.Error()
 			class := classifyFFmpegStderr(stderrTail, procErr)
 			p.State.setErrorClass(class)
+			// Include ffmpeg's own last words. `exit status 1` on its own says
+			// nothing; the stderr tail is where the real reason lives (a codec
+			// failure, an ingest rejection, a CPU-starved encoder). Trimmed so
+			// the log stays readable.
 			p.log.Warn("ffmpeg exited",
 				"event", "disconnected", "ran", ran.Round(time.Second).String(), "err", procErr,
-				"errorClass", string(class), "hint", class.Hint())
+				"errorClass", string(class), "hint", class.Hint(),
+				"stderr", lastLines(stderrTail, 4))
 		} else {
 			p.log.Warn("ffmpeg exited cleanly (source ended?)",
 				"event", "disconnected", "ran", ran.Round(time.Second).String())
@@ -220,10 +226,26 @@ func (p *Publisher) runFFmpeg(ctx context.Context, mode ffmpeg.Mode) (error, str
 // startStallWatchdog monitors the running ffmpeg for a frozen stream and kills
 // it if stalled. Returns a stop func (called when the run ends). Disabled when
 // stallWindow <= 0.
+//
+// It arms only AFTER a startup grace period. A transcode (H.265 → H.264) on a
+// busy machine can take longer than the stall window just to open the source,
+// negotiate the encoder and emit its first progress line — during which it is
+// legitimately silent, not wedged. Killing it then produces an endless
+// start→kill→restart loop that never publishes a segment (which is exactly what
+// a CPU-starved transcode did against KMCP). The grace period lets a slow start
+// through; once ffmpeg has spoken at least once, the normal no-output timer
+// governs.
 func (p *Publisher) startStallWatchdog(cmd *exec.Cmd) func() {
 	if p.stallWindow <= 0 {
 		return func() {}
 	}
+	// Give ffmpeg at least the stall window, and no less than 45s, to produce
+	// its first output before the watchdog can fire.
+	grace := p.stallWindow
+	if grace < 45*time.Second {
+		grace = 45 * time.Second
+	}
+	startedAt := time.Now()
 	done := make(chan struct{})
 	go func() {
 		// Check a few times per window; a coarse ticker is enough.
@@ -238,6 +260,10 @@ func (p *Publisher) startStallWatchdog(cmd *exec.Cmd) func() {
 			case <-done:
 				return
 			case <-t.C:
+				// Hold fire during the startup grace period.
+				if time.Since(startedAt) < grace {
+					continue
+				}
 				online, since := p.State.isOnlineSince()
 				if online && since >= p.stallWindow {
 					p.log.Warn("stream stalled; restarting camera",
@@ -272,6 +298,25 @@ func (p *Publisher) next(cur time.Duration) time.Duration {
 		return p.backoffMax
 	}
 	return n
+}
+
+// lastLines returns the final n non-empty lines of s joined by " | ", for a
+// compact one-field log of ffmpeg's tail.
+func lastLines(s string, n int) string {
+	if s == "" {
+		return ""
+	}
+	var lines []string
+	for _, ln := range strings.Split(s, "\n") {
+		ln = strings.TrimSpace(ln)
+		if ln != "" {
+			lines = append(lines, ln)
+		}
+	}
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return strings.Join(lines, " | ")
 }
 
 func res(p ProbeResult) string {
