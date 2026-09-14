@@ -172,6 +172,31 @@ cameras:
 	}
 }
 
+// A duplicate ingest target is nearly always a stream key copied from another
+// camera, so the error has to name the camera already using the address —
+// otherwise the operator is left comparing opaque keys by eye.
+func TestDuplicateIngestTargetNamesTheOtherCamera(t *testing.T) {
+	body := `
+schemaVersion: 1
+cameras:
+  - {cameraId: k1, name: "Gate", rtsp: "rtsp://h/1", publish: "https://a/x/index.m3u8", token: t, enabled: true}
+  - {cameraId: k2, name: "Yard", rtsp: "rtsp://h/2", publish: "https://a/x/index.m3u8", token: t, enabled: true}`
+
+	_, err := Load(writeTemp(t, body))
+	if err == nil {
+		t.Fatal("expected a duplicate ingest target to be rejected")
+	}
+	msg := err.Error()
+	for _, want := range []string{"Yard", "Gate"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("error should name camera %q so the operator knows which two collide; got: %s", want, msg)
+		}
+	}
+	if !strings.Contains(msg, "own stream key") {
+		t.Errorf("error should say what to fix; got: %s", msg)
+	}
+}
+
 func TestRedacted(t *testing.T) {
 	got := Redacted("rtsp://admin:secret@192.168.1.10:554/s")
 	if strings.Contains(got, "secret") || strings.Contains(got, "admin") {

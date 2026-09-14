@@ -404,7 +404,9 @@ func (c *Config) validate() error {
 	if len(c.EnabledCameras()) == 0 {
 		return fmt.Errorf("no enabled cameras configured")
 	}
-	seen := map[string]bool{}
+	// Remembers which camera claimed each ingest target, so a collision can name
+	// the camera already using it rather than only the address.
+	seen := map[string]string{}
 	for i := range c.Cameras {
 		cam := &c.Cameras[i]
 		if !cam.Enabled {
@@ -443,12 +445,20 @@ func (c *Config) validate() error {
 			return fmt.Errorf("camera %q: transcode must be auto|copy|h264 (got %q)", label, t)
 		}
 
-		// Duplicate stream key/publish would mean two cameras clobbering one path.
+		// Duplicate stream key/publish would mean two cameras clobbering one
+		// path: both would write segments over each other and the viewer would
+		// see the two feeds interleaved. Name the camera that already holds the
+		// address, because the mistake is almost always a copied stream key and
+		// the operator needs to know which one to compare against.
 		key := pub
-		if seen[key] {
-			return fmt.Errorf("camera %q: duplicate ingest target %q", label, config_redact(key))
+		if other, dup := seen[key]; dup {
+			return fmt.Errorf(
+				"camera %q would publish to the same address as camera %q (%s). "+
+					"Each camera needs its own stream key / camera ID from the portal — "+
+					"check that this camera's key was not copied from the other one",
+				label, other, config_redact(key))
 		}
-		seen[key] = true
+		seen[key] = label
 	}
 	return nil
 }

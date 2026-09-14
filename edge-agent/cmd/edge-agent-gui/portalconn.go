@@ -25,7 +25,7 @@ func (u *appUI) portalConnPanel() fyne.CanvasObject {
 	urlEntry.SetText(baseURL)
 
 	tokenEntry := widget.NewPasswordEntry()
-	tokenEntry.SetPlaceHolder("Portal ingest token")
+	tokenEntry.SetPlaceHolder("Optional — used only by cameras with no token of their own")
 	tokenEntry.SetText(token)
 
 	status := widget.NewLabel("")
@@ -49,7 +49,10 @@ func (u *appUI) portalConnPanel() fyne.CanvasObject {
 		u.persist("updated portal connection")
 		setStatus()
 		dialog.ShowInformation("Portal Connection",
-			"Saved. Cameras without their own publish URL/token now use this portal.", u.win)
+			"Saved. Every camera publishes to this Ingest URL.\n\n"+
+				"The fallback token is used ONLY by a camera that has no token of "+
+				"its own. If your portal issues a separate token per camera, enter "+
+				"each one on the camera itself — that token always wins.", u.win)
 	})
 
 	form := container.NewBorder(nil, nil,
@@ -57,7 +60,12 @@ func (u *appUI) portalConnPanel() fyne.CanvasObject {
 		save,
 		container.NewGridWithColumns(2,
 			container.NewBorder(nil, nil, widget.NewLabel("Ingest URL"), nil, urlEntry),
-			container.NewBorder(nil, nil, widget.NewLabel("Token"), nil, tokenEntry),
+			// Named a fallback because that is what it is: a camera's own token
+			// always wins. A portal that issues one token per camera — the safe
+			// design, since a token then only ever grants one camera's upload —
+			// wants this left empty, and an operator who pastes the first
+			// camera's token here would find it silently ignored thereafter.
+			container.NewBorder(nil, nil, widget.NewLabel("Fallback token"), nil, tokenEntry),
 		),
 	)
 
