@@ -42,7 +42,17 @@ type Publisher struct {
 	// once, after the first probe attempt returns. nil when startup gating is off.
 	gateOnce sync.Once
 	gateFn   func()
+
+	// load is the fleet-wide transcode counter, shared by every Publisher the
+	// same Supervisor owns, so the overload warning reflects the whole machine
+	// rather than one camera. nil when a Publisher is constructed on its own
+	// (tests), which simply disables the warning.
+	load *transcodeLoad
 }
+
+// shareTranscodeLoad gives this publisher the supervisor's fleet-wide transcode
+// counter. Called at construction; not safe to change once Run has started.
+func (p *Publisher) shareTranscodeLoad(l *transcodeLoad) { p.load = l }
 
 // New builds a Publisher for one camera. rtsp/publish are the effective values
 // (already resolved from template/streamKey by the caller).
@@ -137,11 +147,29 @@ func (p *Publisher) Run(ctx context.Context) {
 		mode, why := ffmpeg.ResolveMode(p.transcode, probe.IsH265())
 		p.log.Info("publish plan", "mode", string(mode), "reason", why, "target", dst)
 
+		// Count this run against the machine's transcode budget. A transcode
+		// that cannot keep up does not fail loudly — it just falls behind the
+		// live edge — so the one warning this produces is the only warning
+		// anybody gets. Copy-mode runs cost almost nothing and are not counted.
+		if mode == ffmpeg.ModeTranscode && p.load != nil {
+			if active, budget, exceeded := p.load.begin(); exceeded {
+				p.log.Warn("more cameras are transcoding than this machine can sustain",
+					"event", "transcode_overload",
+					"transcoding", active, "supported", budget,
+					"hint", "Set these cameras to output H.264 (or use their H.264 substream) "+
+						"so the agent can copy the stream instead of re-encoding it. "+
+						"Until then, expect the picture to fall behind real time.")
+			}
+		}
+
 		// 3. Run ffmpeg (blocks until it exits).
 		p.State.setOnline(probe.VideoCodec, res(probe))
 		start := time.Now()
 		err, stderrTail := p.runFFmpeg(ctx, mode)
 		ran := time.Since(start)
+		if mode == ffmpeg.ModeTranscode && p.load != nil {
+			p.load.end()
+		}
 
 		if ctx.Err() != nil {
 			p.State.setStopped()

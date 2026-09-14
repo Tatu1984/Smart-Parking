@@ -63,7 +63,15 @@ type Supervisor struct {
 	// probe+launch at once, so bringing up a large fleet (or StartAll on
 	// thousands of cameras) does not spawn thousands of ffprobe processes in the
 	// same instant (a startup thundering herd). nil = unbounded (small fleets).
+	//
+	// Note it is a startup RAMP shaper, not a steady-state limit: a publisher
+	// releases its slot as soon as its first probe returns, before ffmpeg is
+	// launched. It does not bound how many transcodes run at once — see `load`.
 	startGate chan struct{}
+
+	// load counts cameras currently transcoding, shared by every publisher this
+	// supervisor owns, and warns once when the machine is oversubscribed.
+	load transcodeLoad
 }
 
 // auditRecorder is the small subset of audit.Logger the supervisor uses; kept as
@@ -100,6 +108,9 @@ func NewSupervisor(cfg *config.Config, log *slog.Logger, aud *audit.Logger) *Sup
 		rtsp, rerr := cfg.EffectiveRTSP(&cam)
 		pub, perr := cfg.EffectivePublish(&cam)
 		p := New(cfg, cam, rtsp, pub, log)
+		// One transcode counter for the whole fleet, so the overload warning is
+		// about the machine rather than any single camera.
+		p.shareTranscodeLoad(&s.load)
 		// Attach group + capabilities to runtime state.
 		p.State.SetMeta(cam.Group, Capabilities{
 			SupportsPTZ:       cam.Capabilities.SupportsPTZ,
