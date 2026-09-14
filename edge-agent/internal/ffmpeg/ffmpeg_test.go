@@ -64,13 +64,26 @@ func TestArgsHLSWindowIsLargeEnough(t *testing.T) {
 			t.Errorf("missing %q in args: %s", want, joined)
 		}
 	}
-	// append_list keeps numbering continuous across an ffmpeg restart (no reset
-	// to index0), delete_segments bounds storage, program_date_time lets the
-	// player pin the live edge.
-	for _, flag := range []string{"delete_segments", "append_list", "program_date_time", "omit_endlist"} {
+	// Epoch numbering keeps a restart ABOVE the previous run's segment names,
+	// delete_segments bounds storage, program_date_time lets the player pin the
+	// live edge.
+	for _, want := range []string{"-hls_start_number_source epoch"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("missing %q in args: %s", want, joined)
+		}
+	}
+	for _, flag := range []string{"delete_segments", "program_date_time", "omit_endlist"} {
 		if !strings.Contains(joined, flag) {
 			t.Errorf("missing hls flag %q in args: %s", flag, joined)
 		}
+	}
+
+	// append_list must NOT come back. It leaves the previous run's segments in
+	// the playlist with MEDIA-SEQUENCE stuck at 0, so a player replays old
+	// footage from the top of the list — the loop this whole setting exists to
+	// prevent.
+	if strings.Contains(joined, "append_list") {
+		t.Error("append_list makes a restart replay old segments; use epoch numbering instead")
 	}
 }
 

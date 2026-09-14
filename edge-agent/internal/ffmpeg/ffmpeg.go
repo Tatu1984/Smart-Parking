@@ -83,12 +83,20 @@ func Args(sourceRTSP, publishURL, token string, mode Mode) []string {
 	//                            survives ~32s from creation, well past any
 	//                            realistic player lag, so a slightly-behind
 	//                            browser always finds what the playlist named.
-	//   append_list              on an ffmpeg restart, CONTINUE the existing
-	//                            playlist and segment numbering instead of
-	//                            resetting to index0/MEDIA-SEQUENCE:0 — which is
-	//                            what made a transient restart replay old footage.
+	//   start_number_source      epoch: number segments from the wall clock, so a
+	//                            restart resumes ABOVE whatever the previous run
+	//                            wrote and can never reuse a name.
 	//   program_date_time        wall-clock tags so the player can pin the true
 	//                            live edge rather than drifting backwards.
+	//
+	// On restart behaviour, and why `append_list` is deliberately NOT used here:
+	// it appends the new run's segments to the EXISTING playlist, which keeps the
+	// old entries in the list and leaves MEDIA-SEQUENCE at 0. A player then loads
+	// the playlist, starts at the oldest entry — footage from the previous run —
+	// plays to the end of a now-finite-looking list and starts over. That is a
+	// replay loop, and it also makes the browser show VOD controls with a fixed
+	// duration rather than a live stream. Numbering from the epoch instead gives
+	// each run a fresh, strictly increasing window that always moves forward.
 	args = append(args,
 		"-f", "hls",
 		"-method", "PUT",
@@ -97,7 +105,8 @@ func Args(sourceRTSP, publishURL, token string, mode Mode) []string {
 		"-hls_time", "2", // 2s segments
 		"-hls_list_size", "10", // 20s sliding window (was 6 = 12s, too small)
 		"-hls_delete_threshold", "6", // keep 6 segments past the window before deleting
-		"-hls_flags", "delete_segments+append_list+omit_endlist+program_date_time",
+		"-hls_start_number_source", "epoch", // restart resumes above the last run
+		"-hls_flags", "delete_segments+omit_endlist+program_date_time",
 	)
 	if token != "" {
 		args = append(args, "-headers", "Authorization: Bearer "+token+"\r\n")
